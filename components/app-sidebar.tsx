@@ -1,11 +1,6 @@
 "use client"
-import {
-  MapPin,
-  LayoutDashboard,
-  Settings,
-  Utensils,
-  SunMoon,
-} from "lucide-react"
+import dynamic from "next/dynamic"
+import { LayoutDashboard, Settings, Utensils, ShoppingCart } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -18,40 +13,36 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { TooltipProvider } from "./ui/tooltip"
-import { useTheme } from "next-themes"
+import Link from "next/link"
+
+const ThemeButton = dynamic(() => import("./ui/theme-menu-button"), {
+  ssr: false,
+  loading: () => <div className="h-8 w-full animate-pulse rounded bg-muted" />,
+})
 
 const items = [
-  { title: "Dashboard", url: "#", icon: LayoutDashboard },
-  { title: "Lugares", url: "#", icon: MapPin },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Inventario", url: "/inventory-items", icon: ShoppingCart },
   { title: "Sucursales", url: "#", icon: Utensils },
   { title: "Configuración", url: "#", icon: Settings },
 ]
 
 export function AppSidebar() {
-  const { setTheme, themes, theme } = useTheme()
-  const changeTheme = () => {
-    const selectThemeIndex = themes.indexOf(theme ?? "system")
-    const newTheme =
-      selectThemeIndex === themes.length - 1
-        ? themes[0]
-        : themes[selectThemeIndex + 1]
-    setTheme(newTheme)
-  }
   return (
     <Sidebar variant="floating" collapsible="icon">
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Administración</SidebarGroupLabel>
+          <SidebarGroupLabel>Task Flow</SidebarGroupLabel>
           <SidebarGroupContent>
             <TooltipProvider>
               <SidebarMenu>
                 {items.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild tooltip={item.title}>
-                      <a href={item.url}>
+                      <Link href={item.url}>
                         <item.icon />
                         <span>{item.title}</span>
-                      </a>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -63,16 +54,7 @@ export function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              onClick={changeTheme}
-              className="cursor-pointer"
-            >
-              <span className="truncate font-semibold">
-                <SunMoon size={90} />
-                <span className="text-lg capitalize">{theme ?? "system"}</span>
-              </span>
-            </SidebarMenuButton>
+            <ThemeButton />
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg">
