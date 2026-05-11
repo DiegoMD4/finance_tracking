@@ -16,20 +16,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { createClient } from "@/lib/supabase/server"
-import { InventoryItem } from "@/types/inventory-items.types"
+
 
 export async function InventoryItemsTable() {
 
-  const supabase = await createClient()
-  const { data: inventoryItems, error } = await supabase
-    .schema("Task-Flow")
-    .from("inventory_items")
-    .select("*") // Es buena práctica poner el '*' explícito
-
-  if (error) {
-    console.error("Error de Supabase:", error.message)
-  }
 
   return (
     <Table>
@@ -42,7 +32,7 @@ export async function InventoryItemsTable() {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {inventoryItems?.map((element: InventoryItem) => (
+        {/* {inventoryItems?.map((element: InventoryItem) => (
           <TableRow key={element.id}>
             <TableCell className="font-medium">{element.name}</TableCell>
             <TableCell>{element.stock}</TableCell>
@@ -68,7 +58,7 @@ export async function InventoryItemsTable() {
               </DropdownMenu>
             </TableCell>
           </TableRow>
-        ))}
+        ))} */}
       </TableBody>
     </Table>
   )
