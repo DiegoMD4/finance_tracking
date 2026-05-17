@@ -9,4 +9,4 @@ export default defineConfig({
   },
 })
 
-console.log(process.env.DATABASE_URL)
+

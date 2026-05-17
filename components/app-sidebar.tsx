@@ -1,6 +1,6 @@
 "use client"
 import dynamic from "next/dynamic"
-import { LayoutDashboard, Settings, Utensils, ShoppingCart } from "lucide-react"
+import { Landmark } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -20,19 +20,14 @@ const ThemeButton = dynamic(() => import("./ui/theme-menu-button"), {
   loading: () => <div className="h-8 w-full animate-pulse rounded bg-muted" />,
 })
 
-const items = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Inventario", url: "/inventory-items", icon: ShoppingCart },
-  { title: "Sucursales", url: "#", icon: Utensils },
-  { title: "Configuración", url: "#", icon: Settings },
-]
+const items = [{ title: "Bank Accounts", url: "/bank-accounts", icon: Landmark }]
 
 export function AppSidebar() {
   return (
     <Sidebar variant="floating" collapsible="icon">
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Task Flow</SidebarGroupLabel>
+          <SidebarGroupLabel>Financial Flow</SidebarGroupLabel>
           <SidebarGroupContent>
             <TooltipProvider>
               <SidebarMenu>

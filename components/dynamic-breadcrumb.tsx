@@ -24,7 +24,7 @@ export function DynamicBreadcrumb() {
       <BreadcrumbList>
         {/* Link a Home opcional */}
         <BreadcrumbItem className="hidden md:block">
-          <BreadcrumbLink href="/">Inicio</BreadcrumbLink>
+          <BreadcrumbLink href="/">Home</BreadcrumbLink>
         </BreadcrumbItem>
 
         {segments.map((segment, index) => {

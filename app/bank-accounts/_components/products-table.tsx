@@ -16,10 +16,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-
+import { getBankAccounts } from "@/server/bank_accounts"
+import { BankAccounts } from "@/types/bank-accounts.types"
 
 export async function InventoryItemsTable() {
-
+  const bankAccounst = await getBankAccounts()
 
   return (
     <Table>
@@ -32,12 +33,14 @@ export async function InventoryItemsTable() {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {/* {inventoryItems?.map((element: InventoryItem) => (
+        {bankAccounst.data?.map((element: BankAccounts) => (
           <TableRow key={element.id}>
-            <TableCell className="font-medium">{element.name}</TableCell>
-            <TableCell>{element.stock}</TableCell>
+            <TableCell className="font-medium">
+              {element.accountNumber}
+            </TableCell>
+            <TableCell>{element.bankName}</TableCell>
             <TableCell>
-              {new Date(element.created_at).toLocaleDateString("en-CA")}
+              {new Date(element.createdAt).toLocaleDateString("en-CA")}
             </TableCell>
             <TableCell className="text-right">
               <DropdownMenu>
@@ -58,7 +61,7 @@ export async function InventoryItemsTable() {
               </DropdownMenu>
             </TableCell>
           </TableRow>
-        ))} */}
+        ))}
       </TableBody>
     </Table>
   )

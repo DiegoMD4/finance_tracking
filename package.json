@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:seed": "npx tsx db/seeds/seeds.ts"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
