@@ -8,7 +8,7 @@ export default function Products() {
       <header className="flex flex-row justify-between">
         <h1>Inventario de productos</h1>
         <Button asChild>
-          <Link href="bank-accounts/new">Add bank account</Link>
+          <Link href="bank-accounts/add-new">Add bank account</Link>
         </Button>
       </header>
       <div className="mt-5">

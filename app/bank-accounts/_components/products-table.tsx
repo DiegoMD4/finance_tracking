@@ -1,13 +1,4 @@
-import { MoreHorizontalIcon } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
   Table,
   TableBody,
@@ -18,6 +9,7 @@ import {
 } from "@/components/ui/table"
 import { getBankAccounts } from "@/server/bank_accounts"
 import { BankAccounts } from "@/types/bank-accounts.types"
+import ProductsTableActions from "./products-table-actions"
 
 export async function InventoryItemsTable() {
   const bankAccounst = await getBankAccounts()
@@ -26,8 +18,8 @@ export async function InventoryItemsTable() {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Product</TableHead>
-          <TableHead>Stock</TableHead>
+          <TableHead>Account Number</TableHead>
+          <TableHead>Bank</TableHead>
           <TableHead>Created At</TableHead>
           <TableHead className="text-right">Actions</TableHead>
         </TableRow>
@@ -43,22 +35,7 @@ export async function InventoryItemsTable() {
               {new Date(element.createdAt).toLocaleDateString("en-CA")}
             </TableCell>
             <TableCell className="text-right">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="size-8">
-                    <MoreHorizontalIcon />
-                    <span className="sr-only">Open menu</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem>Edit</DropdownMenuItem>
-                  <DropdownMenuItem>Duplicate</DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive">
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <ProductsTableActions bankAccount={element}/>
             </TableCell>
           </TableRow>
         ))}
