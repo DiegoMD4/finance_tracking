@@ -30,17 +30,17 @@ export default function ProductsTableActions({
         const res = await deleteBankAccount(bankAccount.id)
 
         if (res?.success) {
-          toast.success("Cuenta de banco eliminada", {
+          toast.success("Bank account deleted", {
             position: "bottom-right",
           })
         } else {
-          toast.error(res?.message || "Error desconocido", {
+          toast.error(res?.message || "Unknown error", {
             position: "bottom-right",
           })
         }
       } catch (error) {
         console.error(error)
-        toast.error("Ocurrió un error inesperado", { position: "bottom-right" })
+        toast.error("An error ocurred, try againg", { position: "bottom-right" })
       }
     })
   }

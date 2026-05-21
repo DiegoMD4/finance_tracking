@@ -24,12 +24,12 @@ export default function FormBankAccounts() {
     if (!state) return
 
     if (state.success) {
-      toast.success(state?.message || "Cuenta creada con éxito", {
+      toast.success(state?.message || "New bank account added successfuly", {
         position: "bottom-right",
       })
       return router.push("/bank-accounts")
     } else {
-      toast.error(state.message || "Hubo un error", {
+      toast.error(state.message || "Unknown error", {
         position: "bottom-right",
       })
     }
