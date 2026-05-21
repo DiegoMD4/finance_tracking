@@ -1,4 +1,4 @@
-'use client'
+"use client"
 import { MoreHorizontalIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -11,6 +11,7 @@ import {
 import { BankAccounts } from "@/types/bank-accounts.types"
 import { useTransition } from "react"
 import { deleteBankAccount } from "@/server/bank_accounts"
+import { toast } from "sonner"
 
 interface ProductsTableActionsProps {
   bankAccount: BankAccounts
@@ -21,24 +22,28 @@ export default function ProductsTableActions({
 }: ProductsTableActionsProps) {
   const [isPending, startTransition] = useTransition()
 
- const handleDelete = async (e: React.MouseEvent) => {
-   e.preventDefault()
+  const handleDelete = (e: React.MouseEvent) => {
+    e.preventDefault()
 
-   try {
+    startTransition(async () => {
+      try {
+        const res = await deleteBankAccount(bankAccount.id)
 
-     const res = await deleteBankAccount(bankAccount.id)
-
-     startTransition(() => {
-       if (res?.success) {
-         alert(res.message || "¡Cuenta eliminada con éxito!")
-       } else {
-         alert(`❌ Error: ${res?.message || "No se pudo eliminar"}`)
-       }
-     })
-   } catch (error) {
-     alert(`${error}`)
-   }
- }
+        if (res?.success) {
+          toast.success("Cuenta de banco eliminada", {
+            position: "bottom-right",
+          })
+        } else {
+          toast.error(res?.message || "Error desconocido", {
+            position: "bottom-right",
+          })
+        }
+      } catch (error) {
+        console.error(error)
+        toast.error("Ocurrió un error inesperado", { position: "bottom-right" })
+      }
+    })
+  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -48,10 +53,10 @@ export default function ProductsTableActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => alert("Not available for now")}>
+        <DropdownMenuItem onClick={() => toast.info("Not available for now.")}>
           Edit
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => alert("Not available for now")}>
+        <DropdownMenuItem onClick={() => toast.info("Not available for now.")}>
           Duplicate
         </DropdownMenuItem>
         <DropdownMenuSeparator />

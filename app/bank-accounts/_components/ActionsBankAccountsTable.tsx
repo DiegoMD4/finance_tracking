@@ -1,4 +1,3 @@
-
 import {
   Table,
   TableBody,
@@ -7,12 +6,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { getBankAccounts } from "@/server/bank_accounts"
-import { BankAccounts } from "@/types/bank-accounts.types"
-import ProductsTableActions from "./products-table-actions"
 
-export async function InventoryItemsTable() {
-  const bankAccounst = await getBankAccounts()
+import { BankAccounts, GetBankAccounts } from "@/types/bank-accounts.types"
+import ProductsTableActions from "./TableBankAccounts"
+import { use } from "react"
+
+interface InventoryItemsTableProps {
+  getBankAccounts: Promise<GetBankAccounts>
+}
+
+export function InventoryItemsTable({
+  getBankAccounts,
+}: InventoryItemsTableProps) {
+  const bankAccounts = use(getBankAccounts)
 
   return (
     <Table>
@@ -25,7 +31,7 @@ export async function InventoryItemsTable() {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {bankAccounst.data?.map((element: BankAccounts) => (
+        {bankAccounts.data?.map((element: BankAccounts) => (
           <TableRow key={element.id}>
             <TableCell className="font-medium">
               {element.accountNumber}
@@ -35,7 +41,7 @@ export async function InventoryItemsTable() {
               {new Date(element.createdAt).toLocaleDateString("en-CA")}
             </TableCell>
             <TableCell className="text-right">
-              <ProductsTableActions bankAccount={element}/>
+              <ProductsTableActions bankAccount={element} />
             </TableCell>
           </TableRow>
         ))}

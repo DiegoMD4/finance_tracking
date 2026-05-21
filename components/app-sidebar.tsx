@@ -14,20 +14,30 @@ import {
 } from "@/components/ui/sidebar"
 import { TooltipProvider } from "./ui/tooltip"
 import Link from "next/link"
-
+import { useRouter } from "next/navigation"
 const ThemeButton = dynamic(() => import("./ui/theme-menu-button"), {
   ssr: false,
   loading: () => <div className="h-8 w-full animate-pulse rounded bg-muted" />,
 })
 
-const items = [{ title: "Bank Accounts", url: "/bank-accounts", icon: Landmark }]
+const items = [
+  { title: "Bank Accounts", url: "/bank-accounts", icon: Landmark },
+]
 
 export function AppSidebar() {
+  const router = useRouter()
   return (
-    <Sidebar variant="floating" collapsible="icon">
+    <Sidebar variant="floating" collapsible="offcanvas">
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Financial Flow</SidebarGroupLabel>
+          <SidebarGroupLabel
+            className="mb-2 cursor-pointer text-xl"
+            onClick={() => {
+              router.push("/")
+            }}
+          >
+            Financial Flow
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <TooltipProvider>
               <SidebarMenu>
@@ -35,8 +45,8 @@ export function AppSidebar() {
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild tooltip={item.title}>
                       <Link href={item.url}>
-                        <item.icon />
-                        <span>{item.title}</span>
+                        <item.icon/>
+                        <span className="text-sm">{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -48,13 +58,13 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
-          <SidebarMenuItem>
+          <SidebarMenuItem className="mb-2">
             <ThemeButton />
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg">
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
-                JD
+                DM
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">Diego Montoya</span>

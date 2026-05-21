@@ -2,15 +2,16 @@
 
 import { db } from "@/db"
 import { bankAccounts } from "@/db/schema/schema"
+import { GetBankAccounts } from "@/types/bank-accounts.types"
 import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+type ActionState = { success: boolean; message: string } | null | undefined
 
-export const getBankAccounts = async () => {
+export const getBankAccounts = async (): Promise<GetBankAccounts> => {
   try {
     const res = await db.select().from(bankAccounts)
 
-    // Retornamos un objeto estructurado que es más fácil de manejar en el cliente
     return {
       success: true,
       data: res,
@@ -24,31 +25,37 @@ export const getBankAccounts = async () => {
     }
   }
 }
-export const createBankAccount = async (formData: FormData) => {
+export const createBankAccount = async (
+  prevState: ActionState,
+  formData: FormData
+): Promise<{ success: boolean; message: string } | undefined> => {
   const accountNumber = formData.get("accountNumber")?.toString()
   const bankName = formData.get("bankName")?.toString()
+
   try {
-    const res = await db.insert(bankAccounts).values({
+    await db.insert(bankAccounts).values({
       accountNumber: accountNumber ?? "",
       bankName: bankName ?? "",
       userId: 1,
     })
 
-    // Retornamos un objeto estructurado que es más fácil de manejar en el cliente
-    console.log({ success: true, data: res })
     revalidatePath("/bank-accounts")
+    return { success: true, message: "Cuenta creada con éxito" }
   } catch (error) {
     console.error("❌ Error al crear la cuenta bancaria:", error)
+
+    const errorMessage =
+      error instanceof Error ? error.message : "Error desconocido"
+    return { success: false, message: errorMessage }
   }
-  redirect("/bank-accounts")
 }
 
 export const deleteBankAccount = async (id: number) => {
   try {
     const res = await db.delete(bankAccounts).where(eq(bankAccounts.id, id))
-
+    console.log(res)
     revalidatePath("/bank-accounts")
-    return { success: true, message: "Cuenta eliminada", res: res }
+    return { success: true, message: "Cuenta eliminada" }
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Error desconocido"
