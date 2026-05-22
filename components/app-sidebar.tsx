@@ -8,13 +8,15 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { TooltipProvider } from "./ui/tooltip"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 const ThemeButton = dynamic(() => import("./ui/theme-menu-button"), {
   ssr: false,
   loading: () => <div className="h-8 w-full animate-pulse rounded bg-muted" />,
@@ -26,26 +28,47 @@ const items = [
 
 export function AppSidebar() {
   const router = useRouter()
+  const sidebar = useSidebar()
+  const pathname = usePathname()
+
+  const collapseSidebarOnMobileDevices = () => {
+    if (sidebar.state === "expanded" && sidebar.isMobile) {
+      sidebar.toggleSidebar()
+    }
+  }
+
+  const isItemMenuActive = (itemUrl: string) => {
+    return pathname.includes(itemUrl)
+  }
+
   return (
     <Sidebar variant="floating" collapsible="offcanvas">
-      <SidebarContent>
+      <SidebarContent
+        onClick={() => {
+          collapseSidebarOnMobileDevices()
+        }}
+      >
         <SidebarGroup>
-          <SidebarGroupLabel
+          <SidebarHeader
             className="mb-2 cursor-pointer text-xl"
             onClick={() => {
               router.push("/")
             }}
           >
             Financial Flow
-          </SidebarGroupLabel>
+          </SidebarHeader>
           <SidebarGroupContent>
             <TooltipProvider>
               <SidebarMenu>
                 {items.map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild tooltip={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip={item.title}
+                      isActive={isItemMenuActive(item.url)}
+                    >
                       <Link href={item.url}>
-                        <item.icon/>
+                        <item.icon />
                         <span className="text-sm">{item.title}</span>
                       </Link>
                     </SidebarMenuButton>

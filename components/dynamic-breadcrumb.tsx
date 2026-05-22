@@ -12,6 +12,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Fragment } from "react"
+import Link from "next/link"
 
 export function DynamicBreadcrumb() {
   const pathname = usePathname()
@@ -24,7 +25,9 @@ export function DynamicBreadcrumb() {
       <BreadcrumbList>
         {/* Link a Home opcional */}
         <BreadcrumbItem className="hidden md:block">
-          <BreadcrumbLink href="/">Home</BreadcrumbLink>
+          <BreadcrumbLink asChild>
+            <Link href="/">Home</Link>
+          </BreadcrumbLink>
         </BreadcrumbItem>
 
         {segments.map((segment, index) => {
