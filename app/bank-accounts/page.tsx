@@ -6,6 +6,7 @@ import { getBankAccounts } from "@/server/bank_accounts"
 import { SkeletonTable } from "./_components/SkeletonTable"
 export const dynamic = "force-dynamic"
 export default function BankAccounts() {
+  const getUserBankAccounts = getBankAccounts()
   return (
     <section>
       <header className="flex flex-row justify-between">
@@ -16,7 +17,7 @@ export default function BankAccounts() {
       </header>
       <div className="mt-5">
         <Suspense fallback={<SkeletonTable />}>
-          <BankAccountsTable getBankAccounts={getBankAccounts()} />
+          <BankAccountsTable getBankAccounts={getUserBankAccounts} />
         </Suspense>
       </div>
     </section>
