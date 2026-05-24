@@ -49,7 +49,7 @@ export default function RootLayout({
                 </div>
               </header>
               <div className="flex flex-1 flex-col gap-4 p-4">{children}</div>
-              <Toaster theme="system" richColors closeButton />
+              <Toaster theme="system" richColors closeButton position="top-center"/>
             </SidebarInset>
           </SidebarProvider>
         </ThemeProvider>

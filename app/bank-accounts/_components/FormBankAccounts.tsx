@@ -18,22 +18,20 @@ import { useActionState, useEffect } from "react"
 import { toast } from "sonner"
 
 export default function FormBankAccounts() {
-  const [state, formAction, isPending] = useActionState(createBankAccount, null)
   const router = useRouter()
+  const [state, formAction, isPending] = useActionState(createBankAccount, null)
+
   useEffect(() => {
     if (!state) return
 
     if (state.success) {
-      toast.success(state?.message || "New bank account added successfuly", {
-        position: "bottom-right",
-      })
+      toast.success(state?.message)
       return router.push("/bank-accounts")
     } else {
-      toast.error(state.message || "Unknown error", {
-        position: "bottom-right",
-      })
+      toast.error(state.message)
     }
   }, [state, router])
+  console.log(state)
 
   return (
     <form className="flex flex-row justify-center" action={formAction}>
@@ -46,25 +44,29 @@ export default function FormBankAccounts() {
           </FieldDescription>
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="checkout-7j9-card-name-43j">
-                Bank Name
-              </FieldLabel>
+              <FieldLabel htmlFor="checkout-bank-name">Bank Name</FieldLabel>
+              {!state?.success && (
+                <p className="text-xs text-red-400">{state?.error?.bankName}</p>
+              )}
               <Input
-                id="checkout-7j9-card-name-43j"
+                id="checkout-bank-name"
                 placeholder="Your bank"
-                required
+                /* required */
                 name="bankName"
                 autoComplete="off"
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="checkout-7j9-card-number-uw1">
+              <FieldLabel htmlFor="checkout-account-number">
                 Account Number
               </FieldLabel>
+              {!state?.success && (
+                <p className="text-xs text-red-400">{state?.error?.accountNumber}</p>
+              )}
               <Input
-                id="checkout-7j9-card-number-uw1"
+                id="checkout-account-number"
                 placeholder="1234 5678 9012 3456"
-                required
+                /* required */
                 name="accountNumber"
                 autoComplete="off"
               />
@@ -89,7 +91,7 @@ export default function FormBankAccounts() {
             disabled={isPending}
           >
             <Link href="/bank-accounts" className="cursor-pointer">
-              Cancel
+              Back
             </Link>
           </Button>
         </Field>

@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button"
-import { InventoryItemsTable } from "./_components/ActionsBankAccountsTable"
+import { BankAccountsTable } from "./_components/TableBankAccounts"
 import Link from "next/link"
 import { Suspense } from "react"
 import { getBankAccounts } from "@/server/bank_accounts"
@@ -16,7 +16,7 @@ export default function Products() {
       </header>
       <div className="mt-5">
         <Suspense fallback={<SkeletonTable />}>
-          <InventoryItemsTable getBankAccounts={getBankAccounts()} />
+          <BankAccountsTable getBankAccounts={getBankAccounts()} />
         </Suspense>
       </div>
     </section>

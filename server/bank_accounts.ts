@@ -6,7 +6,12 @@ import { GetBankAccounts } from "@/types/bank-accounts.types"
 import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
-type ActionState = { success: boolean; message: string } | null | undefined
+type Errors = { bankName?: string; accountNumber?: string }
+
+type ActionState =
+  | { success: boolean; message: string; error?: Errors }
+  | null
+  | undefined
 
 export const getBankAccounts = async (): Promise<GetBankAccounts> => {
   try {
@@ -28,14 +33,26 @@ export const getBankAccounts = async (): Promise<GetBankAccounts> => {
 export const createBankAccount = async (
   prevState: ActionState,
   formData: FormData
-): Promise<{ success: boolean; message: string } | undefined> => {
+): Promise<
+  { success: boolean; message: string; error?: Errors } | undefined
+> => {
   const accountNumber = formData.get("accountNumber")?.toString()
   const bankName = formData.get("bankName")?.toString()
 
+  const errors: Errors = {}
+  if (!bankName || bankName === undefined) {
+    errors.bankName = "Bank Name is required"
+  }
+  if (!accountNumber || accountNumber === undefined) {
+    errors.accountNumber = "Account number is required"
+  }
+  if (Object.keys(errors).length > 0) {
+    return {success: false, message: "Invalid form data", error: errors}
+  }
   try {
     await db.insert(bankAccounts).values({
-      accountNumber: accountNumber ?? "",
-      bankName: bankName ?? "",
+      accountNumber: accountNumber!,
+      bankName: bankName!,
       userId: 1,
     })
 

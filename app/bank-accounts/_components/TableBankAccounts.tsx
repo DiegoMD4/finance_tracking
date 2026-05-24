@@ -1,69 +1,51 @@
-"use client"
-import { MoreHorizontalIcon } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { BankAccounts } from "@/types/bank-accounts.types"
-import { useTransition } from "react"
-import { deleteBankAccount } from "@/server/bank_accounts"
-import { toast } from "sonner"
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
-interface ProductsTableActionsProps {
-  bankAccount: BankAccounts
+import { BankAccounts, GetBankAccounts } from "@/types/bank-accounts.types"
+import ProductsTableActions from "./ActionsBankAccountTable"
+import { use } from "react"
+
+interface InventoryItemsTableProps {
+  getBankAccounts: Promise<GetBankAccounts>
 }
 
-export default function ProductsTableActions({
-  bankAccount,
-}: ProductsTableActionsProps) {
-  const [isPending, startTransition] = useTransition()
+export function BankAccountsTable({
+  getBankAccounts,
+}: InventoryItemsTableProps) {
+  const bankAccounts = use(getBankAccounts)
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.preventDefault()
-
-    startTransition(async () => {
-      try {
-        const res = await deleteBankAccount(bankAccount.id)
-
-        if (res?.success) {
-          toast.success("Bank account deleted", {
-            position: "bottom-right",
-          })
-        } else {
-          toast.error(res?.message || "Unknown error", {
-            position: "bottom-right",
-          })
-        }
-      } catch (error) {
-        console.error(error)
-        toast.error("An error ocurred, try againg", { position: "bottom-right" })
-      }
-    })
-  }
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="size-8">
-          <MoreHorizontalIcon />
-          <span className="sr-only">Open menu</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => toast.info("Not available for now.")}>
-          Edit
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => toast.info("Not available for now.")}>
-          Duplicate
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onClick={handleDelete}>
-          {isPending ? `Deleting...` : "Delete"}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Account Number</TableHead>
+          <TableHead>Bank</TableHead>
+          <TableHead>Created At</TableHead>
+          <TableHead className="text-right">Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {bankAccounts.data?.map((element: BankAccounts) => (
+          <TableRow key={element.id}>
+            <TableCell className="font-medium">
+              {element.accountNumber}
+            </TableCell>
+            <TableCell>{element.bankName}</TableCell>
+            <TableCell>
+              {new Date(element.createdAt).toLocaleDateString("en-CA")}
+            </TableCell>
+            <TableCell className="text-right">
+              <ProductsTableActions bankAccount={element} />
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   )
 }
