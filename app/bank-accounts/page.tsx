@@ -4,8 +4,8 @@ import Link from "next/link"
 import { Suspense } from "react"
 import { getBankAccounts } from "@/server/bank_accounts"
 import { SkeletonTable } from "./_components/SkeletonTable"
-
-export default function Products() {
+export const dynamic = "force-dynamic"
+export default function BankAccounts() {
   return (
     <section>
       <header className="flex flex-row justify-between">
