@@ -15,7 +15,7 @@ export default function BankAccounts() {
           <Link href="bank-accounts/add-new">Add bank account</Link>
         </Button>
       </header>
-      <div className="mt-5">
+      <div className="mt-8">
         <Suspense fallback={<SkeletonTable />}>
           <BankAccountsTable getBankAccounts={getUserBankAccounts} />
         </Suspense>

@@ -11,7 +11,7 @@ import {
 import { AppSidebar } from "@/components/app-sidebar"
 import { Separator } from "@/components/ui/separator"
 import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb"
-import { Toaster } from "sonner"
+import { ToastProvider } from "./toast-provider"
 
 const fontSans = Geist({
   subsets: ["latin"],
@@ -49,7 +49,7 @@ export default function RootLayout({
                 </div>
               </header>
               <div className="flex flex-1 flex-col gap-4 p-4">{children}</div>
-              <Toaster theme="system" richColors closeButton position="top-center"/>
+              <ToastProvider />
             </SidebarInset>
           </SidebarProvider>
         </ThemeProvider>

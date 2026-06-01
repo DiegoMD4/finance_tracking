@@ -46,7 +46,7 @@ export function DynamicBreadcrumb() {
                 {isLast ? (
                   <BreadcrumbPage>{title}</BreadcrumbPage>
                 ) : (
-                  <BreadcrumbLink href={href} className="hidden md:block">
+                  <BreadcrumbLink href={href} className="hidden md:block" >
                     {title}
                   </BreadcrumbLink>
                 )}

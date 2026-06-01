@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/mysql2"
-import { migrate } from "drizzle-orm/mysql2/migrator" // 👈 Importante para migrar desde código
+/* import { migrate } from "drizzle-orm/mysql2/migrator" // 👈 Importante para migrar desde código */
 import mysql from "mysql2/promise"
 import { users } from "../schema/schema"
 import "dotenv/config"

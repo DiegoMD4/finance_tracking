@@ -2,9 +2,7 @@ import {
   mysqlTable,
   serial,
   varchar,
-  decimal,
   timestamp,
-  mysqlEnum,
   bigint,
 } from "drizzle-orm/mysql-core"
 
@@ -14,8 +12,7 @@ const timestamps = {
   deletedAt: timestamp("deleted_at"),
 }
 
-
-export const transactions = mysqlTable("transactions", {
+/* export const transactions = mysqlTable("transactions", {
   id: serial("id").primaryKey(),
   description: varchar("description", { length: 255 }).notNull(),
   // Usamos decimal para precisión financiera (19 dígitos, 4 decimales)
@@ -28,13 +25,13 @@ export const transactions = mysqlTable("transactions", {
     "Utilities",
   ]).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-})
+}) */
 
 export const users = mysqlTable("users", {
   id: serial("user_id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }).notNull().unique(),
-  passowrd: varchar("password", {length: 255}).notNull().unique(),
+  passowrd: varchar("password", { length: 255 }).notNull().unique(),
   ...timestamps,
 })
 
@@ -43,8 +40,10 @@ export const bankAccounts = mysqlTable("bank_accounts", {
   accountNumber: varchar("account_number", { length: 50 }).notNull().unique(),
   bankName: varchar("bank_name", { length: 100 }).notNull(),
   bankAccountType: varchar("bank_account_type", { length: 100 }).default(
-    "Ahorros"
+    "savings"
   ),
+  accountEmail: varchar("account_email", { length: 255 }),
+  accountCurrency: varchar("account_currency", { length: 255 }),
   userId: bigint("user_id", { mode: "number", unsigned: true })
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),

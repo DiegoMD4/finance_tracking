@@ -1,22 +1,26 @@
 "use server"
 
+import { bankAccountSchema } from "@/app/bank-accounts/schema"
 import { db } from "@/db"
 import { bankAccounts } from "@/db/schema/schema"
-import { GetBankAccounts } from "@/types/bank-accounts.types"
+import {
+  CreateBankAccount,
+  ErrorsCreateBankAccount,
+  GetBankAccounts,
+} from "@/types/bank-accounts.types"
 import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
-
-type Errors = { bankName?: string; accountNumber?: string }
+import z from "zod"
 
 type ActionState =
-  | { success: boolean; message: string; error?: Errors }
+  | { success: boolean; message: string; error?: ErrorsCreateBankAccount }
   | null
   | undefined
 
 export const getBankAccounts = async (): Promise<GetBankAccounts> => {
   try {
     const res = await db.select().from(bankAccounts)
-
+    
     return {
       success: true,
       data: res,
@@ -26,6 +30,7 @@ export const getBankAccounts = async (): Promise<GetBankAccounts> => {
 
     return {
       success: false,
+      data: [],
       error: "Couldn't get your bank accounts try it later",
     }
   }
@@ -33,37 +38,56 @@ export const getBankAccounts = async (): Promise<GetBankAccounts> => {
 export const createBankAccount = async (
   prevState: ActionState,
   formData: FormData
-): Promise<
-  { success: boolean; message: string; error?: Errors } | undefined
-> => {
-  const accountNumber = formData.get("accountNumber")?.toString()
-  const bankName = formData.get("bankName")?.toString()
+): Promise<CreateBankAccount | undefined> => {
+  console.log(prevState)
+  const rawFields = {
+    bankName: formData.get("bankName")?.toString() || "",
+    accountNumber: formData.get("accountNumber")?.toString() || "",
+    bankAccountType: formData.get("bankAccountType")?.toString() || "",
+    accountCurrency: formData.get("currency")?.toString() || "",
+    accountEmail: formData.get("email")?.toString() || "",
+  }
 
-  const errors: Errors = {}
-  if (!bankName || bankName === undefined) {
-    errors.bankName = "Bank Name is required"
+  const validatedFields = bankAccountSchema.safeParse(rawFields)
+
+  if (!validatedFields.success) {
+    const fieldErrors = z.treeifyError(validatedFields.error)
+    return {
+      success: false,
+      message: "Invalid form data",
+      error: {
+        accountNumber: fieldErrors.properties?.accountNumber?.errors[0],
+        bankName: fieldErrors.properties?.bankName?.errors[0],
+        bankAccountType: fieldErrors.properties?.bankAccountType?.errors[0],
+        accountCurrency: fieldErrors.properties?.accountCurrency?.errors[0],
+        accountEmail: fieldErrors.properties?.accountEmail?.errors[0]
+      },
+      fields: rawFields,
+    }
   }
-  if (!accountNumber || accountNumber === undefined) {
-    errors.accountNumber = "Account number is required"
-  }
-  if (Object.keys(errors).length > 0) {
-    return {success: false, message: "Invalid form data", error: errors}
-  }
+  const { bankName, accountNumber, bankAccountType, accountCurrency, accountEmail } = validatedFields.data
   try {
     await db.insert(bankAccounts).values({
       accountNumber: accountNumber!,
       bankName: bankName!,
+      bankAccountType: bankAccountType!,
+      accountCurrency,
+      accountEmail,
       userId: 1,
     })
 
     revalidatePath("/bank-accounts")
-    return { success: true, message: "New bank account added successfully" }
+    return {
+      success: true,
+      message: "New bank account added successfully",
+      fields: rawFields,
+    }
   } catch (error) {
     console.error("❌ Error creating new bank account:", error)
 
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error"
-    return { success: false, message: errorMessage }
+    return { success: false, message: errorMessage, fields: rawFields }
   }
 }
 
