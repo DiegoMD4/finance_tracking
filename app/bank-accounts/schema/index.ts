@@ -9,7 +9,7 @@ export const bankAccountSchema = z.object({
     .string()
     .min(1, { error: "Account number is required" })
     .regex(/^\d+$/, { error: "Account number must contain only numbers" })
-    .max(16, {
+    .max(19, {
       error: "Account number is too long, it must be 16 digits long",
     }),
   bankAccountType: z.enum(["savings", "checking", "payroll"], {

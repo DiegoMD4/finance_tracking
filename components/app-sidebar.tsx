@@ -1,6 +1,6 @@
 "use client"
 import dynamic from "next/dynamic"
-import { Landmark } from "lucide-react"
+import { Landmark, HandCoins } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -23,6 +23,7 @@ const ThemeButton = dynamic(() => import("./ui/theme-menu-button"), {
 
 const items = [
   { title: "Bank Accounts", url: "/bank-accounts", icon: Landmark },
+  { title: "Transactions", url: "/transactions", icon: HandCoins },
 ]
 
 export function AppSidebar() {

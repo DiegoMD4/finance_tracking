@@ -1,12 +1,12 @@
 import { Button } from "@/components/ui/button"
 import { BankAccountsTable } from "./_components/TableBankAccounts"
 import Link from "next/link"
-import { Suspense } from "react"
+/* import { Suspense } from "react"
 import { getBankAccounts } from "@/server/bank_accounts"
-import { SkeletonTable } from "./_components/SkeletonTable"
+import { SkeletonTable } from "./_components/SkeletonTable" */
 export const dynamic = "force-dynamic"
-export default function BankAccounts() {
-  const getUserBankAccounts = getBankAccounts()
+export default function BankAccountsPage() {
+ /*  const getUserBankAccounts = getBankAccounts() */
   return (
     <section>
       <header className="flex flex-row justify-between">
@@ -16,9 +16,10 @@ export default function BankAccounts() {
         </Button>
       </header>
       <div className="mt-8">
-        <Suspense fallback={<SkeletonTable />}>
-          <BankAccountsTable getBankAccounts={getUserBankAccounts} />
-        </Suspense>
+        {/* <Suspense fallback={<SkeletonTable />}>
+          
+        </Suspense> */}
+        <BankAccountsTable/>
       </div>
     </section>
   )
