@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button"
 import { BankAccountsTable } from "./_components/TableBankAccounts"
 import Link from "next/link"
-import { Suspense } from "react"
+/* import { Suspense } from "react"
 import { getBankAccounts } from "@/server/bank_accounts"
-import { SkeletonTable } from "./_components/SkeletonTable"
+import { SkeletonTable } from "./_components/SkeletonTable" */
 export const dynamic = "force-dynamic"
 export default function BankAccountsPage() {
   const getUserBankAccounts = getBankAccounts()

@@ -1,4 +1,4 @@
-"use client"
+
 import {
   Table,
   TableBody,
@@ -56,6 +56,7 @@ export function BankAccountsTable({getBankAccounts}: InventoryItemsTableProps) {
           ))
         ) : (
           <TableRow>
+            <TableCell className="text-center" colSpan={7}>
             <TableCell className="text-center" colSpan={7}>
               There is not accounts created for this user
             </TableCell>

@@ -5,9 +5,12 @@ import { db } from "@/db"
 import { bankAccounts } from "@/db/schema/schema"
 import {
   BankAccountActionState,
+  BankAccountActionState,
   CreateBankAccount,
   GetBankAccountById,
+  GetBankAccountById,
   GetBankAccounts,
+  UpdateBankAccount,
   UpdateBankAccount,
 } from "@/types/bank-accounts.types"
 import { eq } from "drizzle-orm"
@@ -17,6 +20,7 @@ import z from "zod"
 export const getBankAccounts = async (): Promise<GetBankAccounts> => {
   try {
     const res = await db.select().from(bankAccounts)
+
 
     return {
       success: true,
@@ -28,6 +32,30 @@ export const getBankAccounts = async (): Promise<GetBankAccounts> => {
     return {
       success: false,
       data: [],
+      error: "Couldn't get your bank accounts try it later",
+    }
+  }
+}
+export const getBankAccountById = async ({
+  id,
+}: {
+  id: number
+}): Promise<GetBankAccountById> => {
+  try {
+    const res = await db.query.bankAccounts.findFirst({
+      where: (bankAccounts, { eq }) => eq(bankAccounts.id, id),
+    })
+
+    return {
+      success: true,
+      data: res,
+    }
+  } catch (error) {
+    console.error("❌ Error: ", error)
+
+    return {
+      success: false,
+      data: undefined,
       error: "Couldn't get your bank accounts try it later",
     }
   }
@@ -81,10 +109,18 @@ export const createBankAccount = async (
         bankAccountType: fieldErrors.properties?.bankAccountType?.errors[0],
         accountCurrency: fieldErrors.properties?.accountCurrency?.errors[0],
         accountEmail: fieldErrors.properties?.accountEmail?.errors[0],
+        accountEmail: fieldErrors.properties?.accountEmail?.errors[0],
       },
       fields: rawFields,
     }
   }
+  const {
+    bankName,
+    accountNumber,
+    bankAccountType,
+    accountCurrency,
+    accountEmail,
+  } = validatedFields.data
   const {
     bankName,
     accountNumber,
@@ -128,6 +164,82 @@ export const deleteBankAccount = async (id: number) => {
       error instanceof Error ? error.message : "Unknown error"
 
     return { success: false, message: errorMessage }
+  }
+}
+
+export const updateBankAccount = async (
+  prevState: BankAccountActionState,
+  formData: FormData
+): Promise<UpdateBankAccount | undefined> => {
+  const idRaw = formData.get("id")?.toString()
+  const bankAccountId = idRaw ? parseInt(idRaw, 10) : null
+  const rawFields = {
+    bankName: formData.get("bankName")?.toString() || "",
+    accountNumber: formData.get("accountNumber")?.toString() || "",
+    bankAccountType: formData.get("bankAccountType")?.toString() || "",
+    accountCurrency: formData.get("currency")?.toString() || "",
+    accountEmail: formData.get("email")?.toString() || "",
+  }
+  if (!bankAccountId || isNaN(bankAccountId)) {
+    return {
+      success: false,
+      message: "Missing or invalid Bank Account ID",
+      fields: rawFields,
+    }
+  }
+
+  const validatedFields = bankAccountSchema.safeParse(rawFields)
+
+  if (!validatedFields.success) {
+    const fieldErrors = z.treeifyError(validatedFields.error)
+    return {
+      success: false,
+      message: "Invalid form data",
+      error: {
+        accountNumber: fieldErrors.properties?.accountNumber?.errors[0],
+        bankName: fieldErrors.properties?.bankName?.errors[0],
+        bankAccountType: fieldErrors.properties?.bankAccountType?.errors[0],
+        accountCurrency: fieldErrors.properties?.accountCurrency?.errors[0],
+        accountEmail: fieldErrors.properties?.accountEmail?.errors[0],
+      },
+      fields: rawFields,
+    }
+  }
+
+  const {
+    bankName,
+    accountNumber,
+    bankAccountType,
+    accountCurrency,
+    accountEmail,
+  } = validatedFields.data
+
+  try {
+    await db
+      .update(bankAccounts)
+      .set({
+        accountNumber: accountNumber!,
+        bankName: bankName!,
+        bankAccountType: bankAccountType!,
+        accountCurrency,
+        accountEmail,
+        userId: 1,
+      })
+      .where(eq(bankAccounts.id, bankAccountId))
+
+    revalidatePath("/bank-accounts")
+
+    return {
+      success: true,
+      message: "Bank account updated successfully",
+      fields: rawFields,
+    }
+  } catch (error) {
+    console.error("❌ Error updating bank account:", error)
+
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error"
+    return { success: false, message: errorMessage, fields: rawFields }
   }
 }
 
