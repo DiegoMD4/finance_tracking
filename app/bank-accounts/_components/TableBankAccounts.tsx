@@ -1,4 +1,3 @@
-
 import {
   Table,
   TableBody,
@@ -17,7 +16,9 @@ interface InventoryItemsTableProps {
   getBankAccounts: Promise<GetBankAccounts>
 }
 
-export function BankAccountsTable({getBankAccounts}: InventoryItemsTableProps) {
+export function BankAccountsTable({
+  getBankAccounts,
+}: InventoryItemsTableProps) {
   /* const bankAccounts = await getBankAccounts() */
   const bankAccounts = use(getBankAccounts)
   return (
@@ -56,7 +57,6 @@ export function BankAccountsTable({getBankAccounts}: InventoryItemsTableProps) {
           ))
         ) : (
           <TableRow>
-            <TableCell className="text-center" colSpan={7}>
             <TableCell className="text-center" colSpan={7}>
               There is not accounts created for this user
             </TableCell>
