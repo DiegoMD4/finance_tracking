@@ -11,16 +11,15 @@ import {
 import { BankAccounts, GetBankAccounts } from "@/types/bank-accounts.types"
 import ProductsTableActions from "./ActionsBankAccountTable"
 import { use } from "react"
+/* import { getBankAccounts } from "@/server/bank_accounts" */
 
 interface InventoryItemsTableProps {
   getBankAccounts: Promise<GetBankAccounts>
 }
 
-export function BankAccountsTable({
-  getBankAccounts,
-}: InventoryItemsTableProps) {
+export function BankAccountsTable({getBankAccounts}: InventoryItemsTableProps) {
+  /* const bankAccounts = await getBankAccounts() */
   const bankAccounts = use(getBankAccounts)
-
   return (
     <Table>
       <TableHeader>
@@ -57,7 +56,7 @@ export function BankAccountsTable({
           ))
         ) : (
           <TableRow>
-            <TableCell className="text-center" colSpan={5}>
+            <TableCell className="text-center" colSpan={7}>
               There is not accounts created for this user
             </TableCell>
           </TableRow>

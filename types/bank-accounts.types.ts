@@ -3,6 +3,11 @@ export interface GetBankAccounts {
   error?: string
   data: BankAccounts[]
 }
+export interface GetBankAccountById {
+  success: boolean
+  error?: string
+  data?: BankAccounts 
+}
 
 export interface BankAccounts {
   updatedAt: Date | null
@@ -26,6 +31,19 @@ export interface CreateBankAccount {
     accountNumber: string
     accountCurrency: string
     accountEmail: string
+    bankAccountType: string
+  }
+}
+export interface UpdateBankAccount {
+  success: boolean
+  message: string
+  error?: ErrorsCreateBankAccount
+  fields: {
+    bankName: string
+    accountNumber: string
+    accountCurrency: string
+    accountEmail: string
+    bankAccountType: string
   }
 }
 export type ErrorsCreateBankAccount = {
@@ -35,3 +53,8 @@ export type ErrorsCreateBankAccount = {
   accountEmail?: string
   accountCurrency?: string
 }
+
+export type BankAccountActionState =
+  | { success: boolean; message: string; error?: ErrorsCreateBankAccount }
+  | null
+  | undefined

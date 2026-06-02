@@ -19,16 +19,36 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { createBankAccount } from "@/server/bank_accounts"
+import { createBankAccount, updateBankAccount } from "@/server/bank_accounts"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import { useActionState, useEffect } from "react"
 import { toast } from "sonner"
+import { BankAccountActionState, BankAccounts } from "@/types/bank-accounts.types"
 
-export default function FormBankAccounts() {
+interface FormBankAccountsProps {
+  bankAccount?: BankAccounts
+  formType?: "CREATE" | "EDIT" | "VIEW"
+}
+
+export default function FormBankAccounts({
+  bankAccount,
+  formType = "CREATE",
+}: FormBankAccountsProps) {
   const router = useRouter()
-  const [state, formAction, isPending] = useActionState(createBankAccount, null)
+  const formDispatcher = async (
+    prevState: BankAccountActionState,
+    formData: FormData
+  ) => {
+    if (formType === "EDIT") {
+      return updateBankAccount(prevState, formData)
+    }
+
+    return createBankAccount(prevState, formData)
+  }
+
+  const [state, formAction, isPending] = useActionState(formDispatcher, null)
 
   useEffect(() => {
     if (!state) return
@@ -42,7 +62,14 @@ export default function FormBankAccounts() {
   }, [state, router])
 
   return (
-    <form className="flex flex-row justify-center" action={formAction} autoComplete="off">
+    <form
+      className="flex flex-row justify-center"
+      action={formAction}
+      autoComplete="off"
+    >
+      {bankAccount?.id && (
+        <input type="hidden" name="id" value={bankAccount.id} />
+      )}
       <FieldGroup>
         <FieldSet>
           <FieldLegend>Bank Account</FieldLegend>
@@ -53,66 +80,74 @@ export default function FormBankAccounts() {
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="checkout-bank-name">Bank Name</FieldLabel>
-              {!state?.success && (
-                <FieldError>{state?.error?.bankName}</FieldError>
-              )}
+
               <Input
                 id="checkout-bank-name"
                 placeholder="Your bank"
                 name="bankName"
                 autoComplete="off"
-                defaultValue={state?.fields.bankName}
+                defaultValue={bankAccount?.bankName ?? state?.fields.bankName}
+                aria-invalid={!!state?.error?.bankName}
               />
+              {!state?.success && (
+                <FieldError>{state?.error?.bankName}</FieldError>
+              )}
             </Field>
+
             <Field>
               <FieldLabel htmlFor="checkout-account-number">
                 Account Number
               </FieldLabel>
+
+              <Input
+                id="checkout-account-number"
+                placeholder="1234 5678 9012 3456 10"
+                name="accountNumber"
+                autoComplete="off"
+                defaultValue={
+                  bankAccount?.accountNumber ?? state?.fields.accountNumber
+                }
+                aria-invalid={!!state?.error?.accountNumber}
+              />
+              <FieldDescription>
+                Enter your 19-digit account number
+              </FieldDescription>
               {!state?.success && (
                 <FieldError>{state?.error?.accountNumber}</FieldError>
               )}
-              <Input
-                id="checkout-account-number"
-                placeholder="1234 5678 9012 3456"
-                name="accountNumber"
-                autoComplete="off"
-                defaultValue={state?.fields.accountNumber}
-              />
-              <FieldDescription>
-                Enter your 16-digit card number
-              </FieldDescription>
             </Field>
             <Field>
               <FieldLabel htmlFor="checkout-email">Account email</FieldLabel>
-              {!state?.success && (
-                <p className="text-xs text-red-400">
-                  {state?.error?.accountEmail}
-                </p>
-              )}
+
               <Input
                 id="checkout-email"
                 placeholder="your-email@.com"
                 name="email"
                 autoComplete="off"
-                defaultValue={state?.fields?.accountEmail}
+                defaultValue={
+                  bankAccount?.accountEmail ?? state?.fields?.accountEmail
+                }
+                aria-invalid={!!state?.error?.accountEmail}
               />
               <FieldDescription>
-                This email will be used to check new transactions automatically
+                This email will be used to check new transactions automatically.
               </FieldDescription>
+              <FieldError>{state?.error?.accountEmail}</FieldError>
             </Field>
           </FieldGroup>
 
           <FieldGroup className="grid grid-cols-1 md:grid-cols-2">
-            <Field
-              className="w-60" /* data-invalid={!!state?.error?.bankAccountType} */
-            >
+            <Field className="w-60">
               <FieldLabel htmlFor="checkout-account-type">
                 Account type
               </FieldLabel>
-              {state?.error?.bankAccountType && (
-                <FieldError>Please select one account type</FieldError>
-              )}
-              <Select name="bankAccountType">
+
+              <Select
+                name="bankAccountType"
+                defaultValue={
+                  bankAccount?.bankAccountType ?? state?.fields.bankAccountType
+                }
+              >
                 <SelectTrigger
                   id="checkout-account-type"
                   aria-invalid={!!state?.error?.bankAccountType}
@@ -127,15 +162,19 @@ export default function FormBankAccounts() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
-            </Field>
-            <Field
-              className="w-70" /* data-invalid={!!state?.error?.bankAccountType} */
-            >
-              <FieldLabel htmlFor="checkout-currency">Currency</FieldLabel>
-              {state?.error?.accountCurrency && (
-                <FieldError>Please select the account currency</FieldError>
+              {state?.error?.bankAccountType && (
+                <FieldError>Please select one account type</FieldError>
               )}
-              <Select name="currency">
+            </Field>
+            <Field className="w-70">
+              <FieldLabel htmlFor="checkout-currency">Currency</FieldLabel>
+
+              <Select
+                name="currency"
+                defaultValue={
+                  bankAccount?.accountCurrency ?? state?.fields.accountCurrency
+                }
+              >
                 <SelectTrigger
                   id="checkout-currency"
                   aria-invalid={!!state?.error?.accountCurrency}
@@ -150,6 +189,9 @@ export default function FormBankAccounts() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
+              {state?.error?.accountCurrency && (
+                <FieldError>Please select the account currency</FieldError>
+              )}
             </Field>
           </FieldGroup>
         </FieldSet>

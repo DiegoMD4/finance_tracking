@@ -12,6 +12,7 @@ import { BankAccounts } from "@/types/bank-accounts.types"
 import { useTransition } from "react"
 import { deleteBankAccount } from "@/server/bank_accounts"
 import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 
 interface ProductsTableActionsProps {
   bankAccount: BankAccounts
@@ -21,7 +22,7 @@ export default function ProductsTableActions({
   bankAccount,
 }: ProductsTableActionsProps) {
   const [isPending, startTransition] = useTransition()
-
+  const router = useRouter()
   const handleDelete = (e: React.MouseEvent) => {
     e.preventDefault()
 
@@ -49,7 +50,9 @@ export default function ProductsTableActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => toast.info("Not available for now.")}>
+        <DropdownMenuItem
+          onClick={() => router.push(`/bank-accounts/${bankAccount.id}`)}
+        >
           Edit
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => toast.info("Not available for now.")}>

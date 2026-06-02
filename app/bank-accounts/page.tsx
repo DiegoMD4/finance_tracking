@@ -5,7 +5,7 @@ import { Suspense } from "react"
 import { getBankAccounts } from "@/server/bank_accounts"
 import { SkeletonTable } from "./_components/SkeletonTable"
 export const dynamic = "force-dynamic"
-export default function BankAccounts() {
+export default function BankAccountsPage() {
   const getUserBankAccounts = getBankAccounts()
   return (
     <section>
@@ -17,7 +17,7 @@ export default function BankAccounts() {
       </header>
       <div className="mt-8">
         <Suspense fallback={<SkeletonTable />}>
-          <BankAccountsTable getBankAccounts={getUserBankAccounts} />
+          <BankAccountsTable getBankAccounts={getUserBankAccounts}/>
         </Suspense>
       </div>
     </section>

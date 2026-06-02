@@ -33,7 +33,11 @@ export function DynamicBreadcrumb() {
         {segments.map((segment, index) => {
           const href = `/${segments.slice(0, index + 1).join("/")}`
           const isLast = index === segments.length - 1
-
+          /* const isId = !isNaN(Number(segment))
+          const title = isId
+            ? "Details"
+            : segment.charAt(0).toUpperCase() +
+              segment.slice(1).replace(/-/g, " ") */
           // Formateamos el texto (ej: "resumen-sucursales" -> "Resumen Sucursales")
           const title =
             segment.charAt(0).toUpperCase() +
@@ -46,7 +50,7 @@ export function DynamicBreadcrumb() {
                 {isLast ? (
                   <BreadcrumbPage>{title}</BreadcrumbPage>
                 ) : (
-                  <BreadcrumbLink href={href} className="hidden md:block" >
+                  <BreadcrumbLink href={href} className="hidden md:block">
                     {title}
                   </BreadcrumbLink>
                 )}
