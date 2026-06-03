@@ -10,7 +10,7 @@ import {
   GetBankAccounts,
   UpdateBankAccount,
 } from "@/types/bank-accounts.types"
-import { eq } from "drizzle-orm"
+import { eq, or, and, ne } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import z from "zod"
 
@@ -66,6 +66,8 @@ export const createBankAccount = async (
     bankAccountType: formData.get("bankAccountType")?.toString() || "",
     accountCurrency: formData.get("currency")?.toString() || "",
     accountEmail: formData.get("email")?.toString() || "",
+    openingBalance: formData.get("openingBalance")?.toString() || "",
+    accountName: formData.get("accountName")?.toString() || "",
   }
 
   const validatedFields = bankAccountSchema.safeParse(rawFields)
@@ -81,6 +83,8 @@ export const createBankAccount = async (
         bankAccountType: fieldErrors.properties?.bankAccountType?.errors[0],
         accountCurrency: fieldErrors.properties?.accountCurrency?.errors[0],
         accountEmail: fieldErrors.properties?.accountEmail?.errors[0],
+        openingBalance: fieldErrors.properties?.openingBalance?.errors[0],
+        accountName: fieldErrors.properties?.accountName?.errors[0],
       },
       fields: rawFields,
     }
@@ -91,7 +95,23 @@ export const createBankAccount = async (
     bankAccountType,
     accountCurrency,
     accountEmail,
+    openingBalance,
+    accountName,
   } = validatedFields.data
+
+  const integrityCheck = await checkDuplicateAccount({
+    accountNumber,
+    accountName,
+  })
+  if (integrityCheck.isDuplicate) {
+    return {
+      success: false,
+      message: "Validation error",
+      error: integrityCheck.errors,
+      fields: rawFields,
+    }
+  }
+
   try {
     await db.insert(bankAccounts).values({
       accountNumber: accountNumber!,
@@ -99,6 +119,8 @@ export const createBankAccount = async (
       bankAccountType: bankAccountType!,
       accountCurrency,
       accountEmail,
+      openingBalance: openingBalance.toString(),
+      accountName,
       userId: 1,
     })
 
@@ -143,6 +165,8 @@ export const updateBankAccount = async (
     bankAccountType: formData.get("bankAccountType")?.toString() || "",
     accountCurrency: formData.get("currency")?.toString() || "",
     accountEmail: formData.get("email")?.toString() || "",
+    openingBalance: formData.get("openingBalance")?.toString() || "",
+    accountName: formData.get("accountName")?.toString() || "",
   }
   if (!bankAccountId || isNaN(bankAccountId)) {
     return {
@@ -165,6 +189,8 @@ export const updateBankAccount = async (
         bankAccountType: fieldErrors.properties?.bankAccountType?.errors[0],
         accountCurrency: fieldErrors.properties?.accountCurrency?.errors[0],
         accountEmail: fieldErrors.properties?.accountEmail?.errors[0],
+        openingBalance: fieldErrors.properties?.openingBalance?.errors[0],
+        accountName: fieldErrors.properties?.accountName?.errors[0],
       },
       fields: rawFields,
     }
@@ -176,7 +202,23 @@ export const updateBankAccount = async (
     bankAccountType,
     accountCurrency,
     accountEmail,
+    openingBalance,
+    accountName,
   } = validatedFields.data
+
+   const integrityCheck = await checkDuplicateAccount({
+     accountNumber,
+     accountName,
+     id: bankAccountId,
+   })
+   if (integrityCheck.isDuplicate) {
+     return {
+       success: false,
+       message: "Validation error",
+       error: integrityCheck.errors,
+       fields: rawFields,
+     }
+   }
 
   try {
     await db
@@ -187,6 +229,8 @@ export const updateBankAccount = async (
         bankAccountType: bankAccountType!,
         accountCurrency,
         accountEmail,
+        openingBalance: openingBalance.toString(),
+        accountName,
         userId: 1,
       })
       .where(eq(bankAccounts.id, bankAccountId))
@@ -205,4 +249,52 @@ export const updateBankAccount = async (
       error instanceof Error ? error.message : "Unknown error"
     return { success: false, message: errorMessage, fields: rawFields }
   }
+}
+
+interface ValidateDuplicateProps {
+  accountNumber: string
+  accountName: string
+  id?: number | null 
+}
+
+export async function checkDuplicateAccount({
+  accountNumber,
+  accountName,
+  id,
+}: ValidateDuplicateProps) {
+
+  let searchCondition = or(
+    eq(bankAccounts.accountNumber, accountNumber),
+    eq(bankAccounts.accountName, accountName)
+  )
+
+
+  if (id) {
+    searchCondition = and(
+      searchCondition,
+      ne(bankAccounts.id, id) 
+    )
+  }
+
+  const existingAccount = await db
+    .select()
+    .from(bankAccounts)
+    .where(searchCondition)
+    .then((res) => res[0])
+
+  if (existingAccount) {
+    const errors: Record<string, string> = {}
+
+    if (existingAccount.accountNumber === accountNumber) {
+      errors.accountNumber = "This account number is already registered"
+    }
+    if (existingAccount.accountName === accountName) {
+      errors.accountName =
+        "You already have an account registered with this account name"
+    }
+
+    return { isDuplicate: true, errors }
+  }
+
+  return { isDuplicate: false, errors: {} }
 }

@@ -25,11 +25,13 @@ export function BankAccountsTable({
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead>Account Name</TableHead>
           <TableHead>Bank</TableHead>
           <TableHead>Account Number</TableHead>
           <TableHead>Associated Email</TableHead>
           <TableHead>Type</TableHead>
           <TableHead>Currency</TableHead>
+          <TableHead>Opening Balance</TableHead>
           <TableHead>Created At</TableHead>
           <TableHead className="text-right">Actions</TableHead>
         </TableRow>
@@ -38,6 +40,7 @@ export function BankAccountsTable({
         {bankAccounts?.data?.length > 0 ? (
           bankAccounts.data?.map((element: BankAccounts) => (
             <TableRow key={element.id}>
+              <TableCell>{element.accountName}</TableCell>
               <TableCell>{element.bankName}</TableCell>
               <TableCell className="font-medium">
                 {element.accountNumber}
@@ -47,6 +50,7 @@ export function BankAccountsTable({
               </TableCell>
               <TableCell>{element.bankAccountType}</TableCell>
               <TableCell>{element.accountCurrency}</TableCell>
+              <TableCell>{element.openingBalance}</TableCell>
               <TableCell>
                 {new Date(element.createdAt).toLocaleDateString("en-CA")}
               </TableCell>

@@ -20,6 +20,8 @@ export interface BankAccounts {
   userId: number
   accountCurrency: string | null
   accountEmail: string | null
+  openingBalance: string
+  accountName: string | null
 }
 
 export interface CreateBankAccount {
@@ -32,6 +34,8 @@ export interface CreateBankAccount {
     accountCurrency: string
     accountEmail: string
     bankAccountType: string
+    openingBalance: string
+    accountName: string;
   }
 }
 export interface UpdateBankAccount {
@@ -44,6 +48,8 @@ export interface UpdateBankAccount {
     accountCurrency: string
     accountEmail: string
     bankAccountType: string
+    openingBalance: string
+    accountName: string
   }
 }
 export type ErrorsCreateBankAccount = {
@@ -52,6 +58,8 @@ export type ErrorsCreateBankAccount = {
   bankAccountType?: string
   accountEmail?: string
   accountCurrency?: string
+  openingBalance?: string
+  accountName?: string
 }
 
 export type BankAccountActionState =

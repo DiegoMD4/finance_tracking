@@ -13,20 +13,40 @@ export function SkeletonTable() {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Account Number</TableHead>
+          <TableHead>Account Name</TableHead>
           <TableHead>Bank</TableHead>
+          <TableHead>Account Number</TableHead>
+          <TableHead>Associated Email</TableHead>
+          <TableHead>Type</TableHead>
+          <TableHead>Currency</TableHead>
+          <TableHead>Opening Balance</TableHead>
           <TableHead>Created At</TableHead>
           <TableHead className="text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {Array.from({ length: 5 }).map((_, index) => (
+        {Array.from({ length: 10 }).map((_, index) => (
           <TableRow key={index}>
             <TableCell>
               <Skeleton className="h-4 w-32" />
             </TableCell>
             <TableCell>
               <Skeleton className="h-4 w-24" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-20" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-20" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-20" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-20" />
+            </TableCell>
+            <TableCell>
+              <Skeleton className="h-4 w-20" />
             </TableCell>
             <TableCell>
               <Skeleton className="h-4 w-20" />

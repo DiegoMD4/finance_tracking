@@ -46,7 +46,7 @@ export default function Page() {
         </div>
 
         {/* Área de visualización (simulando el mapa o lista) */}
-        <div className="min-h-[100vh] flex-1 rounded-xl border bg-muted/30 p-6 md:min-h-min">
+        <div className="min-h-screen flex-1 rounded-xl border bg-muted/30 p-6 md:min-h-min">
           <div className="mb-6 flex items-center justify-between">
             <h2 className="text-xl font-semibold tracking-tight">
               Gestión de Inventario

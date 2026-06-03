@@ -23,9 +23,12 @@ import { createBankAccount, updateBankAccount } from "@/server/bank_accounts"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
-import { useActionState, useEffect } from "react"
+import { useActionState, useEffect, useState } from "react"
 import { toast } from "sonner"
-import { BankAccountActionState, BankAccounts } from "@/types/bank-accounts.types"
+import {
+  BankAccountActionState,
+  BankAccounts,
+} from "@/types/bank-accounts.types"
 
 interface FormBankAccountsProps {
   bankAccount?: BankAccounts
@@ -47,7 +50,9 @@ export default function FormBankAccounts({
 
     return createBankAccount(prevState, formData)
   }
-
+  const [balance, setBalance] = useState<string>(() => {
+    return bankAccount?.openingBalance?.toString() ?? ""
+  })
   const [state, formAction, isPending] = useActionState(formDispatcher, null)
 
   useEffect(() => {
@@ -60,6 +65,13 @@ export default function FormBankAccounts({
       toast.error(state.message)
     }
   }, [state, router])
+
+  const handleBalanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value
+    const cleanedValue = inputValue.replace(/[^0-9.,]/g, "")
+
+    setBalance(cleanedValue)
+  }
 
   return (
     <form
@@ -77,7 +89,7 @@ export default function FormBankAccounts({
             The account you want to keep track of your transfers, deposits and
             withdrawals.
           </FieldDescription>
-          <FieldGroup>
+          <FieldGroup className="grid grid-cols-1 md:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="checkout-bank-name">Bank Name</FieldLabel>
 
@@ -91,6 +103,21 @@ export default function FormBankAccounts({
               />
               {!state?.success && (
                 <FieldError>{state?.error?.bankName}</FieldError>
+              )}
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="checkout-account-name">Account Name</FieldLabel>
+
+              <Input
+                id="checkout-account-name"
+                placeholder="A name to identify this account"
+                name="accountName"
+                autoComplete="off"
+                defaultValue={bankAccount?.accountName ?? state?.fields.accountName}
+                aria-invalid={!!state?.error?.accountName}
+              />
+              {!state?.success && (
+                <FieldError>{state?.error?.accountName}</FieldError>
               )}
             </Field>
 
@@ -110,7 +137,7 @@ export default function FormBankAccounts({
                 aria-invalid={!!state?.error?.accountNumber}
               />
               <FieldDescription>
-                Enter your 19-digit account number
+                Enter your 19-digit account number.
               </FieldDescription>
               {!state?.success && (
                 <FieldError>{state?.error?.accountNumber}</FieldError>
@@ -124,6 +151,7 @@ export default function FormBankAccounts({
                 placeholder="your-email@.com"
                 name="email"
                 autoComplete="off"
+                inputMode="email"
                 defaultValue={
                   bankAccount?.accountEmail ?? state?.fields?.accountEmail
                 }
@@ -134,10 +162,7 @@ export default function FormBankAccounts({
               </FieldDescription>
               <FieldError>{state?.error?.accountEmail}</FieldError>
             </Field>
-          </FieldGroup>
-
-          <FieldGroup className="grid grid-cols-1 md:grid-cols-2">
-            <Field className="w-60">
+            <Field>
               <FieldLabel htmlFor="checkout-account-type">
                 Account type
               </FieldLabel>
@@ -163,10 +188,10 @@ export default function FormBankAccounts({
                 </SelectContent>
               </Select>
               {state?.error?.bankAccountType && (
-                <FieldError>Please select one account type</FieldError>
+                <FieldError>{state.error.bankAccountType}</FieldError>
               )}
             </Field>
-            <Field className="w-70">
+            <Field>
               <FieldLabel htmlFor="checkout-currency">Currency</FieldLabel>
 
               <Select
@@ -190,8 +215,26 @@ export default function FormBankAccounts({
                 </SelectContent>
               </Select>
               {state?.error?.accountCurrency && (
-                <FieldError>Please select the account currency</FieldError>
+                <FieldError>{state.error.accountCurrency}</FieldError>
               )}
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="checkout-balance">
+                Opening balance
+              </FieldLabel>
+
+              <Input
+                id="checkout-balance"
+                placeholder="1,000"
+                name="openingBalance"
+                autoComplete="off"
+                inputMode="decimal"
+                value={balance}
+                onChange={handleBalanceChange}
+                aria-invalid={!!state?.error?.openingBalance}
+              />
+
+              <FieldError>{state?.error?.openingBalance}</FieldError>
             </Field>
           </FieldGroup>
         </FieldSet>

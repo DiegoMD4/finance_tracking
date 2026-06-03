@@ -55,7 +55,7 @@ export function AppSidebar() {
               router.push("/")
             }}
           >
-            Financial Flow
+            Finance Tracking
           </SidebarHeader>
           <SidebarGroupContent>
             <TooltipProvider>
