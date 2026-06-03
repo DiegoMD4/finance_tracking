@@ -48,15 +48,15 @@ export default function BankAccountsCard({
   return (
     <section className="flex flex-col gap-y-4 px-2">
       {bankAccounts.data.map((element) => (
-        <Card className="mx-auto w-full max-w-sm" key={element.id}>
-          <CardContent className="p-1">
+        <Card className="mx-auto w-full max-w-sm" key={element.id} size="sm">
+          <CardContent className="py-0 px-1">
             <Collapsible className="rounded-md transition-colors data-[state=open]:bg-muted/40">
               <CollapsibleTrigger asChild>
                 <Button
                   variant="ghost"
                   className="group h-auto w-full justify-start px-4 py-3 text-left"
                 >
-                  <div className="flex max-w-[85%] flex-col items-start gap-y-0.5">
+                  <div className="flex max-w-[85%] flex-row items-start gap-x-4">
                     <span className="w-full truncate font-mono font-bold">
                       {element.accountName}
                     </span>
