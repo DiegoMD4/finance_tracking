@@ -1,3 +1,4 @@
+"use client"
 import {
   Table,
   TableBody,
@@ -61,7 +62,7 @@ export function BankAccountsTable({
           ))
         ) : (
           <TableRow>
-            <TableCell className="text-center" colSpan={7}>
+            <TableCell className="text-center" colSpan={9}>
               There is not accounts created for this user
             </TableCell>
           </TableRow>
