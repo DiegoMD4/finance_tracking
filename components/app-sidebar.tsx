@@ -66,6 +66,7 @@ export function AppSidebar() {
                       asChild
                       tooltip={item.title}
                       isActive={isItemMenuActive(item.url)}
+                      size={'lg'}
                     >
                       <Link href={item.url}>
                         <item.icon />
