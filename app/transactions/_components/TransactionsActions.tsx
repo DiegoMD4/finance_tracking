@@ -53,9 +53,9 @@ export default function TransactionsActions({
   if (variant === "buttons") {
     return (
       <div className="flex w-full flex-row justify-end gap-3 pt-2">
-        <Button size="xs" variant="outline" onClick={handleEdit}>
+       {/*  <Button size="xs" variant="outline" onClick={handleEdit}>
           Edit
-        </Button>
+        </Button> */}
         <Button
           size="xs"
           variant="destructive"
@@ -77,8 +77,8 @@ export default function TransactionsActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
-        <DropdownMenuSeparator />
+       {/*  <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
+        <DropdownMenuSeparator /> */}
         <DropdownMenuItem
           variant="destructive"
           onClick={(event) => handleDelete(event)}
