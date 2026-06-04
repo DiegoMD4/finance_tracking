@@ -52,15 +52,16 @@ export default function ProductsTableActions({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem
-          onClick={() => router.push(`/bank-accounts/${bankAccount.id}`)}
+          onClick={() => router.push(`/bank-accounts/${bankAccount.accountName}?id=${bankAccount.id}`)}
         >
           Edit
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => toast.info("Not available for now.")}>
-          Duplicate
-        </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onClick={handleDelete}>
+        <DropdownMenuItem
+          variant="destructive"
+          onClick={handleDelete}
+          disabled={isPending}
+        >
           {isPending ? `Deleting...` : "Delete"}
         </DropdownMenuItem>
       </DropdownMenuContent>

@@ -1,4 +1,3 @@
-
 import {
   Table,
   TableBody,
@@ -11,12 +10,12 @@ import {
 import { BankAccounts } from "@/types/bank-accounts.types"
 import ProductsTableActions from "./ActionsBankAccountTable"
 
+
 interface InventoryItemsTableProps {
   data: BankAccounts[]
 }
 
 export function BankAccountsTable({ data }: InventoryItemsTableProps) {
-
   return (
     <Table>
       <TableHeader>
@@ -47,9 +46,7 @@ export function BankAccountsTable({ data }: InventoryItemsTableProps) {
               <TableCell>{element.bankAccountType}</TableCell>
               <TableCell>{element.accountCurrency}</TableCell>
               <TableCell>{element.openingBalance}</TableCell>
-              <TableCell>
-                {new Date(element.createdAt).toLocaleDateString("en-CA")}
-              </TableCell>
+              <TableCell>{element.createdAt.toLocaleDateString()}</TableCell>
               <TableCell className="text-right">
                 <ProductsTableActions bankAccount={element} />
               </TableCell>

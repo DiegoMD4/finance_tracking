@@ -34,11 +34,13 @@ import { createBankAccount, updateBankAccount } from "../server/server"
 interface FormBankAccountsProps {
   bankAccount?: BankAccounts
   formType?: "CREATE" | "EDIT" | "VIEW"
+  name: string;
 }
 
 export default function FormBankAccounts({
   bankAccount,
   formType = "CREATE",
+  name
 }: FormBankAccountsProps) {
   const [balance, setBalance] = useState<string>(() => {
     return bankAccount?.openingBalance?.toString() ?? ""
@@ -51,11 +53,11 @@ export default function FormBankAccounts({
     if (formType === "EDIT") {
       return updateBankAccount(prevState, formData)
     }
-    
+
     return createBankAccount(prevState, formData)
   }
   const [state, formAction, isPending] = useActionState(formDispatcher, null)
-  
+
   useEffect(() => {
     if (!state) return
 
@@ -66,8 +68,6 @@ export default function FormBankAccounts({
       toast.error(state.message)
     }
   }, [state, router])
-
-  console.log(state)
 
   const handleBalanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value
@@ -87,7 +87,7 @@ export default function FormBankAccounts({
       )}
       <FieldGroup>
         <FieldSet>
-          <FieldLegend>Bank Account</FieldLegend>
+          <FieldLegend>{name ? `${name}` : "Bank Account"}</FieldLegend>
           <FieldDescription>
             The account you want to keep track of your transfers, deposits and
             withdrawals.

@@ -19,10 +19,7 @@ interface BankAccountsCardProps {
   data: BankAccounts[]
 }
 
-export default function BankAccountsCard({
-  data,
-}: BankAccountsCardProps) {
-  
+export default function BankAccountsCard({ data }: BankAccountsCardProps) {
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
@@ -49,7 +46,7 @@ export default function BankAccountsCard({
     <section className="flex flex-col gap-y-4 px-2">
       {data.map((element) => (
         <Card className="mx-auto w-full max-w-sm" key={element.id} size="sm">
-          <CardContent className="py-0 px-1">
+          <CardContent className="px-1 py-0">
             <Collapsible className="rounded-md transition-colors data-[state=open]:bg-muted/40">
               <CollapsibleTrigger asChild>
                 <Button
@@ -104,9 +101,7 @@ export default function BankAccountsCard({
                   )}
                   <li className="flex justify-between pt-2 text-[10px] opacity-60">
                     <span>Created:</span>
-                    <span>
-                      {new Date(element.createdAt).toLocaleDateString("en-CA")}
-                    </span>
+                    <span>{element.createdAt.toLocaleDateString()}</span>
                   </li>
                 </ul>
 
@@ -114,9 +109,7 @@ export default function BankAccountsCard({
                   <Button
                     size="xs"
                     variant="outline"
-                    onClick={() =>
-                      router.push(`/bank-accounts/${element.id}`)
-                    }
+                    onClick={() => router.push(`/bank-accounts/${element.id}`)}
                   >
                     Edit
                   </Button>

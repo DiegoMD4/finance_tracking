@@ -9,7 +9,6 @@ import { getBankAccounts } from "./server/data"
 export const dynamic = "force-dynamic"
 
 export default async function BankAccountsPage() {
-
   const [requestHeaders, bankAccounts] = await Promise.all([
     headers(),
     getBankAccounts(),
@@ -17,6 +16,7 @@ export default async function BankAccountsPage() {
 
   const { device } = userAgent({ headers: requestHeaders })
   const isMobile = device.type === "mobile"
+
   return (
     <section>
       <header
@@ -26,7 +26,7 @@ export default async function BankAccountsPage() {
         <Button asChild>
           <Link href="bank-accounts/add-new" className="gap-x-2">
             <Plus size={16} />
-            Add bank account
+            {!isMobile && "Add bank account"}
           </Link>
         </Button>
       </header>
