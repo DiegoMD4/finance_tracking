@@ -1,5 +1,6 @@
-import { getBankAccountById } from "@/server/bank_accounts"
+
 import FormBankAccounts from "../_components/FormBankAccounts"
+import { getBankAccountById } from "../server/data"
 
 interface EditBankAccountProps {
   params: Promise<{ id: string }>

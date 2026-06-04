@@ -1,5 +1,4 @@
 "use client"
-
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -8,21 +7,22 @@ import {
   Collapsible,
 } from "@/components/ui/collapsible"
 import { formatCurrency } from "@/lib/utils"
-import { deleteBankAccount } from "@/server/bank_accounts"
-import { GetBankAccounts } from "@/types/bank-accounts.types"
+
+import { BankAccounts } from "@/types/bank-accounts.types"
 import { ChevronDownIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { use, useTransition } from "react"
+import { useTransition } from "react"
 import { toast } from "sonner"
+import { deleteBankAccount } from "../server/server"
 
 interface BankAccountsCardProps {
-  getBankAccounts: Promise<GetBankAccounts>
+  data: BankAccounts[]
 }
 
 export default function BankAccountsCard({
-  getBankAccounts,
+  data,
 }: BankAccountsCardProps) {
-  const bankAccounts = use(getBankAccounts)
+  
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
@@ -47,7 +47,7 @@ export default function BankAccountsCard({
 
   return (
     <section className="flex flex-col gap-y-4 px-2">
-      {bankAccounts.data.map((element) => (
+      {data.map((element) => (
         <Card className="mx-auto w-full max-w-sm" key={element.id} size="sm">
           <CardContent className="py-0 px-1">
             <Collapsible className="rounded-md transition-colors data-[state=open]:bg-muted/40">

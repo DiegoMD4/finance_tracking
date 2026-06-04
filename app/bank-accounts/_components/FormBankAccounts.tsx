@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { createBankAccount, updateBankAccount } from "@/server/bank_accounts"
+
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -29,6 +29,7 @@ import {
   BankAccountActionState,
   BankAccounts,
 } from "@/types/bank-accounts.types"
+import { createBankAccount, updateBankAccount } from "../server/server"
 
 interface FormBankAccountsProps {
   bankAccount?: BankAccounts
@@ -39,6 +40,9 @@ export default function FormBankAccounts({
   bankAccount,
   formType = "CREATE",
 }: FormBankAccountsProps) {
+  const [balance, setBalance] = useState<string>(() => {
+    return bankAccount?.openingBalance?.toString() ?? ""
+  })
   const router = useRouter()
   const formDispatcher = async (
     prevState: BankAccountActionState,
@@ -47,14 +51,11 @@ export default function FormBankAccounts({
     if (formType === "EDIT") {
       return updateBankAccount(prevState, formData)
     }
-
+    
     return createBankAccount(prevState, formData)
   }
-  const [balance, setBalance] = useState<string>(() => {
-    return bankAccount?.openingBalance?.toString() ?? ""
-  })
   const [state, formAction, isPending] = useActionState(formDispatcher, null)
-
+  
   useEffect(() => {
     if (!state) return
 
@@ -65,6 +66,8 @@ export default function FormBankAccounts({
       toast.error(state.message)
     }
   }, [state, router])
+
+  console.log(state)
 
   const handleBalanceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value
@@ -106,14 +109,18 @@ export default function FormBankAccounts({
               )}
             </Field>
             <Field>
-              <FieldLabel htmlFor="checkout-account-name">Account Name</FieldLabel>
+              <FieldLabel htmlFor="checkout-account-name">
+                Account Name
+              </FieldLabel>
 
               <Input
                 id="checkout-account-name"
                 placeholder="A name to identify this account"
                 name="accountName"
                 autoComplete="off"
-                defaultValue={bankAccount?.accountName ?? state?.fields.accountName}
+                defaultValue={
+                  bankAccount?.accountName ?? state?.fields.accountName
+                }
                 aria-invalid={!!state?.error?.accountName}
               />
               {!state?.success && (

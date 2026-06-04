@@ -1,4 +1,4 @@
-"use client"
+
 import {
   Table,
   TableBody,
@@ -8,20 +8,15 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-import { BankAccounts, GetBankAccounts } from "@/types/bank-accounts.types"
+import { BankAccounts } from "@/types/bank-accounts.types"
 import ProductsTableActions from "./ActionsBankAccountTable"
-import { use } from "react"
-/* import { getBankAccounts } from "@/server/bank_accounts" */
 
 interface InventoryItemsTableProps {
-  getBankAccounts: Promise<GetBankAccounts>
+  data: BankAccounts[]
 }
 
-export function BankAccountsTable({
-  getBankAccounts,
-}: InventoryItemsTableProps) {
-  /* const bankAccounts = await getBankAccounts() */
-  const bankAccounts = use(getBankAccounts)
+export function BankAccountsTable({ data }: InventoryItemsTableProps) {
+
   return (
     <Table>
       <TableHeader>
@@ -38,8 +33,8 @@ export function BankAccountsTable({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {bankAccounts?.data?.length > 0 ? (
-          bankAccounts.data?.map((element: BankAccounts) => (
+        {data.length > 0 ? (
+          data?.map((element: BankAccounts) => (
             <TableRow key={element.id}>
               <TableCell>{element.accountName}</TableCell>
               <TableCell>{element.bankName}</TableCell>

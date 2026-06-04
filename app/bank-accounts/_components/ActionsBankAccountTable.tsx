@@ -10,9 +10,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { BankAccounts } from "@/types/bank-accounts.types"
 import { useTransition } from "react"
-import { deleteBankAccount } from "@/server/bank_accounts"
+
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import { deleteBankAccount } from "../server/server"
 
 interface ProductsTableActionsProps {
   bankAccount: BankAccounts
