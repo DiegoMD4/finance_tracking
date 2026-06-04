@@ -34,7 +34,7 @@ import { createBankAccount, updateBankAccount } from "../server/server"
 interface FormBankAccountsProps {
   bankAccount?: BankAccounts
   formType?: "CREATE" | "EDIT" | "VIEW"
-  name: string;
+  name?: string;
 }
 
 export default function FormBankAccounts({

@@ -5,6 +5,8 @@ import {
   timestamp,
   bigint,
   decimal,
+  int,
+  mysqlEnum,
 } from "drizzle-orm/mysql-core"
 
 const timestamps = {
@@ -12,21 +14,6 @@ const timestamps = {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"),
 }
-
-/* export const transactions = mysqlTable("transactions", {
-  id: serial("id").primaryKey(),
-  description: varchar("description", { length: 255 }).notNull(),
-  // Usamos decimal para precisión financiera (19 dígitos, 4 decimales)
-  amount: decimal("amount", { precision: 19, scale: 4 }).notNull(),
-  category: mysqlEnum("category", [
-    "Food",
-    "Rent",
-    "Salary",
-    "Transport",
-    "Utilities",
-  ]).notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-}) */
 
 export const users = mysqlTable("users", {
   id: serial("user_id").primaryKey(),
@@ -53,4 +40,22 @@ export const bankAccounts = mysqlTable("bank_accounts", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   ...timestamps,
+})
+
+export const transactions = mysqlTable("transactions", {
+  id: serial("transaction_id").primaryKey(),
+  userId: bigint("user_id", { mode: "number", unsigned: true })
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  accountId: bigint("account_id", { mode: "number", unsigned: true })
+    .notNull()
+    .references(() => bankAccounts.id),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  transactionType: mysqlEnum("transaction_type", [
+    "income",
+    "expense",
+  ]).notNull(),
+  transactionDescription: varchar("transaction_description", { length: 255 }),
+  source: varchar("source", { length: 100 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 })
