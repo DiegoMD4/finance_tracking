@@ -9,7 +9,7 @@ import {
   UpdateTransaction,
 } from "@/types/transactions.types"
 
-import { eq } from "drizzle-orm"
+import { and, eq, gte, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import z from "zod"
 
@@ -176,4 +176,43 @@ export const updateTransaction = async (
       error instanceof Error ? error.message : "Unknown error"
     return { success: false, message: errorMessage, fields: rawFields }
   }
+}
+
+export async function getMonthlyFinancials(userId: number) {
+  // Opcional: Filtrar solo los últimos 6 meses
+  const sixMonthsAgo = new Date()
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
+  sixMonthsAgo.setDate(1) // Inicio de ese mes
+
+  const rows = await db
+    .select({
+      // Extrae el número de mes para ordenar de forma correcta (1-12)
+      monthNumber: sql<number>`MONTH(${transactions.createdAt})`,
+      // Extrae el nombre del mes completo en inglés (January, February...)
+      month: sql<string>`MONTHNAME(${transactions.createdAt})`,
+      // Suma condicional si el tipo es ingreso
+         income: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.transactionType} = 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
+      // Suma condicional si el tipo es gasto
+      expense: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.transactionType} = 'expense' THEN ${transactions.amount} ELSE 0 END), 0)`,
+/*       rawIncome: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.transactionType} = 'income' THEN ${transactions.amount} ELSE 0 END), '0')`,
+      rawExpense: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.transactionType} = 'expense' THEN ${transactions.amount} ELSE 0 END), '0')`, */
+    })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        gte(transactions.createdAt, sixMonthsAgo) // Filtrado de tiempo
+      )
+    )
+    .groupBy(
+      sql`MONTH(${transactions.createdAt})`,
+      sql`MONTHNAME(${transactions.createdAt})`
+    )
+    .orderBy(sql`MONTH(${transactions.createdAt})`)
+
+  return rows.map((row) => ({
+    ...row,
+    income: Number(row.income),
+    expense: Number(row.expense),
+  }))
 }
