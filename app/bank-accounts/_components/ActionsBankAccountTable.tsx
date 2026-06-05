@@ -13,7 +13,7 @@ import { useTransition } from "react"
 
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
-import { deleteBankAccount } from "../server/server"
+import { deleteBankAccount } from "../../../server/bank-accounts/server"
 
 interface ProductsTableActionsProps {
   bankAccount: BankAccounts
@@ -52,7 +52,11 @@ export default function ProductsTableActions({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem
-          onClick={() => router.push(`/bank-accounts/${bankAccount.accountName}?id=${bankAccount.id}`)}
+          onClick={() =>
+            router.push(
+              `/bank-accounts/${bankAccount.accountName}?id=${bankAccount.id}`
+            )
+          }
         >
           Edit
         </DropdownMenuItem>

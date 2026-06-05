@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { deleteTransaction } from "@/app/transactions/server/server"
+import { deleteTransaction } from "@/server/transactions/server"
 import { MoreHorizontalIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTransition } from "react"
@@ -24,7 +24,7 @@ export default function TransactionsActions({
   variant = "menu",
 }: TransactionsActionsProps) {
   const [isPending, startTransition] = useTransition()
-/*   const router = useRouter() */
+  /*   const router = useRouter() */
 
   const handleEdit = () => {
     /* router.push(`/transactions/edit?transactionId=${transactionId}`) */
@@ -53,7 +53,7 @@ export default function TransactionsActions({
   if (variant === "buttons") {
     return (
       <div className="flex w-full flex-row justify-end gap-3 pt-2">
-       {/*  <Button size="xs" variant="outline" onClick={handleEdit}>
+        {/*  <Button size="xs" variant="outline" onClick={handleEdit}>
           Edit
         </Button> */}
         <Button
@@ -77,7 +77,7 @@ export default function TransactionsActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-       {/*  <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
+        {/*  <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
         <DropdownMenuSeparator /> */}
         <DropdownMenuItem
           variant="destructive"

@@ -1,4 +1,4 @@
-import { getBankAccounts } from "@/app/bank-accounts/server/data"
+import { getBankAccounts } from "@/server/bank-accounts/data"
 import FormTransaction from "../_components/FormTransaction"
 
 export default async function NewTransactionPage() {

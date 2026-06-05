@@ -13,7 +13,7 @@ import { ChevronDownIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTransition } from "react"
 import { toast } from "sonner"
-import { deleteBankAccount } from "../server/server"
+import { deleteBankAccount } from "../../../server/bank-accounts/server"
 
 interface BankAccountsCardProps {
   data: BankAccounts[]

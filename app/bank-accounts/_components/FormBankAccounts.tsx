@@ -29,18 +29,21 @@ import {
   BankAccountActionState,
   BankAccounts,
 } from "@/types/bank-accounts.types"
-import { createBankAccount, updateBankAccount } from "../server/server"
+import {
+  createBankAccount,
+  updateBankAccount,
+} from "../../../server/bank-accounts/server"
 
 interface FormBankAccountsProps {
   bankAccount?: BankAccounts
   formType?: "CREATE" | "EDIT" | "VIEW"
-  name?: string;
+  name?: string
 }
 
 export default function FormBankAccounts({
   bankAccount,
   formType = "CREATE",
-  name
+  name,
 }: FormBankAccountsProps) {
   const [balance, setBalance] = useState<string>(() => {
     return bankAccount?.openingBalance?.toString() ?? ""

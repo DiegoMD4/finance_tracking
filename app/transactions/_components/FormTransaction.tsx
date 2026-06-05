@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createTransaction } from "@/app/transactions/server/server"
+import { createTransaction } from "@/server/transactions/server"
 import { BankAccounts } from "@/types/bank-accounts.types"
 import { TransactionsActionState } from "@/types/transactions.types"
 import Link from "next/link"

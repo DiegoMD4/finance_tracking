@@ -5,7 +5,7 @@ import { userAgent } from "next/server"
 import { TransactionsTable } from "./_components/TransactionsTable"
 import Link from "next/link"
 import TransactionsCard from "./_components/TransactionsCard"
-import { getTransactions } from "./server/data"
+import { getTransactions } from "../../server/transactions/data"
 export const dynamic = "force-dynamic"
 
 export default async function TransactionsPage() {
