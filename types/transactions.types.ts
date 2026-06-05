@@ -20,6 +20,7 @@ export interface GetTransactions {
   success: boolean
   error?: string
   data: TransactionListItem[]
+  hasMore?: boolean
 }
 
 export interface GetTransactionById {

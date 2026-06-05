@@ -15,7 +15,7 @@ export default async function BankAccountsPage() {
   ])
 
   const { device } = userAgent({ headers: requestHeaders })
-  const isMobile = device.type === "mobile"
+  const isMobile = /* device.type === "mobile" */ false
 
   return (
     <section>

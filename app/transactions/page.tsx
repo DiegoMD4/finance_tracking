@@ -5,17 +5,33 @@ import { userAgent } from "next/server"
 import { TransactionsTable } from "./_components/TransactionsTable"
 import Link from "next/link"
 import TransactionsCard from "./_components/TransactionsCard"
-import { getTransactions } from "../../server/transactions/data"
+import {
+  getTransactions,
+  getTransactionsPaginated,
+} from "../../server/transactions/data"
+import PaginationTable from "@/components/pagination"
 export const dynamic = "force-dynamic"
 
-export default async function TransactionsPage() {
+interface TransactionPageProps {
+  searchParams: Promise<{ page?: string; pageSize?: string }>
+}
+
+export default async function TransactionsPage({
+  searchParams,
+}: TransactionPageProps) {
+  const { page, pageSize } = await searchParams
+
+  const parsedPage = !page || isNaN(Number(page)) ? 1 : Number(page)
+  const parsedPageSize =
+    !pageSize || isNaN(Number(pageSize)) ? 25 : Number(pageSize)
+
   const [requestHeaders, transactions] = await Promise.all([
     headers(),
-    getTransactions(),
+    getTransactionsPaginated(parsedPage, parsedPageSize),
   ])
 
   const { device } = userAgent({ headers: requestHeaders })
-  const isMobile = device.type === "mobile"
+  const isMobile = /* device.type === "mobile" */ false
 
   return (
     <section>
@@ -31,11 +47,20 @@ export default async function TransactionsPage() {
         </Button>
       </header>
       <div className="mt-8">
-        {isMobile ? (
+        {/* {isMobile ? (
           <TransactionsCard data={transactions.data ?? []} />
         ) : (
-          <TransactionsTable data={transactions.data ?? []} />
-        )}
+          
+        )} */}
+        <TransactionsTable data={transactions.data ?? []} />
+        <div className="mt-4">
+          <PaginationTable
+            page={Number(page)}
+            pageSize={Number(pageSize)}
+            hasMore={transactions.hasMore ?? true}
+            route="/transactions"
+          />
+        </div>
       </div>
     </section>
   )
