@@ -1,7 +1,7 @@
 "use client"
 
-import { TrendingUp } from "lucide-react"
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
+import { TrendingDown, TrendingUp } from "lucide-react"
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts"
 
 import {
   Card,
@@ -22,28 +22,21 @@ import {
 
 export const description = "An area chart with a legend"
 
-const chartData = [
-  { month: "January", desktop: 186, mobile: 80 },
-  { month: "February", desktop: 305, mobile: 200 },
-  { month: "March", desktop: 237, mobile: 120 },
-  { month: "April", desktop: 73, mobile: 190 },
-  { month: "May", desktop: 209, mobile: 130 },
-  { month: "June", desktop: 214, mobile: 140 },
-]
-
 const chartConfig = {
   income: {
-    label: "Ingresos",
-    color: "var(--chart-1)", // Color verde en tu CSS (normalmente chart-1 o emerald)
+    label: "Incomes",
+    color: "var(--chart-1)", 
   },
   expense: {
-    label: "Gastos",
-    color: "var(--chart-2)", // Color rojo en tu CSS (normalmente chart-2 o rose)
+    label: "Expenses",
+    color: "var(--chart-2)", 
   },
 } satisfies ChartConfig
 
+
+
 interface ChartAreaLegendProps {
-  // Definimos la estructura exacta que retorna nuestra query de Drizzle
+
   data: {
     monthNumber: number
     month: string
@@ -52,34 +45,26 @@ interface ChartAreaLegendProps {
   }[]
 }
 
-export function ChartAreaLegend({data}: ChartAreaLegendProps) {
-  
-console.log(
-  data.map((item) => ({
-    ...item,
-    income: Number(item.income),
-    expense: Number(item.expense),
-  }))
-  )
-  
-  const newData = data.map((item) => ({
-    ...item,
-    income: Number(item.income),
-    expense: Number(item.expense),
-  }))
+export function ChartAreaLegend({ data }: ChartAreaLegendProps) {
+  const totalIncome = data.reduce((sum, item) => sum + item.income, 0)
+  const totalExpense = data.reduce((sum, item) => sum + item.expense, 0)
+  const isPositive = totalIncome >= totalExpense
+/*   const savingRate =
+    totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0
+ */
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Area Chart - Legend</CardTitle>
+        <CardTitle>Incomes vs Expenses</CardTitle>
         <CardDescription>
-          Showing total visitors for the last 6 months
+          Comparisson between incomes and expenses on the last 6 months
         </CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig}>
           <AreaChart
             accessibilityLayer
-            data={newData}
+            data={data}
             margin={{
               left: 12,
               right: 12,
@@ -93,25 +78,28 @@ console.log(
               tickMargin={8}
               tickFormatter={(value) => value.slice(0, 3)}
             />
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent indicator="line" />}
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              tickCount={3}
             />
+            <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
             <Area
               dataKey="income"
-              type="natural"
+              type="monotone"
               fill="var(--color-income)"
               fillOpacity={0.4}
               stroke="var(--color-income)"
-              stackId="a"
+              /*   stackId="a" */
             />
             <Area
               dataKey="expense"
-              type="natural"
+              type="monotone"
               fill="var(--color-expense)"
               fillOpacity={0.4}
               stroke="var(--color-expense)"
-              stackId="a"
+              /*   stackId="a" */
             />
             <ChartLegend content={<ChartLegendContent />} />
           </AreaChart>
@@ -121,10 +109,20 @@ console.log(
         <div className="flex w-full items-start gap-2 text-sm">
           <div className="grid gap-2">
             <div className="flex items-center gap-2 leading-none font-medium">
-              Trending up by 5.2% this month <TrendingUp className="h-4 w-4" />
+              {!isPositive ? (
+                <>
+                  Positive net balance for this period {" "}
+                  <TrendingUp className="h-4 w-4 text-emerald-500" />
+                </>
+              ) : (
+                <>
+                  Expenses exceed revenue{" "}
+                  <TrendingDown className="h-4 w-4 text-red-500" />
+                </>
+              )}
             </div>
             <div className="flex items-center gap-2 leading-none text-muted-foreground">
-              January - June 2024
+              {`${data[0]?.month} - ${data[data.length - 1]?.month} ${new Date().getFullYear()}`}
             </div>
           </div>
         </div>

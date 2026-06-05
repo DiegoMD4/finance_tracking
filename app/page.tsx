@@ -1,27 +1,20 @@
 import { ChartAreaLegend } from "@/components/chart-area-legend"
 import { getMonthlyFinancials } from "@/server/transactions/server"
-import { MapPin, Store, Users, Plus, Search } from "lucide-react"
+import { Store, Users, Plus, Search } from "lucide-react"
 import { use } from "react"
 
 export default function Page() {
   const data = use(getMonthlyFinancials(1))
-  
+
   return (
     <section>
       <div className="flex flex-1 flex-col gap-4 p-6">
         <div className="grid auto-rows-min gap-4 md:grid-cols-3">
           {/* Cards de métricas rápidas */}
-          {/* <div className="flex aspect-video flex-col justify-between rounded-xl border border-dashed border-muted-foreground/20 bg-muted/50 p-4">
-            <div className="flex items-start justify-between">
-              <MapPin className="text-primary" size={24} />
-              <span className="text-xs font-bold text-muted-foreground">
-                LUGARES
-              </span>
-            </div>
-            <div className="text-2xl font-bold">12</div>
-            
-          </div> */}
-          <ChartAreaLegend data={data} />
+          <div className="flex aspect-video flex-col justify-between rounded-xl border border-dashed border-muted-foreground/20 bg-muted/50 p-4">
+            <ChartAreaLegend data={data} />
+          </div>
+
           <div className="flex aspect-video flex-col justify-between rounded-xl border border-dashed border-muted-foreground/20 bg-muted/50 p-4">
             <div className="flex items-start justify-between">
               <Store className="text-primary" size={24} />

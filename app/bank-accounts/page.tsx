@@ -24,7 +24,7 @@ export default async function BankAccountsPage() {
       >
         <h1>Your bank accounts</h1>
         <Button asChild>
-          <Link href="bank-accounts/add-new" className="gap-x-2">
+          <Link href="bank-accounts/new-account" className="gap-x-2">
             <Plus size={16} />
             {!isMobile && "Add bank account"}
           </Link>
