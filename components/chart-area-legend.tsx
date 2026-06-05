@@ -109,7 +109,7 @@ export function ChartAreaLegend({ data }: ChartAreaLegendProps) {
         <div className="flex w-full items-start gap-2 text-sm">
           <div className="grid gap-2">
             <div className="flex items-center gap-2 leading-none font-medium">
-              {!isPositive ? (
+              {isPositive ? (
                 <>
                   Positive net balance for this period {" "}
                   <TrendingUp className="h-4 w-4 text-emerald-500" />

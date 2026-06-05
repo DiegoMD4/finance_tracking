@@ -14,11 +14,11 @@ export const formatCurrency = (value: string | number) => {
   }).format(num)
 }
 
-const mesesEspañol: Record<string, string> = {
+/* const mesesEspañol: Record<string, string> = {
   January: "Ene", February: "Feb", March: "Mar", April: "Abr", 
   May: "May", June: "Jun", July: "Jul", August: "Ago", 
   September: "Sep", October: "Oct", November: "Nov", December: "Dic"
-}
+} */
 
 // Y en tu componente lo usas así:
 /* tickFormatter={(value) => mesesEspañol[value] || value} */

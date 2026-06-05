@@ -2,7 +2,7 @@
 
 import { transactionSchema } from "@/app/transactions/schema"
 import { db } from "@/db"
-import { transactions } from "@/db/schema/schema"
+import { bankAccounts, transactions } from "@/db/schema/schema"
 import {
   TransactionsActionState,
   CreateTransaction,
@@ -181,7 +181,7 @@ export const updateTransaction = async (
 export async function getMonthlyFinancials(userId: number) {
   const sixMonthsAgo = new Date()
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
-  sixMonthsAgo.setDate(1) 
+  sixMonthsAgo.setDate(1)
 
   const rows = await db
     .select({
@@ -209,3 +209,4 @@ export async function getMonthlyFinancials(userId: number) {
     expense: Number(row.expense),
   }))
 }
+

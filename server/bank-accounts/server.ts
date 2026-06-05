@@ -2,16 +2,15 @@
 
 import { bankAccountSchema } from "@/app/bank-accounts/schema"
 import { db } from "@/db"
-import { bankAccounts } from "@/db/schema/schema"
+import { bankAccounts, transactions } from "@/db/schema/schema"
 import {
   BankAccountActionState,
   CreateBankAccount,
   UpdateBankAccount,
 } from "@/types/bank-accounts.types"
-import { eq, or, and, ne } from "drizzle-orm"
+import { eq, or, and, ne, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import z from "zod"
-
 
 export const createBankAccount = async (
   prevState: BankAccountActionState,
@@ -163,19 +162,19 @@ export const updateBankAccount = async (
     accountName,
   } = validatedFields.data
 
-   const integrityCheck = await checkDuplicateAccount({
-     accountNumber,
-     accountName,
-     id: bankAccountId,
-   })
-   if (integrityCheck.isDuplicate) {
-     return {
-       success: false,
-       message: "Validation error",
-       error: integrityCheck.errors,
-       fields: rawFields,
-     }
-   }
+  const integrityCheck = await checkDuplicateAccount({
+    accountNumber,
+    accountName,
+    id: bankAccountId,
+  })
+  if (integrityCheck.isDuplicate) {
+    return {
+      success: false,
+      message: "Validation error",
+      error: integrityCheck.errors,
+      fields: rawFields,
+    }
+  }
 
   try {
     await db
@@ -211,7 +210,7 @@ export const updateBankAccount = async (
 interface ValidateDuplicateProps {
   accountNumber: string
   accountName: string
-  id?: number | null 
+  id?: number | null
 }
 
 export async function checkDuplicateAccount({
@@ -219,18 +218,13 @@ export async function checkDuplicateAccount({
   accountName,
   id,
 }: ValidateDuplicateProps) {
-
   let searchCondition = or(
     eq(bankAccounts.accountNumber, accountNumber),
     eq(bankAccounts.accountName, accountName)
   )
 
-
   if (id) {
-    searchCondition = and(
-      searchCondition,
-      ne(bankAccounts.id, id) 
-    )
+    searchCondition = and(searchCondition, ne(bankAccounts.id, id))
   }
 
   const existingAccount = await db
@@ -254,4 +248,54 @@ export async function checkDuplicateAccount({
   }
 
   return { isDuplicate: false, errors: {} }
+}
+
+export const getNetBalance = async (userId: number): Promise<number> => {
+  // 1. Ejecutamos ambas sumas en paralelo para máxima velocidad
+  const [accountsResult, transactionsResult] = await Promise.all([
+    // Consulta A: Suma de los balances de apertura iniciales
+    db
+      .select({
+        openingSum: sql<
+          string | number
+        >`COALESCE(SUM(${bankAccounts.openingBalance}), 0)`,
+      })
+      .from(bankAccounts)
+      .where(eq(bankAccounts.userId, userId)),
+
+    // Consulta B: Suma condicional de transacciones (Ingresos vs Gastos)
+    db
+      .select({
+        netTransactions: sql<string | number>`
+          COALESCE(
+            SUM(
+              CASE 
+                WHEN ${transactions.transactionType} = 'income' THEN ${transactions.amount}
+                WHEN ${transactions.transactionType} = 'expense' THEN -${transactions.amount}
+                ELSE 0 
+              END
+            ), 0
+          )
+        `,
+      })
+      .from(transactions)
+      .where(eq(transactions.userId, userId)),
+  ])
+
+  // 2. Extraemos los primeros resultados de los arrays devueltos
+  const openingSumRaw = accountsResult[0]?.openingSum ?? 0
+  const transactionsSumRaw = transactionsResult[0]?.netTransactions ?? 0
+
+  // 3. Parseamos de forma segura los valores (MySQL suele retornar strings para SUM)
+  const openingSum =
+    typeof openingSumRaw === "string"
+      ? parseFloat(openingSumRaw)
+      : openingSumRaw
+  const transactionsSum =
+    typeof transactionsSumRaw === "string"
+      ? parseFloat(transactionsSumRaw)
+      : transactionsSumRaw
+
+  // 4. La matemática final viva
+  return openingSum + transactionsSum
 }

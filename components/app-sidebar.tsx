@@ -1,6 +1,6 @@
 "use client"
 import dynamic from "next/dynamic"
-import { Landmark, HandCoins } from "lucide-react"
+import { Landmark, HandCoins, ChartAreaIcon } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -22,6 +22,7 @@ const ThemeButton = dynamic(() => import("./ui/theme-menu-button"), {
 })
 
 const items = [
+  { title: "Dashboard", url: "/", icon: ChartAreaIcon },
   { title: "Bank Accounts", url: "/bank-accounts", icon: Landmark },
   { title: "Transactions", url: "/transactions", icon: HandCoins },
 ]
@@ -55,7 +56,7 @@ export function AppSidebar() {
               router.push("/")
             }}
           >
-            Finance Tracking
+            FINANCE TRACKING
           </SidebarHeader>
           <SidebarGroupContent>
             <TooltipProvider>
@@ -66,7 +67,7 @@ export function AppSidebar() {
                       asChild
                       tooltip={item.title}
                       isActive={isItemMenuActive(item.url)}
-                      size={'lg'}
+                      size={"lg"}
                     >
                       <Link href={item.url}>
                         <item.icon />

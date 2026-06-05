@@ -1,38 +1,54 @@
 import { ChartAreaLegend } from "@/components/chart-area-legend"
+import { cn, formatCurrency } from "@/lib/utils"
+import { getNetBalance } from "@/server/bank-accounts/server"
 import { getMonthlyFinancials } from "@/server/transactions/server"
-import { Store, Users, Plus, Search } from "lucide-react"
-import { use } from "react"
+import { Users, Plus, Search } from "lucide-react"
+import { FaMoneyBills } from "react-icons/fa6"
 
-export default function Page() {
-  const data = use(getMonthlyFinancials(1))
+export default async function Page() {
+  const [data, netBalance] = await Promise.all([
+    getMonthlyFinancials(1),
+    getNetBalance(1),
+  ])
 
   return (
     <section>
       <div className="flex flex-1 flex-col gap-4 p-6">
         <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-          {/* Cards de métricas rápidas */}
-          <div className="flex aspect-video flex-col justify-between rounded-xl border border-dashed border-muted-foreground/20 bg-muted/50 p-4">
-            <ChartAreaLegend data={data} />
-          </div>
+          <ChartAreaLegend data={data} />
 
-          <div className="flex aspect-video flex-col justify-between rounded-xl border border-dashed border-muted-foreground/20 bg-muted/50 p-4">
-            <div className="flex items-start justify-between">
-              <Store className="text-primary" size={24} />
-              <span className="text-xs font-bold text-muted-foreground">
-                SUCURSALES
-              </span>
+          {/* Balance neto  */}
+          <section className="flex flex-col gap-y-4">
+            <div className="flex aspect-video flex-col justify-between rounded-xl border border-dashed border-muted-foreground/20 bg-muted/50 p-4">
+              <div className="flex items-start justify-between">
+                <FaMoneyBills className="text-primary" size={24} />
+                <span className="text-xs font-bold text-muted-foreground">
+                  TOTAL NET BALANCE
+                </span>
+              </div>
+              <div
+                className={cn(
+                  "text-2xl font-bold",
+                  netBalance === 0
+                    ? "text-foreground"
+                    : netBalance >= 0
+                      ? "text-emerald-500"
+                      : "text-red-500"
+                )}
+              >
+                L. {formatCurrency(netBalance)}
+              </div>
             </div>
-            <div className="text-2xl font-bold">48</div>
-          </div>
-          <div className="flex aspect-video flex-col justify-between rounded-xl border border-dashed border-muted-foreground/20 bg-muted/50 p-4">
-            <div className="flex items-start justify-between">
-              <Users className="text-primary" size={24} />
-              <span className="text-xs font-bold text-muted-foreground">
-                ADMINS
-              </span>
+            <div className="flex aspect-video flex-col justify-between rounded-xl border border-dashed border-muted-foreground/20 bg-muted/50 p-4">
+              <div className="flex items-start justify-between">
+                <Users className="text-primary" size={24} />
+                <span className="text-xs font-bold text-muted-foreground">
+                  ADMINS
+                </span>
+              </div>
+              <div className="text-2xl font-bold">5</div>
             </div>
-            <div className="text-2xl font-bold">5</div>
-          </div>
+          </section>
         </div>
 
         {/* Área de visualización (simulando el mapa o lista) */}
