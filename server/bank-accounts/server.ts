@@ -8,7 +8,7 @@ import {
   CreateBankAccount,
   UpdateBankAccount,
 } from "@/types/bank-accounts.types"
-import { eq, or, and, ne, sql } from "drizzle-orm"
+import { eq, or, and, ne, sql, gte } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import z from "zod"
 
@@ -298,4 +298,29 @@ export const getNetBalance = async (userId: number): Promise<number> => {
 
   // 4. La matemática final viva
   return openingSum + transactionsSum
+}
+
+export const getDailyAverage = async (userId: number) => {
+  const monthFirstDay = sql<string>`DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')`
+  const currentDay = new Date().getDate()
+  const [result] = await db
+    .select({
+      totalExpenses: sql<number>`SUM(${transactions.amount})`,
+    })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.id, userId),
+        eq(transactions.transactionType, "expense"),
+        gte(transactions.createdAt, monthFirstDay)
+      )
+    )
+  const total = result?.totalExpenses || 0
+  const dailyAverage = total / currentDay
+
+  return {
+    monthTotal: total,
+    dailyAverage,
+    currentDay
+  }
 }

@@ -39,7 +39,10 @@ export function AppSidebar() {
   }
 
   const isItemMenuActive = (itemUrl: string) => {
-    return pathname.includes(itemUrl)
+   if (itemUrl === "/") {
+     return pathname === "/"
+   }
+   return pathname.startsWith(itemUrl)
   }
 
   return (

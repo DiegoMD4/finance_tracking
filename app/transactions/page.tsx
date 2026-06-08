@@ -23,7 +23,7 @@ export default async function TransactionsPage({
 
   const parsedPage = !page || isNaN(Number(page)) ? 1 : Number(page)
   const parsedPageSize =
-    !pageSize || isNaN(Number(pageSize)) ? 25 : Number(pageSize)
+    !pageSize || isNaN(Number(pageSize)) ? 5 : Number(pageSize)
 
   const [requestHeaders, transactions] = await Promise.all([
     headers(),

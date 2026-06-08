@@ -1,14 +1,16 @@
 import { ChartAreaLegend } from "@/components/chart-area-legend"
 import { cn, formatCurrency } from "@/lib/utils"
-import { getNetBalance } from "@/server/bank-accounts/server"
+import { getDailyAverage, getNetBalance } from "@/server/bank-accounts/server"
 import { getMonthlyFinancials } from "@/server/transactions/server"
-import { Users, Plus, Search } from "lucide-react"
+import { Plus, Search } from "lucide-react"
 import { FaMoneyBills } from "react-icons/fa6"
+import { IoCalendarNumber } from "react-icons/io5"
 
 export default async function Page() {
-  const [data, netBalance] = await Promise.all([
+  const [data, netBalance, dailyAverage] = await Promise.all([
     getMonthlyFinancials(1),
     getNetBalance(1),
+    getDailyAverage(1),
   ])
 
   return (
@@ -41,12 +43,24 @@ export default async function Page() {
             </div>
             <div className="flex aspect-video flex-col justify-between rounded-xl border border-dashed border-muted-foreground/20 bg-muted/50 p-4">
               <div className="flex items-start justify-between">
-                <Users className="text-primary" size={24} />
+                <IoCalendarNumber className="text-primary" size={24} />
                 <span className="text-xs font-bold text-muted-foreground">
-                  ADMINS
+                  DAILY SPENT AVERAGE
                 </span>
               </div>
-              <div className="text-2xl font-bold">5</div>
+              <div className="flex flex-col text-2xl font-bold">
+                <span>L. {formatCurrency(dailyAverage.dailyAverage)}</span>
+                <div className="flex flex-row gap-x-4">
+                  {/* <span className="text-xs text-muted-foreground">
+                    Current day: {dailyAverage.currentDay}
+                  </span> */}
+                  <span className="text-xs text-muted-foreground">
+                    This month total: L.{" "}
+                    {formatCurrency(dailyAverage.monthTotal)} • Current day:{" "}
+                    {dailyAverage.currentDay}
+                  </span>
+                </div>
+              </div>
             </div>
           </section>
         </div>
