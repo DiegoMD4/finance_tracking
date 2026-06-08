@@ -310,7 +310,7 @@ export const getDailyAverage = async (userId: number) => {
     .from(transactions)
     .where(
       and(
-        eq(transactions.id, userId),
+        eq(transactions.userId, userId),
         eq(transactions.transactionType, "expense"),
         gte(transactions.createdAt, monthFirstDay)
       )

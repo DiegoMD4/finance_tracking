@@ -31,6 +31,7 @@ export default async function TransactionsPage({
   ])
 
   const { device } = userAgent({ headers: requestHeaders })
+  console.log(device)
   const isMobile = /* device.type === "mobile" */ false
 
   return (

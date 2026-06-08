@@ -2,7 +2,7 @@
 
 import { transactionSchema } from "@/app/transactions/schema"
 import { db } from "@/db"
-import { bankAccounts, transactions } from "@/db/schema/schema"
+import { transactions } from "@/db/schema/schema"
 import {
   TransactionsActionState,
   CreateTransaction,

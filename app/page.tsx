@@ -48,16 +48,16 @@ export default async function Page() {
                   DAILY SPENT AVERAGE
                 </span>
               </div>
-              <div className="flex flex-col text-2xl font-bold">
+              <div className="flex flex-col gap-y-2 text-2xl font-bold">
                 <span>L. {formatCurrency(dailyAverage.dailyAverage)}</span>
                 <div className="flex flex-row gap-x-4">
-                  {/* <span className="text-xs text-muted-foreground">
-                    Current day: {dailyAverage.currentDay}
-                  </span> */}
-                  <span className="text-xs text-muted-foreground">
-                    This month total: L.{" "}
-                    {formatCurrency(dailyAverage.monthTotal)} • Current day:{" "}
-                    {dailyAverage.currentDay}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    This month&apos;s total: L.{" "}
+                    {formatCurrency(dailyAverage.monthTotal)} •{" "}
+                    {dailyAverage.currentDay > 1
+                      ? `${dailyAverage.currentDay} days `
+                      : `${dailyAverage.currentDay} day `}
+                    tracked
                   </span>
                 </div>
               </div>
