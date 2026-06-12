@@ -81,7 +81,7 @@ export const getTransactionsPaginated = async (
       })
       .from(transactions)
       .leftJoin(bankAccounts, eq(transactions.accountId, bankAccounts.id))
-      .orderBy(asc(transactions.id))
+      .orderBy(desc(transactions.createdAt))
       .limit(pageSize + 1)
       .offset((page - 1) * pageSize)
     const hasMore = res.length > pageSize

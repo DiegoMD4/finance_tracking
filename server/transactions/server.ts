@@ -178,35 +178,5 @@ export const updateTransaction = async (
   }
 }
 
-export async function getMonthlyFinancials(userId: number) {
-  const sixMonthsAgo = new Date()
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
-  sixMonthsAgo.setDate(1)
 
-  const rows = await db
-    .select({
-      monthNumber: sql<number>`MONTH(${transactions.createdAt})`,
-      month: sql<string>`MONTHNAME(${transactions.createdAt})`,
-      income: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.transactionType} = 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
-      expense: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.transactionType} = 'expense' THEN ${transactions.amount} ELSE 0 END), 0)`,
-    })
-    .from(transactions)
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        gte(transactions.createdAt, sixMonthsAgo)
-      )
-    )
-    .groupBy(
-      sql`MONTH(${transactions.createdAt})`,
-      sql`MONTHNAME(${transactions.createdAt})`
-    )
-    .orderBy(sql`MONTH(${transactions.createdAt})`)
-
-  return rows.map((row) => ({
-    ...row,
-    income: Number(row.income),
-    expense: Number(row.expense),
-  }))
-}
 

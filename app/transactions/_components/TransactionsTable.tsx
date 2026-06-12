@@ -9,7 +9,7 @@ import {
 import { formatCurrency } from "@/lib/utils"
 import { TransactionListItem } from "@/types/transactions.types"
 import TransactionsActions from "./TransactionsActions"
-import PaginationTable from "@/components/pagination"
+
 
 interface TransactionsTableProps {
   data: TransactionListItem[]

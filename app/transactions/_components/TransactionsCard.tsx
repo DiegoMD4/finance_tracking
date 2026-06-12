@@ -5,7 +5,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { Button } from "@/components/ui/button"
-import { formatCurrency } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 import { TransactionListItem } from "@/types/transactions.types"
 import { ChevronDownIcon } from "lucide-react"
 import TransactionsActions from "./TransactionsActions"
@@ -39,10 +39,24 @@ export default function TransactionsCard({ data }: TransactionsCardProps) {
                   className="group h-auto w-full justify-start px-4 py-3 text-left"
                 >
                   <div className="flex max-w-[85%] flex-row items-start gap-x-4">
-                    <span className="w-full truncate font-mono font-bold capitalize">
+                    <span
+                      className={cn(
+                        "w-full truncate font-mono font-bold capitalize"
+                        /*  transaction.transactionType === "income"
+                          ? "text-emerald-500"
+                          : "text-red-500" */
+                      )}
+                    >
                       {transaction.transactionType}
                     </span>
-                    <span className="font-mono text-xs text-muted-foreground">
+                    <span
+                      className={cn(
+                        "font-mono text-xs text-muted-foreground",
+                       /*  transaction.transactionType === "income"
+                          ? "text-emerald-500"
+                          : "text-red-500" */
+                      )}
+                    >
                       {formatCurrency(transaction.amount)}
                     </span>
                   </div>

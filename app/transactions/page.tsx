@@ -5,10 +5,7 @@ import { userAgent } from "next/server"
 import { TransactionsTable } from "./_components/TransactionsTable"
 import Link from "next/link"
 import TransactionsCard from "./_components/TransactionsCard"
-import {
-  getTransactions,
-  getTransactionsPaginated,
-} from "../../server/transactions/data"
+import { getTransactionsPaginated } from "../../server/transactions/data"
 import PaginationTable from "@/components/pagination"
 export const dynamic = "force-dynamic"
 
@@ -31,8 +28,7 @@ export default async function TransactionsPage({
   ])
 
   const { device } = userAgent({ headers: requestHeaders })
-  console.log(device)
-  const isMobile = /* device.type === "mobile" */ false
+  const isMobile =  device.type === "mobile" 
 
   return (
     <section>
@@ -48,12 +44,12 @@ export default async function TransactionsPage({
         </Button>
       </header>
       <div className="mt-8">
-        {/* {isMobile ? (
+        {isMobile ? (
           <TransactionsCard data={transactions.data ?? []} />
         ) : (
-          
-        )} */}
-        <TransactionsTable data={transactions.data ?? []} />
+          <TransactionsTable data={transactions.data ?? []} />
+        )}
+
         <div className="mt-4">
           <PaginationTable
             page={Number(page)}

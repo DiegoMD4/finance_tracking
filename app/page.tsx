@@ -1,18 +1,27 @@
 export const dynamic = "force-dynamic"
 import { ChartAreaLegend } from "@/components/chart-area-legend"
+import { ChartPieSimple } from "@/components/pie-chart"
 import { cn, formatCurrency } from "@/lib/utils"
-import { getDailyAverage, getNetBalance } from "@/server/bank-accounts/server"
-import { getMonthlyFinancials } from "@/server/transactions/server"
+import {
+  getDailyAverage,
+  getFundsDistribution,
+  getMonthlyFinancials,
+  getNetBalance,
+} from "@/server/dashboard/server"
+
 import { Plus, Search } from "lucide-react"
 import { FaMoneyBills } from "react-icons/fa6"
 import { IoCalendarNumber } from "react-icons/io5"
 
 export default async function Page() {
-  const [data, netBalance, dailyAverage] = await Promise.all([
-    getMonthlyFinancials(1),
-    getNetBalance(1),
-    getDailyAverage(1),
-  ])
+  const [data, netBalance, dailyAverage, fundsDistribution] = await Promise.all(
+    [
+      getMonthlyFinancials(1),
+      getNetBalance(1),
+      getDailyAverage(1),
+      getFundsDistribution(1),
+    ]
+  )
 
   return (
     <section>
@@ -64,6 +73,7 @@ export default async function Page() {
               </div>
             </div>
           </section>
+          <ChartPieSimple data={fundsDistribution} />
         </div>
 
         {/* Área de visualización (simulando el mapa o lista) */}
