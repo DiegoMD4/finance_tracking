@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic"
 import { ChartAreaLegend } from "@/components/chart-area-legend"
 import { cn, formatCurrency } from "@/lib/utils"
 import { getDailyAverage, getNetBalance } from "@/server/bank-accounts/server"
