@@ -15,6 +15,9 @@ const connection =
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
+
+    enableKeepAlive: true,
+    maxIdle: 0
   })
 
 // 3. En entorno de desarrollo, guardamos la conexión en el objeto global

@@ -27,7 +27,10 @@ export default async function Page() {
     <section>
       <div className="flex flex-1 flex-col gap-4 p-6">
         <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-          <ChartAreaLegend data={data} />
+          <div>
+            {" "}
+            <ChartAreaLegend data={data} />
+          </div>
 
           {/* Balance neto  */}
           <section className="flex flex-col gap-y-4">
@@ -73,7 +76,9 @@ export default async function Page() {
               </div>
             </div>
           </section>
-          <ChartPieSimple data={fundsDistribution} />
+          <div>
+            <ChartPieSimple data={fundsDistribution} />
+          </div>
         </div>
 
         {/* Área de visualización (simulando el mapa o lista) */}
