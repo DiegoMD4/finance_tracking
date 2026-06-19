@@ -40,43 +40,53 @@ export async function getMonthlyFinancials(userId: number) {
 }
 
 export const getDailyAverage = async (userId: number) => {
-  const monthFirstDay = sql<string>`DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')`
-  const currentDay = new Date().getDate()
-  const [result] = await db
-    .select({
-      totalExpenses: sql<number>`SUM(${transactions.amount})`,
-    })
-    .from(transactions)
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        eq(transactions.transactionType, "expense"),
-        gte(transactions.createdAt, monthFirstDay)
+  try {
+    const monthFirstDay = sql<string>`DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')`
+    const currentDay = new Date().getDate()
+    const [result] = await db
+      .select({
+        totalExpenses: sql<number>`SUM(${transactions.amount})`,
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.userId, userId),
+          eq(transactions.transactionType, "expense"),
+          gte(transactions.createdAt, monthFirstDay)
+        )
       )
-    )
-  const total = result?.totalExpenses || 0
-  const dailyAverage = total / currentDay
+    const total = result?.totalExpenses || 0
+    const dailyAverage = total / currentDay
 
-  return {
-    monthTotal: total,
-    dailyAverage,
-    currentDay,
+    return {
+      monthTotal: total,
+      dailyAverage,
+      currentDay,
+    }
+  } catch (error) {
+    console.error(error)
+    return {
+      monthTotal: 0,
+      dailyAverage: 0,
+      currentDay: 0,
+    }
   }
 }
 
 export const getNetBalance = async (userId: number): Promise<number> => {
-  const [accountsResult, transactionsResult] = await Promise.all([
-    db
-      .select({
-        openingSum: sql<
-          string | number
-        >`COALESCE(SUM(${bankAccounts.openingBalance}), 0)`,
-      })
-      .from(bankAccounts)
-      .where(eq(bankAccounts.userId, userId)),
-    db
-      .select({
-        netTransactions: sql<string | number>`
+  try {
+    const [accountsResult, transactionsResult] = await Promise.all([
+      db
+        .select({
+          openingSum: sql<
+            string | number
+          >`COALESCE(SUM(${bankAccounts.openingBalance}), 0)`,
+        })
+        .from(bankAccounts)
+        .where(eq(bankAccounts.userId, userId)),
+      db
+        .select({
+          netTransactions: sql<string | number>`
           COALESCE(
             SUM(
               CASE 
@@ -87,59 +97,68 @@ export const getNetBalance = async (userId: number): Promise<number> => {
             ), 0
           )
         `,
-      })
-      .from(transactions)
-      .where(eq(transactions.userId, userId)),
-  ])
+        })
+        .from(transactions)
+        .where(eq(transactions.userId, userId)),
+    ])
 
-  // 2. Extraemos los primeros resultados de los arrays devueltos
-  const openingSumRaw = accountsResult[0]?.openingSum ?? 0
-  const transactionsSumRaw = transactionsResult[0]?.netTransactions ?? 0
+    // 2. Extraemos los primeros resultados de los arrays devueltos
+    const openingSumRaw = accountsResult[0]?.openingSum ?? 0
+    const transactionsSumRaw = transactionsResult[0]?.netTransactions ?? 0
 
-  // 3. Parseamos de forma segura los valores (MySQL suele retornar strings para SUM)
-  const openingSum =
-    typeof openingSumRaw === "string"
-      ? parseFloat(openingSumRaw)
-      : openingSumRaw
-  const transactionsSum =
-    typeof transactionsSumRaw === "string"
-      ? parseFloat(transactionsSumRaw)
-      : transactionsSumRaw
+    // 3. Parseamos de forma segura los valores (MySQL suele retornar strings para SUM)
+    const openingSum =
+      typeof openingSumRaw === "string"
+        ? parseFloat(openingSumRaw)
+        : openingSumRaw
+    const transactionsSum =
+      typeof transactionsSumRaw === "string"
+        ? parseFloat(transactionsSumRaw)
+        : transactionsSumRaw
 
-  // 4. La matemática final viva
-  return openingSum + transactionsSum
+    // 4. La matemática final viva
+    return openingSum + transactionsSum
+  } catch (error) {
+    console.error(error)
+    return 0
+  }
 }
 
 export const getFundsDistribution = async (userId: number) => {
-  const rows = await db
-    .select({
-      bankName: bankAccounts.bankName,
-      accountType: bankAccounts.bankAccountType,
-      openingBalance: bankAccounts.openingBalance,
-      netTransactions: sql<number>`COALESCE(SUM(
+  try {
+    const rows = await db
+      .select({
+        bankName: bankAccounts.bankName,
+        accountType: bankAccounts.bankAccountType,
+        openingBalance: bankAccounts.openingBalance,
+        netTransactions: sql<number>`COALESCE(SUM(
     CASE
      WHEN ${transactions.transactionType} = 'income' THEN ${transactions.amount}
      WHEN ${transactions.transactionType} = 'expense' THEN -${transactions.amount}
      ELSE 0
       END), 0)`,
-    })
-    .from(bankAccounts)
-    .leftJoin(transactions, eq(bankAccounts.id, transactions.accountId))
-    .where(eq(bankAccounts.userId, userId))
-    .groupBy(
-      bankAccounts.id,
-      bankAccounts.bankName,
-      bankAccounts.bankAccountType
-    )
+      })
+      .from(bankAccounts)
+      .leftJoin(transactions, eq(bankAccounts.id, transactions.accountId))
+      .where(eq(bankAccounts.userId, userId))
+      .groupBy(
+        bankAccounts.id,
+        bankAccounts.bankName,
+        bankAccounts.bankAccountType
+      )
 
-  const distribution = rows.map((row) => {
-    const currentBalance =
-      Number(row.openingBalance) + Number(row.netTransactions)
-    return {
-      name: row.bankName,
-      type: row.accountType,
-      value: currentBalance < 0 ? 0 : Number(currentBalance.toFixed(2)),
-    }
-  })
-  return distribution /* .filter((account) => account.value > 0) */
+    const distribution = rows.map((row) => {
+      const currentBalance =
+        Number(row.openingBalance) + Number(row.netTransactions)
+      return {
+        name: row.bankName,
+        type: row.accountType,
+        value: currentBalance < 0 ? 0 : Number(currentBalance.toFixed(2)),
+      }
+    })
+    return distribution /* .filter((account) => account.value > 0) */
+  } catch (error) {
+    console.error(error)
+    return []
+  }
 }

@@ -14,12 +14,12 @@ import { FaMoneyBills } from "react-icons/fa6"
 import { IoCalendarNumber } from "react-icons/io5"
 
 export default async function Page() {
-  const [data, /* netBalance, dailyAverage, fundsDistribution */] = await Promise.all(
+  const [data, netBalance, dailyAverage, fundsDistribution] = await Promise.all(
     [
       getMonthlyFinancials(1),
-      /* getNetBalance(1),
+      getNetBalance(1),
       getDailyAverage(1),
-      getFundsDistribution(1), */
+      getFundsDistribution(1),
     ]
   )
 
@@ -28,11 +28,12 @@ export default async function Page() {
       <div className="flex flex-1 flex-col gap-4 p-6">
         <div className="grid auto-rows-min gap-4 md:grid-cols-3">
           <div>
+            {" "}
             <ChartAreaLegend data={data} />
           </div>
 
           {/* Balance neto  */}
-          {/* <section className="flex flex-col gap-y-4">
+          <section className="flex flex-col gap-y-4">
             <div className="flex aspect-video flex-col justify-between rounded-xl border border-dashed border-muted-foreground/20 bg-muted/50 p-4">
               <div className="flex items-start justify-between">
                 <FaMoneyBills className="text-primary" size={24} />
@@ -77,7 +78,7 @@ export default async function Page() {
           </section>
           <div>
             <ChartPieSimple data={fundsDistribution} />
-          </div> */}
+          </div>
         </div>
 
         {/* Área de visualización (simulando el mapa o lista) */}
