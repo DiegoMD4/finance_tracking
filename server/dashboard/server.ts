@@ -3,35 +3,40 @@ import { bankAccounts, transactions } from "@/db/schema/schema"
 import { and, eq, gte, sql } from "drizzle-orm"
 
 export async function getMonthlyFinancials(userId: number) {
-  const sixMonthsAgo = new Date()
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
-  sixMonthsAgo.setDate(1)
+  try {
+    const sixMonthsAgo = new Date()
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
+    sixMonthsAgo.setDate(1)
 
-  const rows = await db
-    .select({
-      monthNumber: sql<number>`MONTH(${transactions.createdAt})`,
-      month: sql<string>`MONTHNAME(${transactions.createdAt})`,
-      income: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.transactionType} = 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
-      expense: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.transactionType} = 'expense' THEN ${transactions.amount} ELSE 0 END), 0)`,
-    })
-    .from(transactions)
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        gte(transactions.createdAt, sixMonthsAgo)
+    const rows = await db
+      .select({
+        monthNumber: sql<number>`MONTH(${transactions.createdAt})`,
+        month: sql<string>`MONTHNAME(${transactions.createdAt})`,
+        income: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.transactionType} = 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
+        expense: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.transactionType} = 'expense' THEN ${transactions.amount} ELSE 0 END), 0)`,
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.userId, userId),
+          gte(transactions.createdAt, sixMonthsAgo)
+        )
       )
-    )
-    .groupBy(
-      sql`MONTH(${transactions.createdAt})`,
-      sql`MONTHNAME(${transactions.createdAt})`
-    )
-    .orderBy(sql`MONTH(${transactions.createdAt})`)
+      .groupBy(
+        sql`MONTH(${transactions.createdAt})`,
+        sql`MONTHNAME(${transactions.createdAt})`
+      )
+      .orderBy(sql`MONTH(${transactions.createdAt})`)
 
-  return rows.map((row) => ({
-    ...row,
-    income: Number(row.income),
-    expense: Number(row.expense),
-  }))
+    return rows.map((row) => ({
+      ...row,
+      income: Number(row.income),
+      expense: Number(row.expense),
+    }))
+  } catch (error) {
+    console.error("Error en getMonthlyFinancials (posible BD dormida):", error)
+    return []
+  }
 }
 
 export const getDailyAverage = async (userId: number) => {
@@ -60,9 +65,7 @@ export const getDailyAverage = async (userId: number) => {
 }
 
 export const getNetBalance = async (userId: number): Promise<number> => {
-  // 1. Ejecutamos ambas sumas en paralelo para máxima velocidad
   const [accountsResult, transactionsResult] = await Promise.all([
-    // Consulta A: Suma de los balances de apertura iniciales
     db
       .select({
         openingSum: sql<
@@ -71,8 +74,6 @@ export const getNetBalance = async (userId: number): Promise<number> => {
       })
       .from(bankAccounts)
       .where(eq(bankAccounts.userId, userId)),
-
-    // Consulta B: Suma condicional de transacciones (Ingresos vs Gastos)
     db
       .select({
         netTransactions: sql<string | number>`
@@ -140,5 +141,5 @@ export const getFundsDistribution = async (userId: number) => {
       value: currentBalance < 0 ? 0 : Number(currentBalance.toFixed(2)),
     }
   })
-  return distribution/* .filter((account) => account.value > 0) */
+  return distribution /* .filter((account) => account.value > 0) */
 }

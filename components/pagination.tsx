@@ -48,7 +48,7 @@ export default function PaginationTable({
           onValueChange={handlePageSizeChange}
         >
           <SelectTrigger className="w-20" id="select-rows-per-page">
-            <SelectValue />
+            <SelectValue>{String(currentPageSize)}</SelectValue>
           </SelectTrigger>
           <SelectContent align="start">
             <SelectGroup>

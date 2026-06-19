@@ -219,8 +219,8 @@ export default function FormBankAccounts({
                 <SelectContent position="popper">
                   <SelectGroup>
                     <SelectItem value="Lempiras">Lempiras</SelectItem>
-                    <SelectItem value="Dollars">Dollars</SelectItem>
-                    <SelectItem value="Euros">Euros</SelectItem>
+                  {/*   <SelectItem value="Dollars">Dollars</SelectItem>
+                    <SelectItem value="Euros">Euros</SelectItem> */}
                   </SelectGroup>
                 </SelectContent>
               </Select>
