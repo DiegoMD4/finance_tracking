@@ -14,6 +14,7 @@ import { FaMoneyBills } from "react-icons/fa6"
 import { IoCalendarNumber } from "react-icons/io5"
 
 export default async function Page() {
+
   const [data, netBalance, dailyAverage, fundsDistribution] = await Promise.all(
     [
       getMonthlyFinancials(1),
@@ -22,7 +23,6 @@ export default async function Page() {
       getFundsDistribution(1),
     ]
   )
-
   return (
     <section>
       <div className="flex flex-1 flex-col gap-4 p-6">
