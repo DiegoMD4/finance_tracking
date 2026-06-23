@@ -90,11 +90,11 @@ export default function TransactionsCard({ data }: TransactionsCardProps) {
                       {transaction.bankName || "Unknown bank"}
                     </span>
                   </li>
-                  {transaction.source && (
+                  {transaction.categoryName && (
                     <li className="flex flex-col gap-y-0.5 pt-1">
                       <span>Source:</span>
                       <span className="break-all text-foreground">
-                        {transaction.source}
+                        {transaction.categoryName}
                       </span>
                     </li>
                   )}
@@ -113,7 +113,7 @@ export default function TransactionsCard({ data }: TransactionsCardProps) {
                 </ul>
 
                 <TransactionsActions
-                  transactionId={transaction.id}
+                  transaction={transaction}
                   variant="buttons"
                 />
               </CollapsibleContent>
