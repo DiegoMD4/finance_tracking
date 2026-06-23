@@ -9,9 +9,11 @@ import {
   UpdateTransaction,
 } from "@/types/transactions.types"
 
-import { and, eq, gte, sql } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import z from "zod"
+
+const DEFAULT_CATEGORY_ID = 9
 
 export const createTransaction = async (
   prevState: TransactionsActionState,
@@ -24,7 +26,7 @@ export const createTransaction = async (
     transactionType: formData.get("transactionType")?.toString() || "",
     transactionDescription:
       formData.get("transactionDescription")?.toString() || "",
-    source: formData.get("source")?.toString() || "",
+    categoryId: formData.get("categoryId")?.toString() || "",
   }
 
   const validatedFields = transactionSchema.safeParse(rawFields)
@@ -41,7 +43,7 @@ export const createTransaction = async (
         transactionType: fieldErrors.properties?.transactionType?.errors[0],
         transactionDescription:
           fieldErrors.properties?.transactionDescription?.errors[0],
-        source: fieldErrors.properties?.source?.errors[0],
+        /* categoryId: fieldErrors.properties?.categoryId?.errors[0], */
       },
       fields: rawFields,
     }
@@ -53,7 +55,6 @@ export const createTransaction = async (
     amount,
     transactionType,
     transactionDescription,
-    source,
   } = validatedFields.data
 
   try {
@@ -63,7 +64,7 @@ export const createTransaction = async (
       amount,
       transactionType,
       transactionDescription,
-      source,
+      categoryId: Number(rawFields.categoryId) ?? DEFAULT_CATEGORY_ID,
     })
 
     revalidatePath("/transactions")
@@ -109,7 +110,7 @@ export const updateTransaction = async (
     transactionType: formData.get("transactionType")?.toString() || "",
     transactionDescription:
       formData.get("transactionDescription")?.toString() || "",
-    source: formData.get("source")?.toString() || "",
+    categoryId: formData.get("categoryId")?.toString() || "",
   }
 
   if (!transactionId || isNaN(transactionId)) {
@@ -134,7 +135,6 @@ export const updateTransaction = async (
         transactionType: fieldErrors.properties?.transactionType?.errors[0],
         transactionDescription:
           fieldErrors.properties?.transactionDescription?.errors[0],
-        source: fieldErrors.properties?.source?.errors[0],
       },
       fields: rawFields,
     }
@@ -146,7 +146,6 @@ export const updateTransaction = async (
     amount,
     transactionType,
     transactionDescription,
-    source,
   } = validatedFields.data
 
   try {
@@ -158,7 +157,7 @@ export const updateTransaction = async (
         amount,
         transactionType,
         transactionDescription,
-        source,
+        categoryId: Number(rawFields.categoryId) ?? DEFAULT_CATEGORY_ID,
       })
       .where(eq(transactions.id, transactionId))
 
@@ -177,6 +176,3 @@ export const updateTransaction = async (
     return { success: false, message: errorMessage, fields: rawFields }
   }
 }
-
-
-

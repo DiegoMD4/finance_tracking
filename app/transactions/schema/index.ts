@@ -36,16 +36,10 @@ export const transactionSchema = z.object({
 
       return value
     }),
-  source: z
+ /*  categoryId: z
     .string()
     .trim()
-    .max(100, { error: "Source is too long" })
-    .optional()
-    .transform((value) => {
-      if (!value) {
-        return null
-      }
-
-      return value
-    }),
+    .min(1, { error: "A category for this transactions is needed" })
+    .regex(/^\d+$/, { error: "A category for this transactions is needed" })
+    .transform((value) => Number(value)), */
 })

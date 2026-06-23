@@ -55,6 +55,14 @@ export const transactions = mysqlTable("transactions", {
     "expense",
   ]).notNull(),
   transactionDescription: varchar("transaction_description", { length: 255 }),
-  source: varchar("source", { length: 100 }),
+  categoryId: bigint("category_id", {mode: "number", unsigned: true}).references(() => categories.categoryId).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+})
+
+export const categories = mysqlTable("categories", {
+  categoryId: serial("category_id").primaryKey(),
+  userId: bigint("user_id", {mode: "number", unsigned: true}).references(() => users.id),
+  name: varchar("name", { length: 256 }).notNull(),
+  icon: varchar("icon", { length: 50 }), 
+  color: varchar("color", { length: 7 }),
 })

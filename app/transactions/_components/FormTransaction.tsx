@@ -22,7 +22,11 @@ import {
 } from "@/components/ui/select"
 import { createTransaction } from "@/server/transactions/server"
 import { BankAccounts } from "@/types/bank-accounts.types"
-import { TransactionsActionState } from "@/types/transactions.types"
+import { CategoriesList } from "@/types/categories.types"
+import {
+  Transaction,
+  TransactionsActionState,
+} from "@/types/transactions.types"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useActionState, useEffect, useMemo } from "react"
@@ -30,10 +34,16 @@ import { toast } from "sonner"
 
 interface FormTransactionProps {
   bankAccounts: BankAccounts[]
+  categories: CategoriesList[]
+  transaction?: Transaction
+  formType?: 'VIEW' | 'NEW'
 }
 
 export default function FormTransaction({
   bankAccounts,
+  categories,
+  transaction,
+  formType = 'NEW'
 }: FormTransactionProps) {
   const router = useRouter()
 
@@ -83,7 +93,12 @@ export default function FormTransaction({
           <FieldGroup className="grid grid-cols-1 md:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="checkout-account">Bank account</FieldLabel>
-              <Select name="accountId" defaultValue={state?.fields?.accountId}>
+              <Select
+                name="accountId"
+                defaultValue={
+                  transaction?.accountId.toString() ?? state?.fields?.accountId
+                }
+              >
                 <SelectTrigger
                   id="checkout-account"
                   aria-invalid={!!state?.error?.accountId}
@@ -125,7 +140,9 @@ export default function FormTransaction({
               </FieldLabel>
               <Select
                 name="transactionType"
-                defaultValue={state?.fields?.transactionType}
+                defaultValue={
+                  transaction?.transactionType ?? state?.fields?.transactionType
+                }
               >
                 <SelectTrigger
                   id="checkout-transaction-type"
@@ -150,7 +167,7 @@ export default function FormTransaction({
                 name="amount"
                 inputMode="decimal"
                 placeholder="0.00"
-                defaultValue={state?.fields?.amount}
+                defaultValue={transaction?.amount ?? state?.fields?.amount}
                 onChange={handleAmountChange}
                 aria-invalid={!!state?.error?.amount}
               />
@@ -159,20 +176,39 @@ export default function FormTransaction({
               </FieldDescription>
               <FieldError>{state?.error?.amount}</FieldError>
             </Field>
-
             <Field>
-              <FieldLabel htmlFor="checkout-source">Source</FieldLabel>
-              <Input
-                id="checkout-source"
-                name="source"
-                placeholder="Salary, Freelance, Groceries, etc."
-                defaultValue={state?.fields?.source}
-                aria-invalid={!!state?.error?.source}
-              />
-              <FieldDescription>
-                Optional. Add where this movement comes from.
-              </FieldDescription>
-              <FieldError>{state?.error?.source}</FieldError>
+              <FieldLabel htmlFor="checkout-categoryId">
+                Transaction category
+              </FieldLabel>
+              <Select
+                name="categoryId"
+                defaultValue={
+                  transaction?.categoryId?.toString() ??
+                  state?.fields?.categoryId
+                }
+              >
+                <SelectTrigger
+                  id="checkout-categoryId"
+                  aria-invalid={!!state?.error?.categoryId}
+                >
+                  <SelectValue placeholder="Select a transaction category">
+                    {transaction?.categoryName}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  <SelectGroup>
+                    {categories.map((cat) => (
+                      <SelectItem
+                        value={cat.categoryId.toString()}
+                        key={cat.categoryId}
+                      >
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <FieldError>{state?.error?.categoryId}</FieldError>
             </Field>
 
             <Field className="md:col-span-2">
@@ -183,7 +219,10 @@ export default function FormTransaction({
                 id="checkout-description"
                 name="transactionDescription"
                 placeholder="Optional transaction note"
-                defaultValue={state?.fields?.transactionDescription}
+                defaultValue={
+                  transaction?.transactionDescription ??
+                  state?.fields?.transactionDescription
+                }
                 aria-invalid={!!state?.error?.transactionDescription}
               />
               <FieldDescription>
@@ -195,29 +234,32 @@ export default function FormTransaction({
           </FieldGroup>
         </FieldSet>
 
-        <FieldSeparator />
+        {formType !== "VIEW" && (
+          <>
+            <FieldSeparator />
+            <Field orientation="horizontal">
+              <Button
+                type="submit"
+                className="cursor-pointer"
+                disabled={isPending || !hasAccounts}
+              >
+                {isPending ? "Submitting" : "Submit"}
+              </Button>
 
-        <Field orientation="horizontal">
-          <Button
-            type="submit"
-            className="cursor-pointer"
-            disabled={isPending || !hasAccounts}
-          >
-            {isPending ? "Submitting" : "Submit"}
-          </Button>
-
-          <Button
-            variant="outline"
-            type="button"
-            className="cursor-pointer"
-            asChild
-            disabled={isPending}
-          >
-            <Link href="/transactions" className="cursor-pointer">
-              Back
-            </Link>
-          </Button>
-        </Field>
+              <Button
+                variant="outline"
+                type="button"
+                className="cursor-pointer"
+                asChild
+                disabled={isPending}
+              >
+                <Link href="/transactions" className="cursor-pointer">
+                  Back
+                </Link>
+              </Button>
+            </Field>
+          </>
+        )}
       </FieldGroup>
     </form>
   )

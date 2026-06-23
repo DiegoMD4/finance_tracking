@@ -1,7 +1,8 @@
 import { db } from "@/db"
-import { bankAccounts, transactions } from "@/db/schema/schema"
+import { bankAccounts, categories, transactions } from "@/db/schema/schema"
+import { getCategoriesResponse } from "@/types/categories.types"
 import { GetTransactionById, GetTransactions } from "@/types/transactions.types"
-import { desc, eq, asc } from "drizzle-orm"
+import { desc, eq } from "drizzle-orm"
 
 export const getTransactions = async (): Promise<GetTransactions> => {
   try {
@@ -13,13 +14,15 @@ export const getTransactions = async (): Promise<GetTransactions> => {
         amount: transactions.amount,
         transactionType: transactions.transactionType,
         transactionDescription: transactions.transactionDescription,
-        source: transactions.source,
+        categoryId: transactions.categoryId,
         createdAt: transactions.createdAt,
         accountName: bankAccounts.accountName,
         bankName: bankAccounts.bankName,
+        categoryName: categories.name,
       })
       .from(transactions)
       .leftJoin(bankAccounts, eq(transactions.accountId, bankAccounts.id))
+      .leftJoin(categories, eq(transactions.categoryId, categories.categoryId))
       .orderBy(desc(transactions.createdAt))
 
     return {
@@ -42,10 +45,26 @@ export const getTransactionsById = async ({
   id: number
 }): Promise<GetTransactionById> => {
   try {
-    const res = await db.query.transactions.findFirst({
-      where: (transactions, { eq: equals }) => equals(transactions.id, id),
-    })
+    const [res] = await db
+      .select({
+        id: transactions.id,
+        userId: transactions.userId,
+        accountId: transactions.accountId,
+        amount: transactions.amount,
+        transactionType: transactions.transactionType,
+        transactionDescription: transactions.transactionDescription,
+        categoryId: transactions.categoryId,
+        createdAt: transactions.createdAt,
 
+        categoryName: categories.name,
+        categoryIcon: categories.icon,
+        categoryColor: categories.color,
+      })
+      .from(transactions)
+      .leftJoin(categories, eq(transactions.categoryId, categories.categoryId))
+      .where(eq(transactions.id, id))
+      .limit(1)
+    
     return {
       success: true,
       data: res,
@@ -74,13 +93,15 @@ export const getTransactionsPaginated = async (
         amount: transactions.amount,
         transactionType: transactions.transactionType,
         transactionDescription: transactions.transactionDescription,
-        source: transactions.source,
+        categoryId: transactions.categoryId,
         createdAt: transactions.createdAt,
         accountName: bankAccounts.accountName,
         bankName: bankAccounts.bankName,
+        categoryName: categories.name,
       })
       .from(transactions)
       .leftJoin(bankAccounts, eq(transactions.accountId, bankAccounts.id))
+      .leftJoin(categories, eq(transactions.categoryId, categories.categoryId))
       .orderBy(desc(transactions.createdAt))
       .limit(pageSize + 1)
       .offset((page - 1) * pageSize)
@@ -102,3 +123,17 @@ export const getTransactionsPaginated = async (
   }
 }
 
+export const getCategories = async (): Promise<getCategoriesResponse> => {
+  try {
+    const res = await db.select().from(categories)
+    return { success: true, message: "success", categories: res }
+  } catch (error) {
+    console.error(error)
+    return {
+      success: false,
+      message: "Couldn't get any categories",
+      categories: [],
+      error: `${error}: getCategories failed`,
+    }
+  }
+}
