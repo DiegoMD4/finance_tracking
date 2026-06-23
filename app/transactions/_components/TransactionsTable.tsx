@@ -18,13 +18,12 @@ interface TransactionsTableProps {
 export function TransactionsTable({ data }: TransactionsTableProps) {
   return (
     <>
-      {" "}
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Type</TableHead>
             <TableHead>Amount</TableHead>
-            <TableHead>Source</TableHead>
+            <TableHead>Category</TableHead>
             <TableHead>Description</TableHead>
             <TableHead>Account</TableHead>
             <TableHead>Bank</TableHead>
@@ -42,7 +41,7 @@ export function TransactionsTable({ data }: TransactionsTableProps) {
                 <TableCell className="font-medium">
                   {formatCurrency(transaction.amount)}
                 </TableCell>
-                <TableCell>{transaction.source || "-"}</TableCell>
+                <TableCell>{transaction.categoryName || "-"}</TableCell>
                 <TableCell>
                   {transaction.transactionDescription || "-"}
                 </TableCell>
@@ -54,7 +53,7 @@ export function TransactionsTable({ data }: TransactionsTableProps) {
                   {transaction.createdAt.toLocaleDateString()}
                 </TableCell>
                 <TableCell className="text-right">
-                  <TransactionsActions transactionId={transaction.id} />
+                  <TransactionsActions transaction={transaction} />
                 </TableCell>
               </TableRow>
             ))

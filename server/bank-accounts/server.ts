@@ -2,13 +2,13 @@
 
 import { bankAccountSchema } from "@/app/bank-accounts/schema"
 import { db } from "@/db"
-import { bankAccounts, transactions } from "@/db/schema/schema"
+import { bankAccounts } from "@/db/schema/schema"
 import {
   BankAccountActionState,
   CreateBankAccount,
   UpdateBankAccount,
 } from "@/types/bank-accounts.types"
-import { eq, or, and, ne, sql, gte } from "drizzle-orm"
+import { eq, or, and, ne,  } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import z from "zod"
 

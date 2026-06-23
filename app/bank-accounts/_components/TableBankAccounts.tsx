@@ -9,6 +9,7 @@ import {
 
 import { BankAccounts } from "@/types/bank-accounts.types"
 import ProductsTableActions from "./ActionsBankAccountTable"
+import { formatCurrency } from "@/lib/utils"
 
 
 interface InventoryItemsTableProps {
@@ -45,7 +46,7 @@ export function BankAccountsTable({ data }: InventoryItemsTableProps) {
               </TableCell>
               <TableCell>{element.bankAccountType}</TableCell>
               <TableCell>{element.accountCurrency}</TableCell>
-              <TableCell>{element.openingBalance}</TableCell>
+              <TableCell>{formatCurrency(element.openingBalance)}</TableCell>
               <TableCell>{element.createdAt.toLocaleDateString()}</TableCell>
               <TableCell className="text-right">
                 <ProductsTableActions bankAccount={element} />

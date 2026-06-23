@@ -9,25 +9,26 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { deleteTransaction } from "@/server/transactions/server"
+import { TransactionListItem } from "@/types/transactions.types"
 import { MoreHorizontalIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTransition } from "react"
 import { toast } from "sonner"
 
 interface TransactionsActionsProps {
-  transactionId: number
+  transaction: TransactionListItem
   variant?: "menu" | "buttons"
 }
 
 export default function TransactionsActions({
-  transactionId,
+  transaction,
   variant = "menu",
 }: TransactionsActionsProps) {
   const [isPending, startTransition] = useTransition()
-  /*   const router = useRouter() */
+    const router = useRouter()
 
-  const handleEdit = () => {
-    /* router.push(`/transactions/edit?transactionId=${transactionId}`) */
+  const handleView = () => {
+    router.push(`/transactions/transaction-detail?id=${transaction.id}`)
   }
 
   const handleDelete = (event?: React.MouseEvent) => {
@@ -35,7 +36,7 @@ export default function TransactionsActions({
 
     startTransition(async () => {
       try {
-        const response = await deleteTransaction(transactionId)
+        const response = await deleteTransaction(transaction.id)
 
         if (response.success) {
           toast.success("Transaction deleted")
@@ -53,9 +54,9 @@ export default function TransactionsActions({
   if (variant === "buttons") {
     return (
       <div className="flex w-full flex-row justify-end gap-3 pt-2">
-        {/*  <Button size="xs" variant="outline" onClick={handleEdit}>
-          Edit
-        </Button> */}
+         <Button size="xs" variant="outline" onClick={handleView}>
+          View details
+        </Button>
         <Button
           size="xs"
           variant="destructive"
@@ -77,8 +78,8 @@ export default function TransactionsActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {/*  <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>
-        <DropdownMenuSeparator /> */}
+         <DropdownMenuItem onClick={handleView}>View details</DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"
           onClick={(event) => handleDelete(event)}
