@@ -5,7 +5,7 @@ import { Plus } from "lucide-react"
 import { headers } from "next/headers"
 import { userAgent } from "next/server"
 import BankAccountsCard from "./_components/CardBanksAccount"
-import { getBankAccounts } from "../../server/bank-accounts/data"
+import { getBankAccounts } from "../../server/bank-accounts/queries"
 export const dynamic = "force-dynamic"
 
 export default async function BankAccountsPage() {

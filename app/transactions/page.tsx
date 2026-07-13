@@ -5,7 +5,7 @@ import { userAgent } from "next/server"
 import { TransactionsTable } from "./_components/TransactionsTable"
 import Link from "next/link"
 import TransactionsCard from "./_components/TransactionsCard"
-import { getTransactionsPaginated } from "../../server/transactions/data"
+import { getTransactionsPaginated } from "../../server/transactions/queries"
 import PaginationTable from "@/components/pagination"
 export const dynamic = "force-dynamic"
 

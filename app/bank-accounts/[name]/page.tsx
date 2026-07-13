@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import FormBankAccounts from "../_components/FormBankAccounts"
-import { getBankAccountById } from "../../../server/bank-accounts/data"
+import { getBankAccountById } from "../../../server/bank-accounts/queries"
 
 interface EditBankAccountProps {
   params: Promise<{ name: string }>

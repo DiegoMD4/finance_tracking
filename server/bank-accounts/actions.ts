@@ -8,7 +8,7 @@ import {
   CreateBankAccount,
   UpdateBankAccount,
 } from "@/types/bank-accounts.types"
-import { eq, or, and, ne,  } from "drizzle-orm"
+import { eq, or, and, ne} from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import z from "zod"
 

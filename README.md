@@ -12,7 +12,7 @@ A modern, high-performance, and responsive Fullstack web application designed to
 - **💸 Transaction Management:** Complete CRUD experience to add, categorize, and log transactions (Income/Expenses) with clean filtering capabilities.
 - **📈 Data Visualization:** Dynamic and sleek charts leveraging shadcn/ui components to track spending trends and break down expenditures by categories.
 - **🎨 Responsive UI/UX:** Premium and responsive layout powered by Tailwind CSS and shadcn/ui, optimized across mobile, tablet, and desktop viewports.
-- **⚡ Server-Side Power & Reactivity:** Optimized data fetching and secure API routes utilizing Next.js architecture.
+- **⚡ Server-Side Power & Reactivity:** Optimized data fetching driven entirely by Next.js **Server Actions**, bypassing traditional API routes to handle database mutations and state updates directly and securely on the server.
 
 ---
 

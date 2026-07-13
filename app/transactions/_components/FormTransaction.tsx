@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createTransaction } from "@/server/transactions/server"
+import { createTransaction } from "@/server/transactions/actions"
 import { BankAccounts } from "@/types/bank-accounts.types"
 import { CategoriesList } from "@/types/categories.types"
 import {

@@ -13,7 +13,7 @@ import { useTransition } from "react"
 
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
-import { deleteBankAccount } from "../../../server/bank-accounts/server"
+import { deleteBankAccount } from "../../../server/bank-accounts/actions"
 
 interface ProductsTableActionsProps {
   bankAccount: BankAccounts

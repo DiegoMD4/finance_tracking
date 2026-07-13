@@ -13,7 +13,7 @@ const connection =
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    connectTimeout: 20000,
+    /* connectTimeout: 20000, */
   })
 
 if (process.env.NODE_ENV !== "production") {

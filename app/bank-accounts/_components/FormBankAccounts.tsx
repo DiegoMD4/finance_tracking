@@ -32,7 +32,7 @@ import {
 import {
   createBankAccount,
   updateBankAccount,
-} from "../../../server/bank-accounts/server"
+} from "../../../server/bank-accounts/actions"
 
 interface FormBankAccountsProps {
   bankAccount?: BankAccounts
@@ -219,7 +219,7 @@ export default function FormBankAccounts({
                 <SelectContent position="popper">
                   <SelectGroup>
                     <SelectItem value="Lempiras">Lempiras</SelectItem>
-                  {/*   <SelectItem value="Dollars">Dollars</SelectItem>
+                    {/*   <SelectItem value="Dollars">Dollars</SelectItem>
                     <SelectItem value="Euros">Euros</SelectItem> */}
                   </SelectGroup>
                 </SelectContent>

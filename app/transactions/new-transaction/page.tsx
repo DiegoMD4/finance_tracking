@@ -1,6 +1,6 @@
-import { getBankAccounts } from "@/server/bank-accounts/data"
+import { getBankAccounts } from "@/server/bank-accounts/queries"
 import FormTransaction from "../_components/FormTransaction"
-import { getCategories } from "@/server/transactions/data"
+import { getCategories } from "@/server/transactions/queries"
 
 export default async function NewTransactionPage() {
 

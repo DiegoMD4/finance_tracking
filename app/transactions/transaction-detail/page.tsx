@@ -1,6 +1,6 @@
-import { getBankAccounts } from "@/server/bank-accounts/data"
+import { getBankAccounts } from "@/server/bank-accounts/queries"
 import FormTransaction from "../_components/FormTransaction"
-import { getCategories, getTransactionsById } from "@/server/transactions/data"
+import { getCategories, getTransactionsById } from "@/server/transactions/queries"
 import { notFound } from "next/navigation"
 
 interface TransactionDetailProps {

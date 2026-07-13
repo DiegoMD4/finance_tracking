@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { deleteTransaction } from "@/server/transactions/server"
+import { deleteTransaction } from "@/server/transactions/actions"
 import { TransactionListItem } from "@/types/transactions.types"
 import { MoreHorizontalIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
