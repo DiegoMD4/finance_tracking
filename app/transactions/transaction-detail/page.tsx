@@ -1,6 +1,7 @@
 import { getBankAccounts } from "@/server/bank-accounts/queries"
 import FormTransaction from "../_components/FormTransaction"
-import { getCategories, getTransactionsById } from "@/server/transactions/queries"
+import { getTransactionsById } from "@/server/transactions/queries"
+import { getCategories } from "@/server/categories/queries"
 import { notFound } from "next/navigation"
 
 interface TransactionDetailProps {
@@ -29,7 +30,7 @@ export default async function TransactionDetailPage({
         <FormTransaction
           formType="VIEW"
           bankAccounts={responseBankAccounts.data}
-          categories={responseCategories.categories}
+          categories={responseCategories.data}
           transaction={responseTransaction.data}
         />
       </div>

@@ -1,6 +1,5 @@
 import { db } from "@/db"
 import { bankAccounts, categories, transactions } from "@/db/schema/schema"
-import { getCategoriesResponse } from "@/types/categories.types"
 import { GetTransactionById, GetTransactions } from "@/types/transactions.types"
 import { desc, eq } from "drizzle-orm"
 
@@ -119,21 +118,6 @@ export const getTransactionsPaginated = async (
       success: false,
       data: [],
       error: "Couldn't get any transactions try it later",
-    }
-  }
-}
-
-export const getCategories = async (): Promise<getCategoriesResponse> => {
-  try {
-    const res = await db.select().from(categories)
-    return { success: true, message: "success", categories: res }
-  } catch (error) {
-    console.error(error)
-    return {
-      success: false,
-      message: "Couldn't get any categories",
-      categories: [],
-      error: `${error}: getCategories failed`,
     }
   }
 }

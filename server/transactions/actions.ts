@@ -3,6 +3,7 @@
 import { transactionSchema } from "@/app/transactions/schema"
 import { db } from "@/db"
 import { transactions } from "@/db/schema/schema"
+import { getDefaultCategory } from "@/server/categories/queries"
 import {
   TransactionsActionState,
   CreateTransaction,
@@ -13,7 +14,17 @@ import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import z from "zod"
 
-const DEFAULT_CATEGORY_ID = 9
+const resolveCategoryId = async (rawCategoryId: string) => {
+  const parsedCategoryId = Number(rawCategoryId)
+
+  if (parsedCategoryId) {
+    return parsedCategoryId
+  }
+
+  const defaultCategory = await getDefaultCategory()
+
+  return defaultCategory.categoryId ?? parsedCategoryId
+}
 
 export const createTransaction = async (
   prevState: TransactionsActionState,
@@ -64,7 +75,7 @@ export const createTransaction = async (
       amount,
       transactionType,
       transactionDescription,
-      categoryId: Number(rawFields.categoryId) ?? DEFAULT_CATEGORY_ID,
+      categoryId: await resolveCategoryId(rawFields.categoryId),
     })
 
     revalidatePath("/transactions")
@@ -157,7 +168,7 @@ export const updateTransaction = async (
         amount,
         transactionType,
         transactionDescription,
-        categoryId: Number(rawFields.categoryId) ?? DEFAULT_CATEGORY_ID,
+        categoryId: await resolveCategoryId(rawFields.categoryId),
       })
       .where(eq(transactions.id, transactionId))
 

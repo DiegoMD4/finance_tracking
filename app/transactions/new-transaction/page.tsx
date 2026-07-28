@@ -1,6 +1,6 @@
 import { getBankAccounts } from "@/server/bank-accounts/queries"
 import FormTransaction from "../_components/FormTransaction"
-import { getCategories } from "@/server/transactions/queries"
+import { getCategories } from "@/server/categories/queries"
 
 export default async function NewTransactionPage() {
 
@@ -14,7 +14,7 @@ export default async function NewTransactionPage() {
       <div className="w-full p-3">
         <FormTransaction
           bankAccounts={responseBankAccounts.data}
-          categories={responseCategories.categories}
+          categories={responseCategories.data}
         />
       </div>
     </section>

@@ -1,0 +1,238 @@
+{
+  "feature": "categories-crud",
+  "summary": "CRUD completo de categories (crear, listar, actualizar, eliminar) siguiendo el patron existente de bank-accounts/transactions (app/<feature> + server/<feature> + types/<feature>.types.ts + schema Zod), mas un item nuevo en el sidebar.",
+  "createdAt": "2026-07-28",
+  "purpose": "Spec paso a paso para que Claude Code la ejecute tarea por tarea. Cada tarea trae los archivos exactos a crear/modificar y sus criterios de aceptacion. Marcar 'status' como 'done' conforme se completa cada tarea; no saltar el orden de 'dependsOn'.",
+  "decisions": {
+    "delete": "Se permite eliminar categorias. Al eliminar una categoria en uso, sus transacciones se reasignan a la categoria por defecto 'Miscellaneous / Others' (misma categoria que ya usa DEFAULT_CATEGORY_ID = 9 en server/transactions/actions.ts). No se puede eliminar la propia categoria 'Miscellaneous / Others' (es el fallback, no debe desaparecer).",
+    "defaultCategoryLookup": "En vez de depender de un ID numerico hardcodeado (fragil si cambia el orden del seed), se agrega un lookup por nombre ('Miscellaneous / Others') centralizado en server/categories/queries.ts. server/transactions/actions.ts se refactoriza para usar ese lookup en vez de la constante DEFAULT_CATEGORY_ID = 9.",
+    "detailRouteConvention": "Se usa el mismo patron que app/transactions/transaction-detail (ruta estatica + ?id= por query param), no un segmento dinamico tipo bank-accounts/[name]. Motivo: el nombre de una categoria puede tener espacios/caracteres especiales ('Food & Dining'), lo que complica usarlo como slug de URL.",
+    "iconPicker": "El icono de una categoria se guarda como string kebab-case (columna categories.icon, ya existe en el schema) y se resuelve a un componente de lucide-react mediante un mapa compartido. Se reutilizan las claves que ya usa db/seeds/seeds.ts (home, utensils, car, shopping-bag, banknote, heart-pulse, graduation-cap, trending-up, circle-ellipsis) y se agregan un par de genericas (tag, landmark, wallet) para categorias nuevas que el usuario cree.",
+    "colorPicker": "El color se guarda como hex de 7 caracteres (columna categories.color, varchar(7)). El form usa un <input type='color'> sincronizado con un input de texto que valida el formato con regex, igual de estricto que el resto de los schemas Zod del proyecto.",
+    "scopeOfEdit": "Se permite editar/eliminar tanto categorias globales (userId null, las del seed) como las propias del usuario (userId = 1, hardcodeado igual que en el resto del proyecto mientras no exista auth). No se agrega ninguna restriccion adicional por ahora."
+  },
+  "openQuestions": [
+    "Si se eliminan TODAS las categorias existentes salvo 'Miscellaneous / Others', esa categoria queda como unica opcion en los formularios de transacciones; no se contempla un estado vacio especial para ese caso.",
+    "No se agrega validacion de nombre duplicado (a diferencia de bank-accounts con checkDuplicateAccount) salvo que se pida explicitamente; se puede agregar como tarea extra si se quiere paridad total."
+  ],
+  "tasks": [
+    {
+      "id": "cat-01",
+      "title": "Mover getCategories a su propio feature (server/categories/queries.ts) y agregar lookup de categoria por defecto",
+      "status": "done",
+      "type": "server-query",
+      "dependsOn": [],
+      "files": {
+        "create": ["server/categories/queries.ts"],
+        "modify": ["server/transactions/queries.ts"]
+      },
+      "description": "Crear server/categories/queries.ts con: getCategories() (mover la logica actual desde server/transactions/queries.ts, mismo shape de retorno pero usando los tipos nuevos de cat-02), getCategoryById({ id }), y getDefaultCategory() que busca por name = 'Miscellaneous / Others' (eq(categories.name, ...)) y devuelve su categoryId. Quitar getCategories de server/transactions/queries.ts junto con el import de getCategoriesResponse que deja de usarse ahi.",
+      "acceptanceCriteria": [
+        "server/transactions/queries.ts ya no exporta getCategories",
+        "server/categories/queries.ts exporta getCategories, getCategoryById y getDefaultCategory",
+        "getDefaultCategory lanza/retorna un error controlado (no throw sin catch) si no encuentra la categoria por nombre"
+      ]
+    },
+    {
+      "id": "cat-02",
+      "title": "Actualizar types/categories.types.ts con los tipos de CRUD",
+      "status": "done",
+      "type": "types",
+      "dependsOn": [],
+      "files": {
+        "modify": ["types/categories.types.ts"]
+      },
+      "description": "Reemplazar getCategoriesResponse/CategoriesList por una convencion consistente con types/bank-accounts.types.ts: Category (categoryId, userId, name, icon, color), GetCategories { success, data: Category[], error? }, GetCategoryById { success, data?: Category, error? }, CategoryFormFields { name, icon, color }, CategoryFormErrors { name?, icon?, color? }, CreateCategory/UpdateCategory (success, message, error?, fields), CategoriesActionState = CreateCategory | null | undefined.",
+      "acceptanceCriteria": [
+        "No quedan referencias a getCategoriesResponse ni CategoriesList en el proyecto (renombrar los usos, no dejar alias de compatibilidad)",
+        "app/transactions/_components/FormTransaction.tsx usa el nuevo tipo Category en vez de CategoriesList"
+      ]
+    },
+    {
+      "id": "cat-03",
+      "title": "Actualizar los 2 consumidores existentes de getCategories",
+      "status": "done",
+      "type": "refactor",
+      "dependsOn": ["cat-01", "cat-02"],
+      "files": {
+        "modify": [
+          "app/transactions/new-transaction/page.tsx",
+          "app/transactions/transaction-detail/page.tsx"
+        ]
+      },
+      "description": "Cambiar el import de getCategories de '@/server/transactions/queries' a '@/server/categories/queries' en ambos archivos.",
+      "acceptanceCriteria": [
+        "npm run typecheck no reporta errores en estos dos archivos"
+      ]
+    },
+    {
+      "id": "cat-04",
+      "title": "Crear el schema Zod de categories",
+      "status": "done",
+      "type": "schema",
+      "dependsOn": [],
+      "note": "Se adelanto de cat-05 solo el array CATEGORY_ICON_KEYS en lib/category-icons.ts (sin los componentes de lucide todavia), para que el enum de icon en el schema y el futuro mapa de iconos compartan una unica fuente de verdad en vez de duplicar la lista de claves.",
+      "files": {
+        "create": [
+          "app/categories/schema/index.ts",
+          "lib/category-icons.ts (parcial: solo CATEGORY_ICON_KEYS)"
+        ]
+      },
+      "description": "categorySchema con: name (string, trim, min 1, max 255, matching varchar(256) de la tabla), icon (z.enum con las claves definidas en cat-05, mensaje de error si no es una clave valida), color (string, regex /^#[0-9a-fA-F]{6}$/, mensaje de error de formato). Seguir el mismo estilo de mensajes de error que app/bank-accounts/schema/index.ts (usar { error: '...' } no { message: '...' } para ser consistentes con el resto del proyecto).",
+      "acceptanceCriteria": [
+        "El schema exporta un type inferido usable en actions.ts",
+        "Los mensajes de error siguen el estilo z.string().min(1, { error: '...' }) usado en el resto del proyecto"
+      ]
+    },
+    {
+      "id": "cat-05",
+      "title": "Crear el mapa compartido de iconos de categoria",
+      "status": "done",
+      "type": "ui-component",
+      "dependsOn": [],
+      "files": {
+        "modify": ["lib/category-icons.ts"]
+      },
+      "description": "Exportar CATEGORY_ICONS: Array<{ key: string; label: string; icon: LucideIcon }> con al menos: home (Home), utensils (Utensils), car (Car), shopping-bag (ShoppingBag), banknote (Banknote), heart-pulse (HeartPulse), graduation-cap (GraduationCap), trending-up (TrendingUp), circle-ellipsis (CircleEllipsis), tag (Tag), landmark (Landmark), wallet (Wallet). Exportar tambien una funcion getCategoryIcon(key: string | null): LucideIcon que devuelva Tag como fallback si la clave no se reconoce (para no romper el render de categorias creadas antes de agregar un icono nuevo al mapa).",
+      "acceptanceCriteria": [
+        "Todas las claves usadas en db/seeds/seeds.ts (GENERAL_CATEGORIES) existen en CATEGORY_ICONS",
+        "getCategoryIcon nunca retorna undefined"
+      ]
+    },
+    {
+      "id": "cat-06",
+      "title": "Server actions: createCategory, updateCategory, deleteCategory",
+      "status": "done",
+      "implementationNotes": "deleteCategory usa db.transaction para que la reasignacion de transacciones y el borrado de la categoria sean atomicos. updateCategory NO reescribe userId (a diferencia de updateBankAccount), para no reclamar como propia una categoria global (userId null) solo por editarla. Se aprovecho el refactor para arreglar un bug real en createTransaction/updateTransaction: 'Number(rawFields.categoryId) ?? DEFAULT_CATEGORY_ID' nunca activaba el fallback porque Number('') es 0, no null/undefined, asi que la categoria por defecto jamas se aplicaba (habria fallado el insert por FK violation); ahora resolveCategoryId() usa una comprobacion de falsy real antes de consultar getDefaultCategory().",
+      "type": "server-action",
+      "dependsOn": ["cat-01", "cat-02", "cat-04"],
+      "files": {
+        "create": ["server/categories/actions.ts"],
+        "modify": ["server/transactions/actions.ts"]
+      },
+      "description": "server/categories/actions.ts con 'use server' arriba, siguiendo el mismo patron que server/bank-accounts/actions.ts: parsear FormData -> categorySchema.safeParse -> en error devolver { success: false, message: 'Invalid form data', error: {...}, fields } via z.treeifyError -> en exito insert/update -> revalidatePath('/categories') -> return { success: true, message, fields }. createCategory inserta con userId: 1 (igual que el resto del proyecto). updateCategory recibe id via formData igual que updateBankAccount/updateTransaction. deleteCategory(id: number): 1) obtener el id de 'Miscellaneous / Others' via getDefaultCategory(); 2) si id === defaultCategoryId, retornar { success: false, message: \"No se puede eliminar la categoria por defecto\" } sin tocar la base de datos; 3) si no, reasignar (db.update(transactions).set({ categoryId: defaultCategoryId }).where(eq(transactions.categoryId, id))) y luego borrar la categoria (db.delete(categories).where(eq(categories.id, id))); 4) revalidatePath('/categories') y revalidatePath('/transactions') (los nombres de categoria mostrados en transacciones cambian). Ademas, refactorizar server/transactions/actions.ts: quitar la constante DEFAULT_CATEGORY_ID = 9 y reemplazar sus 2 usos por el resultado de getDefaultCategory() (importado de server/categories/queries).",
+      "acceptanceCriteria": [
+        "No queda ningun ID de categoria hardcodeado en el proyecto",
+        "deleteCategory nunca deja transacciones con un categoryId que ya no existe",
+        "Intentar borrar 'Miscellaneous / Others' devuelve success: false sin excepcion"
+      ]
+    },
+    {
+      "id": "cat-07",
+      "title": "Formulario de categoria (crear/editar)",
+      "status": "done",
+      "type": "ui-component",
+      "dependsOn": ["cat-02", "cat-04", "cat-05", "cat-06"],
+      "files": {
+        "create": ["app/categories/_components/FormCategory.tsx"]
+      },
+      "description": "Client component 'use client' que replica el patron de app/transactions/_components/FormTransaction.tsx: useActionState con createCategory/updateCategory segun props category?/formType ('NEW' | 'EDIT'), <FieldGroup>/<Field> de components/ui/field.tsx, toasts de sonner en useEffect segun state.success, router.push('/categories') al exito. Campos: name (Input), icon (Select poblado desde CATEGORY_ICONS, mostrando el icono junto al label en cada SelectItem), color (input type='color' + Input de texto sincronizados, mostrando FieldError si el formato es invalido). Boton Submit + boton Back a /categories, igual que en FormTransaction/FormBankAccounts.",
+      "acceptanceCriteria": [
+        "Reusa components/ui/field.tsx, components/ui/select.tsx e components/ui/input.tsx tal como el resto de los forms",
+        "Al editar, los defaultValue de cada campo se prellenan desde la prop category"
+      ]
+    },
+    {
+      "id": "cat-08",
+      "title": "Tabla, card y menu de acciones de categorias",
+      "status": "done",
+      "implementationNotes": "ActionsCategoryTable soporta variant 'menu' | 'buttons' (mismo patron que TransactionsActions.tsx) en vez de duplicar el guard de la categoria por defecto entre la tabla y la card; CardCategories reutiliza el mismo componente con variant='buttons'. DEFAULT_CATEGORY_NAME se movio de server/categories/queries.ts a un modulo nuevo sin dependencias de servidor (lib/categories.ts), porque ActionsCategoryTable es un client component y no puede importar nada desde un archivo que toca la base de datos sin 'use server'.",
+      "type": "ui-component",
+      "dependsOn": ["cat-02", "cat-05", "cat-06"],
+      "files": {
+        "create": [
+          "app/categories/_components/TableCategories.tsx",
+          "app/categories/_components/CardCategories.tsx",
+          "app/categories/_components/ActionsCategoryTable.tsx",
+          "lib/categories.ts"
+        ],
+        "modify": ["server/categories/queries.ts"]
+      },
+      "description": "TableCategories: tabla (components/ui/table.tsx) con columnas Icon (render con getCategoryIcon), Name, Color (swatch: div con background-color inline al valor hex), Actions; estado vacio 'There is no categories created for this user' igual de estilo que BankAccountsTable. CardCategories: version mobile tipo TransactionsCard/CardBanksAccount. ActionsCategoryTable: dropdown Edit/Delete igual que ActionsBankAccountTable.tsx, usando deleteBankAccount como referencia mas usando deleteCategory; deshabilitar/ocultar la opcion Delete cuando la categoria es 'Miscellaneous / Others' (comparar por name, ya que ese es el criterio que usa el server action).",
+      "acceptanceCriteria": [
+        "El boton Delete de 'Miscellaneous / Others' esta deshabilitado en la UI (ademas del guard en el server action)",
+        "El toast de error/success sigue el mismo copy style que ActionsBankAccountTable.tsx"
+      ]
+    },
+    {
+      "id": "cat-09",
+      "title": "Paginas de categories (listado, nueva, editar)",
+      "status": "done",
+      "verification": "Probado contra la base de datos real con el dev server levantado (npm run dev): /categories renderiza la tabla con las 9 categorias sembradas (nombre, icono, color); /categories/new-category renderiza el formulario; /categories/category-detail?id=1 prefilla 'Housing & Utilities' correctamente; /categories/category-detail sin id o con id inexistente cae en not-found.tsx (mismo comportamiento de status ya presente en transaction-detail, no es una regresion). Ademas se corrio un script tsx standalone que ejercito createCategory/updateCategory/deleteCategory contra la DB real: validacion de campos invalidos, update persistido, guard de borrado de 'Miscellaneous / Others' (falla limpiamente), borrado de una categoria en uso reasigna la transaccion asociada a la categoria por defecto (verificado categoryId 11 -> 9), y limpieza posterior de los datos de prueba.",
+      "knownTestArtifact": "Al invocar los server actions fuera del ciclo de request de Next (ej. un script tsx suelto), revalidatePath() lanza 'Invariant: static generation store missing' porque no hay contexto de Next. Esto ocurre DESPUES de que la mutacion en base de datos ya se aplico, asi que createCategory/updateCategory/deleteCategory reportan success:false aunque el cambio si se guardo. No afecta el uso real de la app (los Server Actions siempre corren dentro de una request de Next), solo es una limitacion de probarlos por fuera del framework.",
+      "type": "ui-page",
+      "dependsOn": ["cat-01", "cat-07", "cat-08"],
+      "files": {
+        "create": [
+          "app/categories/page.tsx",
+          "app/categories/new-category/page.tsx",
+          "app/categories/category-detail/page.tsx",
+          "app/categories/category-detail/not-found.tsx"
+        ]
+      },
+      "description": "page.tsx: export const dynamic = 'force-dynamic', usa headers()/userAgent() igual que app/transactions/page.tsx para elegir TableCategories vs CardCategories, boton 'New category' -> /categories/new-category, llama getCategories() de server/categories/queries. new-category/page.tsx: renderiza <FormCategory formType='NEW' />. category-detail/page.tsx: recibe searchParams con id (Promise<{ id?: string }>, igual que transaction-detail/page.tsx), valida id, llama getCategoryById; si no existe o id invalido -> notFound(); si existe, renderiza <FormCategory category={...} formType='EDIT' />. category-detail/not-found.tsx: calcado de app/transactions/transaction-detail/not-found.tsx.",
+      "acceptanceCriteria": [
+        "El flujo completo crear -> listar -> editar -> eliminar funciona navegando desde /categories",
+        "Los tres archivos siguen la misma estructura que sus equivalentes de transactions"
+      ]
+    },
+    {
+      "id": "cat-10",
+      "title": "Agregar 'Categories' al sidebar",
+      "status": "done",
+      "verification": "Confirmado en el HTML renderizado del dev server real (curl http://localhost:3000/) que el texto 'Categories' aparece en el sidebar junto a Dashboard/Bank Accounts/Transactions.",
+      "type": "sidebar",
+      "dependsOn": [],
+      "files": {
+        "modify": ["components/app-sidebar.tsx"]
+      },
+      "description": "Agregar { title: 'Categories', url: '/categories', icon: Tags } al array items (import Tags desde lucide-react, ya confirmado que existe en la version instalada). Ubicarlo despues de 'Transactions'.",
+      "acceptanceCriteria": [
+        "El item aparece en el sidebar, resalta como activo en cualquier ruta que empiece con /categories (ya lo maneja isItemMenuActive con startsWith)"
+      ]
+    },
+    {
+      "id": "cat-11",
+      "title": "Seed idempotente de las categorias por defecto",
+      "status": "done",
+      "type": "db-seed",
+      "dependsOn": [],
+      "context": "Pedido del usuario fuera del feature original: que la base de datos siempre tenga las categorias iniciales (las 9 de GENERAL_CATEGORIES) sin importar cuantas veces se corran las migraciones/el seed. Se evaluo un stored procedure vs un seed idempotente en TypeScript; se opto por el seed idempotente para mantenerse en el patron TypeScript-first del proyecto.",
+      "files": {
+        "modify": ["db/seeds/seeds.ts", "package.json", "CLAUDE.md"]
+      },
+      "description": "db/seeds/seeds.ts tenia 2 bugs reales ademas de no ser idempotente: (1) main() y seedCategories() se invocaban como dos promesas top-level sin relacion (ninguna esperaba a la otra), asi que competian por la misma conexion y main() podia cerrarla (connection.end()) mientras seedCategories() todavia insertaba; (2) seedCategories() no verificaba nada antes de insertar, asi que cada corrida de npm run db:seed duplicaba las 9 categorias. Fix: un solo main() secuencial (conectar -> upsert demo user -> seed de categorias solo si no existen, via SELECT COUNT(*) FROM categories WHERE user_id IS NULL con isNull() -> cerrar conexion).",
+      "pivotFromOriginalPlan": "El plan original agregaba un script 'db:migrate' (drizzle-kit migrate + seed) y planeaba arreglar el snapshot/migracion base obsoleta (drizzle/0000_free_maestro.sql, que no refleja el schema actual). Al investigar se confirmo que este proyecto nunca uso drizzle-kit migrate en la practica (siempre push, segun el historial de commits), y el usuario decidio no complicar el flujo arreglando el historial de migraciones: en vez de eso, el script se llama 'db:push' y corre 'drizzle-kit push && npm run db:seed'. La carpeta drizzle/ con la migracion/snapshot obsoletos se dejo intacta (no se toco), es un remanente sin uso pero inofensivo mientras no se use drizzle-kit migrate/generate.",
+      "verification": "npx drizzle-kit push contra la BD local: 'No changes detected' (ya estaba sincronizada). npm run db:push corrido end-to-end: push + seed, categorias ya existentes -> skip logueado correctamente. Pendiente: correr db:push tambien contra Railway; la conexion a Railway fallo durante esta sesion (Connection lost) y no se pudo diagnosticar mas a fondo.",
+      "acceptanceCriteria": [
+        "Correr 'npm run db:seed' dos veces seguidas no duplica categorias (la segunda corrida hace skip y lo loguea) — verificado",
+        "Si la tabla categories esta vacia, 'npm run db:seed' inserta las 9 categorias generales — logica revisada, no re-verificada contra una BD vacia para no arriesgar datos reales",
+        "main() ya no cierra la conexion antes de que termine el seed de categorias — verificado",
+        "'npm run db:push' existe y encadena drizzle-kit push + el seed idempotente — verificado en local; Railway pendiente"
+      ]
+    },
+    {
+      "id": "cat-12",
+      "title": "Aplicar schema + seed en Railway cuando el servicio vuelva a estar disponible",
+      "status": "blocked",
+      "type": "db-ops",
+      "dependsOn": ["cat-11"],
+      "blockedBy": "El servicio de MySQL en Railway no responde. Se probo: (1) reintentos con esperas crecientes (0s/10s/20s/30s x3, ~2 min totales) usando la conexion exacta de la app (mysql2 + uri, sin SSL extra); (2) conexion TCP cruda al host/puerto (gondola.proxy.rlwy.net:18734) - el TCP SI conecta, pero el servidor cierra la conexion de inmediato sin enviar el saludo del protocolo MySQL (ni un byte), en cada uno de los intentos; (3) se activo temporalmente la DATABASE_URL de Railway en .env (en vez de parsearla manualmente) para descartar que fuera un problema de que variable se estaba usando - mismo resultado exacto (PROTOCOL_CONNECTION_LOST). Esto no es el patron tipico de 'contenedor dormido despertando' (eso normalmente responde eventualmente); apunta a que el servicio esta pausado/detenido en Railway, o la credencial ya no es valida. Verificar en el dashboard de Railway que el servicio de MySQL este activo antes de reintentar.",
+      "context": "El .env de este proyecto tiene 2 lineas DATABASE_URL: la activa apunta a una BD local (mysql://root:...@localhost:3306/finance_db) y la de Railway esta comentada. Toda esta sesion (categories CRUD, seed idempotente, drizzle-kit push) se probo y verifico contra la BD LOCAL. Railway nunca pudo inspeccionarse, asi que se desconoce su estado real de schema (podria tener el schema viejo del archivo obsoleto drizzle/0000_free_maestro.sql -sin tabla categories, con transactions.description/category enum viejo-, o podria estar mas actualizado si alguien mas lo sincronizo por otro medio).",
+      "runbook": [
+        "1. Confirmar en el dashboard de Railway que el servicio de MySQL esta 'running' (no pausado/detenido/eliminado). Si la credencial parece invalida, obtener la DATABASE_URL actualizada desde Railway.",
+        "2. En .env, comentar la linea DATABASE_URL local y descomentar/actualizar la de Railway (dejar solo una linea activa).",
+        "3. Antes de aplicar nada, diagnosticar el estado real: correr `npx drizzle-kit push` de forma INTERACTIVA (no via el script npm encadenado) y leer con cuidado el resumen de cambios que propone antes de confirmar. Si Railway tiene el schema viejo (sin categories, transactions con columnas description/category), drizzle-kit va a proponer varios ALTER/DROP/CREATE a la vez - revisar que no proponga perder datos reales que quieras conservar en Railway antes de aceptar.",
+        "4. Una vez aplicado el push exitosamente, correr `npm run db:seed` (o simplemente `npm run db:push`, que ya encadena ambos) para crear/actualizar el usuario demo y sembrar las 9 categorias generales de forma idempotente (no duplica si ya existen).",
+        "5. Verificar con una query de humo (SELECT COUNT(*) FROM categories, SHOW COLUMNS FROM transactions) que el resultado final coincide con el schema de db/schema/schema.ts.",
+        "6. Revertir .env a lo que corresponda para el flujo de trabajo diario (probablemente volver a dejar la local activa para desarrollo, con Railway comentada), a menos que se decida usar Railway como la BD de desarrollo por defecto de aqui en adelante."
+      ],
+      "acceptanceCriteria": [
+        "Railway responde una conexion MySQL real (no PROTOCOL_CONNECTION_LOST)",
+        "drizzle-kit push contra Railway no reporta 'No changes detected' erroneo (i.e., realmente se compara contra el schema.ts actual) y cualquier cambio destructivo se revisa antes de confirmar",
+        "Railway queda con las 9 categorias generales y el usuario demo, igual que local",
+        ".env queda en un estado intencional y documentado (no accidentalmente apuntando a Railway u olvidado a medio-cambiar)"
+      ]
+    }
+  ]
+}

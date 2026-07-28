@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select"
 import { createTransaction } from "@/server/transactions/actions"
 import { BankAccounts } from "@/types/bank-accounts.types"
-import { CategoriesList } from "@/types/categories.types"
+import { Category } from "@/types/categories.types"
 import {
   Transaction,
   TransactionsActionState,
@@ -34,7 +34,7 @@ import { toast } from "sonner"
 
 interface FormTransactionProps {
   bankAccounts: BankAccounts[]
-  categories: CategoriesList[]
+  categories: Category[]
   transaction?: Transaction
   formType?: 'VIEW' | 'NEW'
 }

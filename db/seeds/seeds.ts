@@ -1,46 +1,14 @@
 import { drizzle } from "drizzle-orm/mysql2"
-/* import { migrate } from "drizzle-orm/mysql2/migrator" // 👈 Importante para migrar desde código */
+import { isNull, sql } from "drizzle-orm"
 import mysql from "mysql2/promise"
 import { categories, users } from "../schema/schema"
 import "dotenv/config"
- const connection = await mysql.createConnection({
-   uri: process.env.DATABASE_URL,
- })
 
- const db = drizzle(connection)
-async function main() {
-  console.log("⚙️ Conectando a la base de datos...")
-
- 
-
-  console.log("⚙️ Verificando y ejecutando migraciones pendientes...")
-
-  /*  await migrate(db, { migrationsFolder: "./drizzle" }) */
-
-  console.log("🌱 Sembrando datos de prueba...")
-  await db
-    .insert(users)
-    .values({
-      name: "Demo User",
-      email: "demo@example.com",
-      passowrd: "1234",
-    })
-    .onDuplicateKeyUpdate({
-      set: { name: "Demo User" },
-    })
-
-  console.log("✅ ¡Usuario demo creado o actualizado con éxito!")
-
-  await connection.end()
-  console.log("👋 Proceso terminado con éxito.")
-}
-
-main().catch((err) => {
-  console.error("❌ Error durante el proceso:", err)
-  process.exit(1)
+const connection = await mysql.createConnection({
+  uri: process.env.DATABASE_URL,
 })
 
-
+const db = drizzle(connection)
 
 const GENERAL_CATEGORIES = [
   {
@@ -90,8 +58,35 @@ const GENERAL_CATEGORIES = [
   },
 ]
 
+async function seedDemoUser() {
+  console.log("🌱 Sembrando usuario de prueba...")
+
+  await db
+    .insert(users)
+    .values({
+      name: "Demo User",
+      email: "demo@example.com",
+      passowrd: "1234",
+    })
+    .onDuplicateKeyUpdate({
+      set: { name: "Demo User" },
+    })
+
+  console.log("✅ ¡Usuario demo creado o actualizado con éxito!")
+}
+
 async function seedCategories() {
-  console.log("🌱 Seeding general categories...")
+  const [{ count }] = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(categories)
+    .where(isNull(categories.userId))
+
+  if (Number(count) > 0) {
+    console.log("↪️ Ya existen categorias globales, se omite el seed.")
+    return
+  }
+
+  console.log("🌱 Sembrando categorias generales...")
 
   for (const category of GENERAL_CATEGORIES) {
     await db.insert(categories).values({
@@ -102,10 +97,20 @@ async function seedCategories() {
     })
   }
 
-  console.log("✅ General categories seeded successfully!")
+  console.log("✅ Categorias generales sembradas con éxito!")
 }
 
-seedCategories().catch((err) => {
-  console.error("❌ Error seeding categories:", err)
+async function main() {
+  console.log("⚙️ Conectando a la base de datos...")
+
+  await seedDemoUser()
+  await seedCategories()
+
+  await connection.end()
+  console.log("👋 Proceso terminado con éxito.")
+}
+
+main().catch((err) => {
+  console.error("❌ Error durante el proceso:", err)
   process.exit(1)
 })

@@ -1,6 +1,6 @@
 "use client"
 import dynamic from "next/dynamic"
-import { Landmark, HandCoins, ChartAreaIcon } from "lucide-react"
+import { Landmark, HandCoins, ChartAreaIcon, Tags } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -25,6 +25,7 @@ const items = [
   { title: "Dashboard", url: "/", icon: ChartAreaIcon },
   { title: "Bank Accounts", url: "/bank-accounts", icon: Landmark },
   { title: "Transactions", url: "/transactions", icon: HandCoins },
+  { title: "Categories", url: "/categories", icon: Tags },
 ]
 
 export function AppSidebar() {
