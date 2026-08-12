@@ -1,22 +1,24 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to opencode when working with code in this repository.
 
 ## Commands
 
 There is no test runner configured in this repo.
 
-Database schema changes are applied with `drizzle-kit push` (direct schema sync, no versioned migration files — the `drizzle/` migration folder is a stale, unused leftover and does not reflect the current schema):
+Database schema changes are applied with versioned migrations:
 
 ```bash
-npm run db:push   # drizzle-kit push, then the idempotent seed (npm run db:seed)
+npm run db:generate  # Generate migration files from schema changes
+npm run db:migrate   # Apply migrations + seed
+npm run db:push      # Direct schema sync (alternative, no versioned files)
 ```
 
-`DATABASE_URL` (MySQL connection string; the active one in `.env` points at a local DB, the Railway one is commented out) must be set for the app, seeds, or drizzle-kit to connect.
+`DATABASE_URL` (MySQL connection string) must be set for the app, seeds, or drizzle-kit to connect. Currently points to Railway.
 
 ## Architecture
 
-Next.js 16 App Router app, fullstack, no separate backend. Each feature (`bank-accounts`, `transactions`) follows the same four-layer structure, split across two top-level trees:
+Next.js 16 App Router app, fullstack, no separate backend. Each feature (`bank-accounts`, `transactions`, `categories`) follows the same four-layer structure, split across two top-level trees:
 
 - `app/<feature>/` — routes and UI
   - `page.tsx`, nested route folders (e.g. `new-account/`, `[name]/`, `transaction-detail/`) for the actual pages
@@ -42,4 +44,3 @@ Pages that need to branch behavior on mobile vs desktop (e.g. `transactions/page
   - `app/transactions/_components/FormTransaction.tsx` (hidden `userId` input defaulting to `"1"`)
   - `app/page.tsx` (dashboard calls to `getMonthlyFinancials`, `getNetBalance`, `getDailyAverage`, `getFundsDistribution`)
   - When real auth is added, all of these need to switch to a real session-derived `userId`, and `transactions` queries/actions (which currently take `userId` as a form field, not a hardcoded constant — see `transactionSchema`) should also be revisited to make sure the value can't be spoofed from the client.
-

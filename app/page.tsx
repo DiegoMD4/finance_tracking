@@ -1,8 +1,10 @@
 export const dynamic = "force-dynamic"
 import { ChartAreaLegend } from "@/components/chart-area-legend"
+import { ChartCashFlow } from "@/components/chart-cash-flow"
 import { ChartPieSimple } from "@/components/pie-chart"
 import { cn, formatCurrency } from "@/lib/utils"
 import {
+  getCashFlowByAccount,
   getDailyAverage,
   getFundsDistribution,
   getMonthlyFinancials,
@@ -14,14 +16,14 @@ import { FaMoneyBills } from "react-icons/fa6"
 import { IoCalendarNumber } from "react-icons/io5"
 
 export default async function Page() {
-  const [data, netBalance, dailyAverage, fundsDistribution] = await Promise.all(
-    [
+  const [data, netBalance, dailyAverage, fundsDistribution, cashFlow] =
+    await Promise.all([
       getMonthlyFinancials(1),
       getNetBalance(1),
       getDailyAverage(1),
       getFundsDistribution(1),
-    ]
-  )
+      getCashFlowByAccount(1),
+    ])
 
   return (
     <section>
@@ -76,6 +78,8 @@ export default async function Page() {
           </section>
           <ChartPieSimple data={fundsDistribution} />
         </div>
+
+        <ChartCashFlow data={cashFlow} />
       </div>
     </section>
   )

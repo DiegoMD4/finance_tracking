@@ -194,44 +194,130 @@
     {
       "id": "cat-11",
       "title": "Seed idempotente de las categorias por defecto",
-      "status": "done",
+      "status": "pending",
       "type": "db-seed",
       "dependsOn": [],
-      "context": "Pedido del usuario fuera del feature original: que la base de datos siempre tenga las categorias iniciales (las 9 de GENERAL_CATEGORIES) sin importar cuantas veces se corran las migraciones/el seed. Se evaluo un stored procedure vs un seed idempotente en TypeScript; se opto por el seed idempotente para mantenerse en el patron TypeScript-first del proyecto.",
+      "context": "Pedido del usuario fuera del feature original: que la base de datos siempre tenga las categorias iniciales (las 9 de GENERAL_CATEGORIES) sin importar cuantas veces se corran las migraciones/el seed. Se evaluo un stored procedure vs un seed idempotente en TypeScript; se opto por el seed idempotente para mantenerse en el patron TypeScript-first del proyecto (todo el schema vive versionado en db/schema/schema.ts via Drizzle, un stored procedure viviria fuera de ese modelo y es especifico de MySQL).",
       "files": {
         "modify": ["db/seeds/seeds.ts", "package.json", "CLAUDE.md"]
       },
-      "description": "db/seeds/seeds.ts tenia 2 bugs reales ademas de no ser idempotente: (1) main() y seedCategories() se invocaban como dos promesas top-level sin relacion (ninguna esperaba a la otra), asi que competian por la misma conexion y main() podia cerrarla (connection.end()) mientras seedCategories() todavia insertaba; (2) seedCategories() no verificaba nada antes de insertar, asi que cada corrida de npm run db:seed duplicaba las 9 categorias. Fix: un solo main() secuencial (conectar -> upsert demo user -> seed de categorias solo si no existen, via SELECT COUNT(*) FROM categories WHERE user_id IS NULL con isNull() -> cerrar conexion).",
-      "pivotFromOriginalPlan": "El plan original agregaba un script 'db:migrate' (drizzle-kit migrate + seed) y planeaba arreglar el snapshot/migracion base obsoleta (drizzle/0000_free_maestro.sql, que no refleja el schema actual). Al investigar se confirmo que este proyecto nunca uso drizzle-kit migrate en la practica (siempre push, segun el historial de commits), y el usuario decidio no complicar el flujo arreglando el historial de migraciones: en vez de eso, el script se llama 'db:push' y corre 'drizzle-kit push && npm run db:seed'. La carpeta drizzle/ con la migracion/snapshot obsoletos se dejo intacta (no se toco), es un remanente sin uso pero inofensivo mientras no se use drizzle-kit migrate/generate.",
-      "verification": "npx drizzle-kit push contra la BD local: 'No changes detected' (ya estaba sincronizada). npm run db:push corrido end-to-end: push + seed, categorias ya existentes -> skip logueado correctamente. Pendiente: correr db:push tambien contra Railway; la conexion a Railway fallo durante esta sesion (Connection lost) y no se pudo diagnosticar mas a fondo.",
+      "description": "db/seeds/seeds.ts tiene 2 bugs reales ademas de no ser idempotente: (1) main() y seedCategories() se invocan como dos promesas top-level sin relacion (ninguna espera a la otra), asi que compiten por la misma conexion y main() puede cerrarla (connection.end()) mientras seedCategories() todavia esta insertando; (2) seedCategories() no verifica nada antes de insertar, asi que cada corrida de npm run db:seed duplica las 9 categorias (no hay unique constraint en categories.name). Fix: unificar todo en un solo main() secuencial (conectar -> upsert demo user -> seed de categorias solo si no existen -> cerrar conexion), y que el seed de categorias primero haga SELECT COUNT(*) FROM categories WHERE user_id IS NULL (isNull(categories.userId), no eq(..., null)) y solo inserte si el conteo es 0. Ademas agregar un script npm 'db:migrate' que corra 'drizzle-kit migrate && npm run db:seed', para que aplicar migraciones y sembrar (de forma idempotente) sea un solo paso.",
       "acceptanceCriteria": [
-        "Correr 'npm run db:seed' dos veces seguidas no duplica categorias (la segunda corrida hace skip y lo loguea) — verificado",
-        "Si la tabla categories esta vacia, 'npm run db:seed' inserta las 9 categorias generales — logica revisada, no re-verificada contra una BD vacia para no arriesgar datos reales",
-        "main() ya no cierra la conexion antes de que termine el seed de categorias — verificado",
-        "'npm run db:push' existe y encadena drizzle-kit push + el seed idempotente — verificado en local; Railway pendiente"
+        "Correr 'npm run db:seed' dos veces seguidas no duplica categorias (la segunda corrida hace skip y lo loguea)",
+        "Si la tabla categories esta vacia, 'npm run db:seed' inserta las 9 categorias generales",
+        "main() ya no cierra la conexion antes de que termine el seed de categorias",
+        "'npm run db:migrate' existe y encadena drizzle-kit migrate + el seed idempotente"
       ]
     },
     {
-      "id": "cat-12",
-      "title": "Aplicar schema + seed en Railway cuando el servicio vuelva a estar disponible",
-      "status": "blocked",
-      "type": "db-ops",
-      "dependsOn": ["cat-11"],
-      "blockedBy": "El servicio de MySQL en Railway no responde. Se probo: (1) reintentos con esperas crecientes (0s/10s/20s/30s x3, ~2 min totales) usando la conexion exacta de la app (mysql2 + uri, sin SSL extra); (2) conexion TCP cruda al host/puerto (gondola.proxy.rlwy.net:18734) - el TCP SI conecta, pero el servidor cierra la conexion de inmediato sin enviar el saludo del protocolo MySQL (ni un byte), en cada uno de los intentos; (3) se activo temporalmente la DATABASE_URL de Railway en .env (en vez de parsearla manualmente) para descartar que fuera un problema de que variable se estaba usando - mismo resultado exacto (PROTOCOL_CONNECTION_LOST). Esto no es el patron tipico de 'contenedor dormido despertando' (eso normalmente responde eventualmente); apunta a que el servicio esta pausado/detenido en Railway, o la credencial ya no es valida. Verificar en el dashboard de Railway que el servicio de MySQL este activo antes de reintentar.",
-      "context": "El .env de este proyecto tiene 2 lineas DATABASE_URL: la activa apunta a una BD local (mysql://root:...@localhost:3306/finance_db) y la de Railway esta comentada. Toda esta sesion (categories CRUD, seed idempotente, drizzle-kit push) se probo y verifico contra la BD LOCAL. Railway nunca pudo inspeccionarse, asi que se desconoce su estado real de schema (podria tener el schema viejo del archivo obsoleto drizzle/0000_free_maestro.sql -sin tabla categories, con transactions.description/category enum viejo-, o podria estar mas actualizado si alguien mas lo sincronizo por otro medio).",
-      "runbook": [
-        "1. Confirmar en el dashboard de Railway que el servicio de MySQL esta 'running' (no pausado/detenido/eliminado). Si la credencial parece invalida, obtener la DATABASE_URL actualizada desde Railway.",
-        "2. En .env, comentar la linea DATABASE_URL local y descomentar/actualizar la de Railway (dejar solo una linea activa).",
-        "3. Antes de aplicar nada, diagnosticar el estado real: correr `npx drizzle-kit push` de forma INTERACTIVA (no via el script npm encadenado) y leer con cuidado el resumen de cambios que propone antes de confirmar. Si Railway tiene el schema viejo (sin categories, transactions con columnas description/category), drizzle-kit va a proponer varios ALTER/DROP/CREATE a la vez - revisar que no proponga perder datos reales que quieras conservar en Railway antes de aceptar.",
-        "4. Una vez aplicado el push exitosamente, correr `npm run db:seed` (o simplemente `npm run db:push`, que ya encadena ambos) para crear/actualizar el usuario demo y sembrar las 9 categorias generales de forma idempotente (no duplica si ya existen).",
-        "5. Verificar con una query de humo (SELECT COUNT(*) FROM categories, SHOW COLUMNS FROM transactions) que el resultado final coincide con el schema de db/schema/schema.ts.",
-        "6. Revertir .env a lo que corresponda para el flujo de trabajo diario (probablemente volver a dejar la local activa para desarrollo, con Railway comentada), a menos que se decida usar Railway como la BD de desarrollo por defecto de aqui en adelante."
+      "id": "FEAT-CF-001",
+      "feature_name": "Análisis del Flujo de Caja por Cuenta (Cash Flow Temporal)",
+      "category": "Analytics / Dashboard",
+      "description": "Visualización y cálculo de la tendencia histórica de saldos de dinero en el tiempo por cada cuenta bancaria o financiera.",
+      "status": "implemented",
+      "passes_tests": false,
+      "passes_tests_note": "No se agregaron pruebas unitarias automatizadas (decision explicita del usuario, ver decisions.testing: el proyecto no tiene test runner y agregar uno se considero fuera de alcance para esta feature sola). La logica de calculo (lib/cash-flow.ts) si se verifico manualmente con 16 casos via un script desechable antes de integrarla; ver implementation_plan cf-01.verification.",
+      "user_value": "Permite al usuario identificar patrones temporales de liquidez (ej. detectar periodos recurrentes en que una cuenta se queda en cero a mitad de mes).",
+      "technical_specifications": {
+        "visualization": {
+          "recommended_charts": [
+            "Multi-series Line Chart",
+            "Stacked Column Chart"
+          ],
+          "metric_label": "Tendencia de Saldos en el Tiempo"
+        },
+        "calculation_logic": {
+          "base_value": "opening_balance",
+          "data_processing": "Sumar o restar 'amount' de las transacciones ordenadas cronológicamente por cada cuenta.",
+          "grouping": "Por cuenta financiera y periodo temporal (día/semana/mes)"
+        }
+      },
+      "acceptance_criteria": [
+        "El saldo inicial parte del 'opening_balance' configurado en la cuenta.",
+        "Las transacciones se procesan y acumulan en orden estricto de fecha/hora.",
+        "La gráfica permite filtrar o alternar entre diferentes cuentas.",
+        "Sombra o resalta periodos con saldo negativo o cercano a cero.",
+        "Incluye pruebas unitarias para el cálculo acumulativo del saldo."
       ],
-      "acceptanceCriteria": [
-        "Railway responde una conexion MySQL real (no PROTOCOL_CONNECTION_LOST)",
-        "drizzle-kit push contra Railway no reporta 'No changes detected' erroneo (i.e., realmente se compara contra el schema.ts actual) y cualquier cambio destructivo se revisa antes de confirmar",
-        "Railway queda con las 9 categorias generales y el usuario demo, igual que local",
-        ".env queda en un estado intencional y documentado (no accidentalmente apuntando a Railway u olvidado a medio-cambiar)"
+      "decisions": {
+        "location": "Se agrega al dashboard existente (app/page.tsx), como una nueva fila/tarjeta debajo del grid de 3 columnas que ya existe (ingresos vs gastos, balance neto + promedio diario, distribucion de fondos). No se crea una pagina nueva.",
+        "accountSelection": "Selector de una sola cuenta a la vez (dropdown), no multi-series con todas las cuentas simultaneas. Mas facil de leer y evita amontonar lineas si el usuario tiene muchas cuentas.",
+        "granularity": "Selector con las 3 opciones (dia/semana/mes), no fijo. El calculo de bucketing se hace client-side (funcion pura), asi que cambiar de granularidad o de cuenta es instantaneo, sin ida y vuelta al servidor.",
+        "testing": "Se omiten las pruebas unitarias por ahora (el proyecto no tiene ningun test runner configurado, confirmado en CLAUDE.md; agregar uno es una decision de alcance mas amplio que el usuario prefirio no tomar solo para esta feature). La logica de calculo se implementa igual como una funcion pura y aislada (lib/cash-flow.ts) para que sea testeable el dia que se decida agregar testing al proyecto."
+      },
+      "architecture_notes": {
+        "dataFetchStrategy": "Se trae, en una sola query, el opening_balance y TODAS las transacciones (ordenadas) de cada cuenta del usuario (una fila por cuenta con su arreglo de transacciones crudas). El bucketing por granularidad y el filtrado por cuenta se hacen en el cliente con una funcion pura (lib/cash-flow.ts), no con queries separadas por combinacion de cuenta+granularidad. Esto evita N queries distintas y hace que la UI responda al instante al cambiar el selector.",
+        "negativeBalanceHighlight": "Se implementa con un ReferenceLine en y=0 en el LineChart (Recharts) mas coloreado condicional de los puntos (dot) cuyo balance es negativo. 'Cercano a cero' se resuelve con un umbral simple (balance < 0) por ahora; se puede afinar despues si se define un umbral de negocio mas preciso."
+      },
+      "implementation_plan": [
+        {
+          "id": "cf-01",
+          "title": "Funcion pura de calculo de cash flow acumulado",
+          "status": "done",
+          "verification": "Sin test runner en el proyecto, se verifico manualmente con un script tsx desechable (16 casos: sin transacciones, acumulacion mensual, bucketing diario, deteccion de saldo negativo, orden defensivo de transacciones fuera de orden, parseo de amounts tipo string, y bucketing semanal ISO cruzando el limite de semana) - los 16 pasaron. El script se borro despues, no queda en el repo.",
+          "type": "lib",
+          "dependsOn": [],
+          "files": {
+            "create": ["lib/cash-flow.ts"]
+          },
+          "description": "Exportar: type CashFlowGranularity = 'day' | 'week' | 'month'; interface CashFlowTransaction { amount: string | number; transactionType: 'income' | 'expense'; createdAt: Date }; interface CashFlowPoint { period: string; periodLabel: string; balance: number; isNegative: boolean }; function computeCashFlow(openingBalance: number, transactions: CashFlowTransaction[], granularity: CashFlowGranularity): CashFlowPoint[]. La funcion ordena defensivamente las transacciones por createdAt ascendente, recorre acumulando el balance (+amount si income, -amount si expense), agrupa por bucket de periodo (day: 'YYYY-MM-DD', week: fecha de inicio de semana ISO, month: 'YYYY-MM') quedandose con el ULTIMO balance observado dentro de cada bucket, y devuelve los puntos ordenados cronologicamente. Si no hay transacciones, devuelve un unico punto con el opening_balance (para que la grafica no quede vacia).",
+          "acceptanceCriteria": [
+            "computeCashFlow(1000, [], 'month') devuelve un solo punto con balance 1000",
+            "El balance de cada punto es el balance ACUMULADO hasta el final de ese periodo, no el monto de una sola transaccion",
+            "Los amounts tipo string (como vienen de Drizzle/decimal) se parsean correctamente con Number()",
+            "isNegative es true unicamente cuando balance < 0"
+          ]
+        },
+        {
+          "id": "cf-02",
+          "title": "Query de dashboard: cash flow crudo por cuenta",
+          "status": "done",
+          "verification": "Probada contra la BD local real: getCashFlowByAccount(1) devuelve la cuenta existente con sus 2 transacciones en el shape correcto (amount string, transactionType, createdAt Date). El caso de una cuenta sin transacciones (transactions: []) no se probo empiricamente porque no hay ninguna cuenta sin transacciones en la BD local ahora mismo, pero el guard 'if (row.transactionType && row.createdAt)' que lo maneja sigue el mismo patron de leftJoin+null-check ya usado en el resto del archivo.",
+          "type": "server-query",
+          "dependsOn": [],
+          "files": {
+            "modify": ["server/dashboard/queries.ts"]
+          },
+          "description": "Agregar getCashFlowByAccount(userId: number) en server/dashboard/queries.ts, siguiendo el mismo patron try/catch de las demas funciones del archivo (nunca throws, retorna [] en error con console.error). Selecciona bankAccounts.id, accountName, bankName, openingBalance del usuario, con un leftJoin a transactions (accountId, amount, transactionType, createdAt) ordenado por transactions.createdAt asc. Agrupar los resultados planos por accountId en memoria (una fila por cuenta con su arreglo de transacciones), ya que Drizzle no anida relaciones automaticamente en un select con leftJoin.",
+          "acceptanceCriteria": [
+            "Filtra por bankAccounts.userId = userId (igual que getNetBalance/getFundsDistribution)",
+            "Una cuenta sin transacciones aparece con transactions: []",
+            "Nunca lanza una excepcion sin capturar"
+          ]
+        },
+        {
+          "id": "cf-03",
+          "title": "Componente de grafica de cash flow (selector de cuenta + granularidad)",
+          "status": "done",
+          "verification": "typecheck y lint limpios (mismos 6 warnings preexistentes de siempre). No se probo visualmente todavia porque el componente no esta montado en ninguna pagina aun - la verificacion en navegador se hace en cf-04 al integrarlo al dashboard.",
+          "type": "ui-component",
+          "dependsOn": ["cf-01"],
+          "files": {
+            "create": ["components/chart-cash-flow.tsx"]
+          },
+          "description": "Client component 'use client' en components/ (mismo nivel que chart-area-legend.tsx/pie-chart.tsx, ya que se usa en el dashboard, no en una feature especifica). Props: data (arreglo de cuentas con sus transacciones crudas, shape de cf-02). Estado local: selectedAccountId (default: la primera cuenta), granularity (default: 'month'). Un useMemo llama a computeCashFlow con la cuenta y granularidad seleccionadas. UI: Card con header conteniendo 2 Select (cuenta, granularidad - components/ui/select.tsx, mismo patron que el resto del proyecto) + un LineChart (Recharts) envuelto en ChartContainer (components/ui/chart.tsx), con ReferenceLine en y=0 y los puntos con balance negativo coloreados distinto (rojo). Estado vacio: si el usuario no tiene cuentas, mostrar un mensaje (mismo tono que el 'no bank accounts' de FormTransaction).",
+          "acceptanceCriteria": [
+            "Cambiar de cuenta o de granularidad no dispara ninguna llamada al servidor, es instantaneo (useMemo sobre los props ya cargados)",
+            "El eje Y muestra una linea de referencia en 0",
+            "Los puntos con balance negativo se distinguen visualmente de los positivos"
+          ]
+        },
+        {
+          "id": "cf-04",
+          "title": "Integrar la grafica al dashboard",
+          "status": "done",
+          "verification": "Probado con el dev server real levantado (npm run dev) contra la BD local: se confirmo en el HTML renderizado que la tarjeta 'Cash flow trend' aparece (no el estado vacio), que el SVG de Recharts realmente se genero (recharts-curve, recharts-dot -los puntos personalizados-, recharts-reference-line, recharts-cartesian-axis-tick), y que los datos reales de la cuenta de prueba (1000.00, 500.00, BANK TEST) llegaron al componente cliente via el payload RSC. No se pudo verificar visualmente el contenido de los dropdowns (Daily/Weekly/Monthly, nombres de cuenta) via curl porque el contenido de Select de Radix se monta en un portal solo del lado del cliente tras la hidratacion (mismo comportamiento que TODOS los demas Select del proyecto, no es un problema nuevo); typecheck y lint limpios.",
+          "type": "ui-page",
+          "dependsOn": ["cf-02", "cf-03"],
+          "files": {
+            "modify": ["app/page.tsx"]
+          },
+          "description": "Agregar getCashFlowByAccount(1) al Promise.all existente en app/page.tsx (junto a getMonthlyFinancials, getNetBalance, getDailyAverage, getFundsDistribution), y renderizar <ChartCashFlow data={...} /> en una fila nueva debajo del grid de 3 columnas actual (no meterla dentro del grid-cols-3 existente, para no apretar el layout).",
+          "acceptanceCriteria": [
+            "La pagina / sigue cargando sin errores con los 4 charts",
+            "El grid original de 3 columnas no cambia su comportamiento actual"
+          ]
+        }
       ]
     }
   ]

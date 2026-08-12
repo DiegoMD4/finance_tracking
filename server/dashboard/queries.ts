@@ -162,3 +162,62 @@ export const getFundsDistribution = async (userId: number) => {
     return []
   }
 }
+
+export async function getCashFlowByAccount(userId: number) {
+  try {
+    const rows = await db
+      .select({
+        accountId: bankAccounts.id,
+        accountName: bankAccounts.accountName,
+        bankName: bankAccounts.bankName,
+        openingBalance: bankAccounts.openingBalance,
+        amount: transactions.amount,
+        transactionType: transactions.transactionType,
+        createdAt: transactions.createdAt,
+      })
+      .from(bankAccounts)
+      .leftJoin(transactions, eq(bankAccounts.id, transactions.accountId))
+      .where(eq(bankAccounts.userId, userId))
+      .orderBy(bankAccounts.id, transactions.createdAt)
+
+    const accountsById = new Map<
+      number,
+      {
+        accountId: number
+        accountName: string | null
+        bankName: string
+        openingBalance: string
+        transactions: {
+          amount: string
+          transactionType: "income" | "expense"
+          createdAt: Date
+        }[]
+      }
+    >()
+
+    for (const row of rows) {
+      if (!accountsById.has(row.accountId)) {
+        accountsById.set(row.accountId, {
+          accountId: row.accountId,
+          accountName: row.accountName,
+          bankName: row.bankName,
+          openingBalance: row.openingBalance,
+          transactions: [],
+        })
+      }
+
+      if (row.transactionType && row.createdAt) {
+        accountsById.get(row.accountId)!.transactions.push({
+          amount: row.amount!,
+          transactionType: row.transactionType,
+          createdAt: row.createdAt,
+        })
+      }
+    }
+
+    return [...accountsById.values()]
+  } catch (error) {
+    console.error("Error en getCashFlowByAccount:", error)
+    return []
+  }
+}
