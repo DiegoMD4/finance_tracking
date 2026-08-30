@@ -11,6 +11,8 @@
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "db:seed": "npx tsx db/seeds/seeds.ts",
+    "db:seed-demo": "npx tsx db/seeds/seed-demo.ts",
+    "db:clean": "npx tsx db/seeds/clean.ts",
     "db:push": "drizzle-kit push && npm run db:seed",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate && npm run db:seed"
