@@ -1,7 +1,5 @@
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
-import { headers } from "next/headers"
-import { userAgent } from "next/server"
 import { TransactionsTable } from "./_components/TransactionsTable"
 import Link from "next/link"
 import TransactionsCard from "./_components/TransactionsCard"
@@ -22,33 +20,29 @@ export default async function TransactionsPage({
   const parsedPageSize =
     !pageSize || isNaN(Number(pageSize)) ? 5 : Number(pageSize)
 
-  const [requestHeaders, transactions] = await Promise.all([
-    headers(),
+  const [transactions] = await Promise.all([
     getTransactionsPaginated(parsedPage, parsedPageSize),
   ])
 
-  const { device } = userAgent({ headers: requestHeaders })
-  const isMobile =  device.type === "mobile" 
-
   return (
     <section>
-      <header
-        className={`${isMobile ? "flex flex-col gap-y-5" : "flex flex-row justify-between"}`}
-      >
+      <header className="flex flex-row justify-between">
         <h1>Transactions</h1>
         <Button asChild>
           <Link href="/transactions/new-transaction" className="gap-x-2">
             <Plus size={16} />
-            {!isMobile && "New transaction"}
+            {"New transaction"}
           </Link>
         </Button>
       </header>
       <div className="mt-8">
-        {isMobile ? (
+        <div className="block md:hidden">
           <TransactionsCard data={transactions.data ?? []} />
-        ) : (
+        </div>
+
+        <div className="hidden md:block">
           <TransactionsTable data={transactions.data ?? []} />
-        )}
+        </div>
 
         <div className="mt-4">
           <PaginationTable
