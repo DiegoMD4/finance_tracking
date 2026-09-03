@@ -25,7 +25,7 @@ export default function BankAccountsCard({ data }: BankAccountsCardProps) {
 
   const handleDelete = (e: React.MouseEvent, id: number) => {
     e.preventDefault()
-
+  
     startTransition(async () => {
       try {
         const res = await deleteBankAccount(id)
@@ -41,7 +41,13 @@ export default function BankAccountsCard({ data }: BankAccountsCardProps) {
       }
     })
   }
-
+if (data.length === 0) {
+  return (
+    <p className="px-2 text-sm text-muted-foreground">
+      There are no bank accounts registered yet.
+    </p>
+  )
+}
   return (
     <section className="flex flex-col gap-y-4 px-2">
       {data.map((element) => (

@@ -67,6 +67,7 @@ async function seedDemoUser() {
       name: "Demo User",
       email: "demo@example.com",
       passowrd: "1234",
+      id: 1
     })
     .onDuplicateKeyUpdate({
       set: { name: "Demo User" },

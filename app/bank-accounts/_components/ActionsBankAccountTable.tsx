@@ -19,11 +19,12 @@ interface ProductsTableActionsProps {
   bankAccount: BankAccounts
 }
 
-export default function ProductsTableActions({
+export default function BankAccountTableActions({
   bankAccount,
 }: ProductsTableActionsProps) {
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
+
   const handleDelete = (e: React.MouseEvent) => {
     e.preventDefault()
 

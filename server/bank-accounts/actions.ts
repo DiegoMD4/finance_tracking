@@ -98,9 +98,9 @@ export const createBankAccount = async (
 export const deleteBankAccount = async (id: number) => {
   try {
     const res = await db.delete(bankAccounts).where(eq(bankAccounts.id, id))
-    console.log(res)
+  
     revalidatePath("/bank-accounts")
-    return { success: true, message: "Bank account deleted" }
+    return { success: true, message: "Bank account deleted", res }
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error"
