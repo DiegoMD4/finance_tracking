@@ -1,35 +1,40 @@
-export const dynamic = "force-dynamic"
-import { ChartAreaLegend } from "@/components/chart-area-legend"
-import { ChartCashFlow } from "@/components/chart-cash-flow"
+import { ExpensesByCategoryChart } from "@/components/ExpensesByCategoriesChart"
+import { IncomesExpensesChart } from "@/components/IncomesExpensesChart"
+
 import { ChartPieSimple } from "@/components/pie-chart"
 import { cn, formatCurrency } from "@/lib/utils"
 import {
-  getCashFlowByAccount,
   getDailyAverage,
+  getExpensesByCategories,
   getFundsDistribution,
   getMonthlyFinancials,
   getNetBalance,
 } from "@/server/dashboard/queries"
-
+export const revalidate = 60 
 /* import { Plus, Search } from "lucide-react" */
 import { FaMoneyBills } from "react-icons/fa6"
 import { IoCalendarNumber } from "react-icons/io5"
 
 export default async function Page() {
-  const [data, netBalance, dailyAverage, fundsDistribution, cashFlow] =
-    await Promise.all([
-      getMonthlyFinancials(1),
-      getNetBalance(1),
-      getDailyAverage(1),
-      getFundsDistribution(1),
-      getCashFlowByAccount(1),
-    ])
+  const [
+    data,
+    netBalance,
+    dailyAverage,
+    fundsDistribution,
+    expensesByCategories,
+  ] = await Promise.all([
+    getMonthlyFinancials(1),
+    getNetBalance(1),
+    getDailyAverage(1),
+    getFundsDistribution(1),
+    getExpensesByCategories(1),
+  ])
 
   return (
     <section>
       <div className="flex flex-1 flex-col gap-4 p-6">
         <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-          <ChartAreaLegend data={data} />
+          <IncomesExpensesChart data={data} />
 
           {/* Balance neto  */}
           <section className="flex min-h-0 flex-col gap-y-4">
@@ -65,7 +70,7 @@ export default async function Page() {
                 <span>L. {formatCurrency(dailyAverage.dailyAverage)}</span>
                 <div className="flex flex-row gap-x-4">
                   <span className="text-xs font-normal text-muted-foreground">
-                    This month&apos;s total: L.{" "}
+                    This month&apos;s total spent: L.{" "}
                     {formatCurrency(dailyAverage.monthTotal)} •{" "}
                     {dailyAverage.currentDay > 1
                       ? `${dailyAverage.currentDay} days `
@@ -78,8 +83,8 @@ export default async function Page() {
           </section>
           <ChartPieSimple data={fundsDistribution} />
         </div>
-
-        <ChartCashFlow data={cashFlow} />
+        <ExpensesByCategoryChart data={expensesByCategories ?? null} />
+        {/*   <ChartCashFlow data={cashFlow} /> */}
       </div>
     </section>
   )

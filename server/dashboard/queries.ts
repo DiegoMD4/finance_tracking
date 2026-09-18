@@ -1,6 +1,6 @@
 import { db } from "@/db"
-import { bankAccounts, transactions } from "@/db/schema/schema"
-import { and, eq, gte, sql } from "drizzle-orm"
+import { bankAccounts, categories, transactions } from "@/db/schema/schema"
+import { and, eq, gte, isNull, lte, or, sql } from "drizzle-orm"
 
 export async function getMonthlyFinancials(userId: number) {
   try {
@@ -163,61 +163,34 @@ export const getFundsDistribution = async (userId: number) => {
   }
 }
 
-export async function getCashFlowByAccount(userId: number) {
+export const getExpensesByCategories = async (userId: number) => {
+  const currentYear = new Date().getFullYear()
+  const startOfYear = new Date(`${currentYear}-01-01T00:00:00.000Z`)
+  const endOfYear = new Date(`${currentYear}-12-31T23:59:59.999Z`)
   try {
-    const rows = await db
+    const result = await db
       .select({
-        accountId: bankAccounts.id,
-        accountName: bankAccounts.accountName,
-        bankName: bankAccounts.bankName,
-        openingBalance: bankAccounts.openingBalance,
-        amount: transactions.amount,
-        transactionType: transactions.transactionType,
-        createdAt: transactions.createdAt,
+        categoryName: categories.name,
+        categoryColor: categories.color,
+        categoryIcon: categories.icon,
+        total_amount: sql<number>`CAST(COALESCE(SUM(${transactions.amount}), 0) AS DECIMAL(10,2))`,
       })
-      .from(bankAccounts)
-      .leftJoin(transactions, eq(bankAccounts.id, transactions.accountId))
-      .where(eq(bankAccounts.userId, userId))
-      .orderBy(bankAccounts.id, transactions.createdAt)
+      .from(transactions)
+      .innerJoin(categories, eq(categories.categoryId, transactions.categoryId))
 
-    const accountsById = new Map<
-      number,
-      {
-        accountId: number
-        accountName: string | null
-        bankName: string
-        openingBalance: string
-        transactions: {
-          amount: string
-          transactionType: "income" | "expense"
-          createdAt: Date
-        }[]
-      }
-    >()
+      .where(
+        and(
+          eq(transactions.userId, userId),
+          eq(transactions.transactionType, "expense"),
+          gte(transactions.createdAt, startOfYear),
+          lte(transactions.createdAt, endOfYear),
+          or(eq(categories.userId, userId), isNull(categories.userId))
+        )
+      )
+      .groupBy(categories.name, categories.color, categories.icon)
 
-    for (const row of rows) {
-      if (!accountsById.has(row.accountId)) {
-        accountsById.set(row.accountId, {
-          accountId: row.accountId,
-          accountName: row.accountName,
-          bankName: row.bankName,
-          openingBalance: row.openingBalance,
-          transactions: [],
-        })
-      }
-
-      if (row.transactionType && row.createdAt) {
-        accountsById.get(row.accountId)!.transactions.push({
-          amount: row.amount!,
-          transactionType: row.transactionType,
-          createdAt: row.createdAt,
-        })
-      }
-    }
-
-    return [...accountsById.values()]
+    return result
   } catch (error) {
-    console.error("Error en getCashFlowByAccount:", error)
-    return []
+    console.error(error)
   }
 }

@@ -3,13 +3,28 @@ import { BankAccountsTable } from "./_components/TableBankAccounts"
 import Link from "next/link"
 import { Plus } from "lucide-react"
 
-
 import BankAccountsCard from "./_components/CardBanksAccount"
-import { getBankAccounts } from "../../server/bank-accounts/queries"
-export const dynamic = "force-dynamic"
+import { getBankAccountsPaginated } from "../../server/bank-accounts/queries"
+import PaginationTable from "@/components/pagination"
+export const revalidate = 60
 
-export default async function BankAccountsPage() {
-  const [bankAccounts] = await Promise.all([ getBankAccounts()])
+interface BankAccountsPageProps {
+  searchParams: Promise<{ page?: string; pageSize?: string }>
+}
+
+export default async function BankAccountsPage({
+  searchParams,
+}: BankAccountsPageProps) {
+  const { page, pageSize } = await searchParams
+
+  const parsedPage = !page || isNaN(Number(page)) ? 1 : Number(page)
+  const parsedPageSize =
+    !pageSize || isNaN(Number(pageSize)) ? 5 : Number(pageSize)
+
+  const bankAccounts = await getBankAccountsPaginated(
+    parsedPage,
+    parsedPageSize
+  )
 
   return (
     <section>
@@ -28,6 +43,15 @@ export default async function BankAccountsPage() {
         </div>
         <div className="hidden md:block">
           <BankAccountsTable data={bankAccounts.data ?? []} />
+        </div>
+
+        <div className="mt-4">
+          <PaginationTable
+            page={parsedPage}
+            pageSize={parsedPageSize}
+            hasMore={bankAccounts.hasMore ?? true}
+            route="/bank-accounts"
+          />
         </div>
       </div>
     </section>

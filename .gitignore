@@ -41,3 +41,4 @@ next-env.d.ts
 MEMORY.md
 .claude/
 !.claude/settings.json
+.agents/

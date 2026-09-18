@@ -17,7 +17,7 @@ interface TransactionsTableProps {
 
 export function TransactionsTable({ data }: TransactionsTableProps) {
   return (
-    <>
+    
       <Table>
         <TableHeader>
           <TableRow>
@@ -66,6 +66,6 @@ export function TransactionsTable({ data }: TransactionsTableProps) {
           )}
         </TableBody>
       </Table>
-    </>
+    
   )
 }

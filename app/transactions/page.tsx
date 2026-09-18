@@ -5,7 +5,7 @@ import Link from "next/link"
 import TransactionsCard from "./_components/TransactionsCard"
 import { getTransactionsPaginated } from "../../server/transactions/queries"
 import PaginationTable from "@/components/pagination"
-export const dynamic = "force-dynamic"
+export const revalidate = 60 
 
 interface TransactionPageProps {
   searchParams: Promise<{ page?: string; pageSize?: string }>
@@ -20,9 +20,10 @@ export default async function TransactionsPage({
   const parsedPageSize =
     !pageSize || isNaN(Number(pageSize)) ? 5 : Number(pageSize)
 
-  const [transactions] = await Promise.all([
-    getTransactionsPaginated(parsedPage, parsedPageSize),
-  ])
+  const transactions = await getTransactionsPaginated(
+    parsedPage,
+    parsedPageSize
+  )
 
   return (
     <section>

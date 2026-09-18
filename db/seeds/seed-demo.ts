@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/mysql2"
 import { eq, sql } from "drizzle-orm"
 import mysql from "mysql2/promise"
-import { bankAccounts, transactions, categories } from "../schema/schema"
+import { bankAccounts, transactions, categories, users } from "../schema/schema"
 import "dotenv/config"
 
 const connection = await mysql.createConnection({
@@ -45,12 +45,20 @@ function randomBetween(min: number, max: number): number {
 }
 
 function getRandomDate(monthsAgo: number): Date {
-  const now = new Date()
-  const pastDate = new Date()
-  pastDate.setMonth(now.getMonth() - monthsAgo)
-  pastDate.setDate(randomBetween(1, 28))
-  pastDate.setHours(randomBetween(6, 22), randomBetween(0, 59), 0, 0)
-  return pastDate
+ const now = new Date()
+ const year = now.getFullYear()
+ const month = now.getMonth() - monthsAgo
+ 
+ return new Date(
+   year,
+   month,
+   randomBetween(1, 28),
+   randomBetween(6, 22),
+   randomBetween(0, 59),
+   0,
+   0
+ )
+
 }
 
 interface TransactionTemplate {
@@ -242,6 +250,25 @@ async function main() {
   }
 
   console.log(`  📋 ${categoryMap.size} categorías encontradas\n`)
+
+  // Ensure demo user exists
+  const [existingUser] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+
+  if (!existingUser) {
+    await db.insert(users).values({
+      id: userId,
+      name: "Demo User",
+      email: "demo@example.com",
+      password: "demo123",
+    })
+    console.log("  👤 Usuario demo creado (ID: 1)\n")
+  } else {
+    console.log("  👤 Usuario demo ya existe (ID: 1)\n")
+  }
 
   const accountIds = await seedDemoAccounts(userId)
   await seedTransactions(userId, accountIds, categoryMap)

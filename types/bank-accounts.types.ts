@@ -2,6 +2,7 @@ export interface GetBankAccounts {
   success: boolean
   error?: string
   data: BankAccounts[]
+  hasMore?: boolean
 }
 export interface GetBankAccountById {
   success: boolean

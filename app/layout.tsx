@@ -2,6 +2,7 @@ import { Geist, Geist_Mono, Inter } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+
 import { cn } from "@/lib/utils"
 import {
   SidebarInset,
@@ -13,12 +14,12 @@ import { Separator } from "@/components/ui/separator"
 import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb"
 import { ToastProvider } from "./toast-provider"
 
-/* const fontSans = Geist({
+const fontSans = Geist({
   subsets: ["latin"],
   variable: "--font-sans",
 })
- */
-const geistMono = Inter({ subsets: ["latin"], variable: "--font-mono" })
+
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" })
 
 export default function RootLayout({
   children,
@@ -31,7 +32,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={cn(
         "antialiased",
-       /*  fontSans.variable, */
+        fontSans.variable,
         "font-mono",
         geistMono.variable
       )}

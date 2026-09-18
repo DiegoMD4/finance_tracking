@@ -18,7 +18,7 @@ export const users = mysqlTable("users", {
   id: serial("user_id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }).notNull().unique(),
-  passowrd: varchar("password", { length: 255 }).notNull().unique(),
+  password: varchar("password", { length: 255 }).notNull().unique(),
   ...timestamps,
 })
 
