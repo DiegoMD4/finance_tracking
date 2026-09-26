@@ -6,18 +6,6 @@ export interface Category {
   color: string | null
 }
 
-export interface GetCategories {
-  success: boolean
-  error?: string
-  data: Category[]
-}
-
-export interface GetCategoryById {
-  success: boolean
-  error?: string
-  data?: Category
-}
-
 export interface CategoryFormFields {
   name: string
   icon: string

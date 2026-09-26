@@ -13,8 +13,8 @@ export default async function NewTransactionPage() {
     <section className="w-full">
       <div className="w-full p-3">
         <FormTransaction
-          bankAccounts={responseBankAccounts.data}
-          categories={responseCategories.data}
+          bankAccounts={responseBankAccounts.ok ? responseBankAccounts.data : []}
+          categories={responseCategories.ok ? responseCategories.data : []}
         />
       </div>
     </section>

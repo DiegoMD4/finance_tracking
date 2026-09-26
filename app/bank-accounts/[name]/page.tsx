@@ -20,7 +20,7 @@ export default async function EditBankAccount({
 
   const bankAccount = await getBankAccountById({ id: Number(id) })
 
-  if (!bankAccount.success || !bankAccount.data) {
+  if (!bankAccount.ok) {
     return notFound()
   }
 

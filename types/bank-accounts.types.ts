@@ -1,15 +1,3 @@
-export interface GetBankAccounts {
-  success: boolean
-  error?: string
-  data: BankAccounts[]
-  hasMore?: boolean
-}
-export interface GetBankAccountById {
-  success: boolean
-  error?: string
-  data?: BankAccounts 
-}
-
 export interface BankAccounts {
   updatedAt: Date | null
   createdAt: Date

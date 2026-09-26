@@ -26,6 +26,10 @@ export default async function BankAccountsPage({
     parsedPageSize
   )
 
+  const { items, hasMore } = bankAccounts.ok
+    ? bankAccounts.data
+    : { items: [], hasMore: true }
+
   return (
     <section>
       <header className={"flex flex-row justify-between"}>
@@ -39,17 +43,17 @@ export default async function BankAccountsPage({
       </header>
       <div className="mt-8">
         <div className="block md:hidden">
-          <BankAccountsCard data={bankAccounts.data ?? []} />
+          <BankAccountsCard data={items} />
         </div>
         <div className="hidden md:block">
-          <BankAccountsTable data={bankAccounts.data ?? []} />
+          <BankAccountsTable data={items} />
         </div>
 
         <div className="mt-4">
           <PaginationTable
             page={parsedPage}
             pageSize={parsedPageSize}
-            hasMore={bankAccounts.hasMore ?? true}
+            hasMore={hasMore}
             route="/bank-accounts"
           />
         </div>

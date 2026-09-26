@@ -23,7 +23,7 @@ const resolveCategoryId = async (rawCategoryId: string) => {
 
   const defaultCategory = await getDefaultCategory()
 
-  return defaultCategory.categoryId ?? parsedCategoryId
+  return defaultCategory.ok ? defaultCategory.data : parsedCategoryId
 }
 
 export const createTransaction = async (

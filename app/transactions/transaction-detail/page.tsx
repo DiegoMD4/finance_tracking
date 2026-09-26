@@ -24,13 +24,17 @@ export default async function TransactionDetailPage({
       getTransactionsById({ id: Number(id) }),
     ])
 
+  if (!responseTransaction.ok) {
+    return notFound()
+  }
+
   return (
     <section className="w-full">
       <div className="w-full p-3">
         <FormTransaction
           formType="VIEW"
-          bankAccounts={responseBankAccounts.data}
-          categories={responseCategories.data}
+          bankAccounts={responseBankAccounts.ok ? responseBankAccounts.data : []}
+          categories={responseCategories.ok ? responseCategories.data : []}
           transaction={responseTransaction.data}
         />
       </div>

@@ -18,19 +18,6 @@ export interface TransactionListItem extends Transaction {
   categoryName: string | null
 }
 
-export interface GetTransactions {
-  success: boolean
-  error?: string
-  data: TransactionListItem[]
-  hasMore?: boolean
-}
-
-export interface GetTransactionById {
-  success: boolean
-  error?: string
-  data?: Transaction
-}
-
 export interface TransactionFormFields {
   userId: string
   accountId: string

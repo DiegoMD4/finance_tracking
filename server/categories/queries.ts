@@ -1,20 +1,17 @@
 import { db } from "@/db"
 import { categories } from "@/db/schema/schema"
 import { DEFAULT_CATEGORY_NAME } from "@/lib/categories"
-import { GetCategories, GetCategoryById } from "@/types/categories.types"
+import { err, ok, type Result } from "@/types/result"
+import type { Category } from "@/types/categories.types"
 import { eq } from "drizzle-orm"
 
-export const getCategories = async (): Promise<GetCategories> => {
+export const getCategories = async (): Promise<Result<Category[]>> => {
   try {
     const res = await db.select().from(categories)
-    return { success: true, data: res }
+    return ok(res)
   } catch (error) {
     console.error("❌ Error: ", error)
-    return {
-      success: false,
-      data: [],
-      error: "Couldn't get any categories try it later",
-    }
+    return err("database", "Couldn't get any categories try it later")
   }
 }
 
@@ -22,7 +19,7 @@ export const getCategoryById = async ({
   id,
 }: {
   id: number
-}): Promise<GetCategoryById> => {
+}): Promise<Result<Category>> => {
   try {
     const [res] = await db
       .select()
@@ -30,22 +27,19 @@ export const getCategoryById = async ({
       .where(eq(categories.categoryId, id))
       .limit(1)
 
-    return {
-      success: true,
-      data: res,
+    if (!res) {
+      return err("not_found", "Category not found")
     }
+
+    return ok(res)
   } catch (error) {
     console.error("❌ Error: ", error)
 
-    return {
-      success: false,
-      data: undefined,
-      error: "Couldn't get this category, try it later",
-    }
+    return err("database", "Couldn't get this category, try it later")
   }
 }
 
-export const getDefaultCategory = async () => {
+export const getDefaultCategory = async (): Promise<Result<number>> => {
   try {
     const [category] = await db
       .select({ categoryId: categories.categoryId })
@@ -54,21 +48,16 @@ export const getDefaultCategory = async () => {
       .limit(1)
 
     if (!category) {
-      return {
-        success: false,
-        categoryId: null,
-        error: `Default category '${DEFAULT_CATEGORY_NAME}' not found`,
-      }
+      return err(
+        "not_found",
+        `Default category '${DEFAULT_CATEGORY_NAME}' not found`
+      )
     }
 
-    return { success: true, categoryId: category.categoryId }
+    return ok(category.categoryId)
   } catch (error) {
     console.error("❌ Error: ", error)
 
-    return {
-      success: false,
-      categoryId: null,
-      error: "Couldn't get the default category",
-    }
+    return err("database", "Couldn't get the default category")
   }
 }

@@ -25,6 +25,10 @@ export default async function TransactionsPage({
     parsedPageSize
   )
 
+  const { items, hasMore } = transactions.ok
+    ? transactions.data
+    : { items: [], hasMore: true }
+
   return (
     <section>
       <header className="flex flex-row justify-between">
@@ -38,18 +42,18 @@ export default async function TransactionsPage({
       </header>
       <div className="mt-8">
         <div className="block md:hidden">
-          <TransactionsCard data={transactions.data ?? []} />
+          <TransactionsCard data={items} />
         </div>
 
         <div className="hidden md:block">
-          <TransactionsTable data={transactions.data ?? []} />
+          <TransactionsTable data={items} />
         </div>
 
         <div className="mt-4">
           <PaginationTable
-            page={Number(page)}
-            pageSize={Number(pageSize)}
-            hasMore={transactions.hasMore ?? true}
+            page={parsedPage}
+            pageSize={parsedPageSize}
+            hasMore={hasMore}
             route="/transactions"
           />
         </div>

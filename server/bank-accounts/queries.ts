@@ -1,31 +1,25 @@
 import { db } from "@/db"
 import { bankAccounts } from "@/db/schema/schema"
-import { GetBankAccountById, GetBankAccounts } from "@/types/bank-accounts.types"
+import { err, ok, type Paginated, type Result } from "@/types/result"
 import { desc } from "drizzle-orm"
+import type { BankAccounts } from "@/types/bank-accounts.types"
 
-export const getBankAccounts = async (): Promise<GetBankAccounts> => {
+export const getBankAccounts = async (): Promise<Result<BankAccounts[]>> => {
   try {
     const res = await db.select().from(bankAccounts)
 
-    return {
-      success: true,
-      data: res,
-    }
+    return ok(res)
   } catch (error) {
     console.error("❌ Error: ", error)
 
-    return {
-      success: false,
-      data: [],
-      error: "Couldn't get your bank accounts try it later",
-    }
+    return err("database", "Couldn't get your bank accounts try it later")
   }
 }
 
 export const getBankAccountsPaginated = async (
   page = 1,
   pageSize = 5
-): Promise<GetBankAccounts> => {
+): Promise<Result<Paginated<BankAccounts>>> => {
   try {
     const res = await db
       .select()
@@ -35,44 +29,34 @@ export const getBankAccountsPaginated = async (
       .offset((page - 1) * pageSize)
 
     const hasMore = res.length > pageSize
-    const dataToReturn = hasMore ? res.slice(0, pageSize) : res
+    const items = hasMore ? res.slice(0, pageSize) : res
 
-    return {
-      success: true,
-      data: dataToReturn,
-      hasMore,
-    }
+    return ok({ items, hasMore })
   } catch (error) {
     console.error("❌ Error: ", error)
 
-    return {
-      success: false,
-      data: [],
-      error: "Couldn't get your bank accounts try it later",
-    }
+    return err("database", "Couldn't get your bank accounts try it later")
   }
 }
+
 export const getBankAccountById = async ({
   id,
 }: {
   id: number
-}): Promise<GetBankAccountById> => {
+}): Promise<Result<BankAccounts>> => {
   try {
     const res = await db.query.bankAccounts.findFirst({
       where: (bankAccounts, { eq }) => eq(bankAccounts.id, id),
     })
 
-    return {
-      success: true,
-      data: res,
+    if (!res) {
+      return err("not_found", "Bank account not found")
     }
+
+    return ok(res)
   } catch (error) {
     console.error("❌ Error: ", error)
 
-    return {
-      success: false,
-      data: undefined,
-      error: "Couldn't get your bank accounts try it later",
-    }
+    return err("database", "Couldn't get your bank accounts try it later")
   }
 }

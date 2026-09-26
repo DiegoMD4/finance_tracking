@@ -17,7 +17,7 @@ export default async function CategoryDetailPage({
 
   const category = await getCategoryById({ id: Number(id) })
 
-  if (!category.success || !category.data) {
+  if (!category.ok) {
     return notFound()
   }
 

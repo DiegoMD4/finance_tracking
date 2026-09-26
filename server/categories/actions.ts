@@ -129,14 +129,16 @@ export const deleteCategory = async (id: number) => {
   try {
     const defaultCategory = await getDefaultCategory()
 
-    if (!defaultCategory.success || !defaultCategory.categoryId) {
+    if (!defaultCategory.ok) {
       return {
         success: false,
         message: "Couldn't resolve the default category, try again later",
       }
     }
 
-    if (id === defaultCategory.categoryId) {
+    const defaultCategoryId = defaultCategory.data
+
+    if (id === defaultCategoryId) {
       return {
         success: false,
         message: "The default category can't be deleted",
@@ -146,7 +148,7 @@ export const deleteCategory = async (id: number) => {
     await db.transaction(async (tx) => {
       await tx
         .update(transactions)
-        .set({ categoryId: defaultCategory.categoryId! })
+        .set({ categoryId: defaultCategoryId })
         .where(eq(transactions.categoryId, id))
 
       await tx.delete(categories).where(eq(categories.categoryId, id))

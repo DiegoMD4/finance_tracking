@@ -1,8 +1,17 @@
 import { db } from "@/db"
 import { bankAccounts, categories, transactions } from "@/db/schema/schema"
+import { err, ok, type Result } from "@/types/result"
+import type {
+  CategoryExpense,
+  DailyAverage,
+  FundShare,
+  MonthlyFinancial,
+} from "@/types/dashboard.types"
 import { and, eq, gte, isNull, lte, or, sql } from "drizzle-orm"
 
-export async function getMonthlyFinancials(userId: number) {
+export async function getMonthlyFinancials(
+  userId: number
+): Promise<Result<MonthlyFinancial[]>> {
   try {
     const sixMonthsAgo = new Date()
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
@@ -28,18 +37,22 @@ export async function getMonthlyFinancials(userId: number) {
       )
       .orderBy(sql`MONTH(${transactions.createdAt})`)
 
-    return rows.map((row) => ({
-      ...row,
-      income: Number(row.income),
-      expense: Number(row.expense),
-    }))
+    return ok(
+      rows.map((row) => ({
+        ...row,
+        income: Number(row.income),
+        expense: Number(row.expense),
+      }))
+    )
   } catch (error) {
     console.error("Error en getMonthlyFinancials (posible BD dormida):", error)
-    return []
+    return err("database", "Couldn't get monthly financials try it later")
   }
 }
 
-export const getDailyAverage = async (userId: number) => {
+export const getDailyAverage = async (
+  userId: number
+): Promise<Result<DailyAverage>> => {
   try {
     const monthFirstDay = sql<string>`DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')`
     const currentDay = new Date().getDate()
@@ -58,22 +71,20 @@ export const getDailyAverage = async (userId: number) => {
     const total = result?.totalExpenses || 0
     const dailyAverage = total / currentDay
 
-    return {
+    return ok({
       monthTotal: total,
       dailyAverage,
       currentDay,
-    }
+    })
   } catch (error) {
     console.error(error)
-    return {
-      monthTotal: 0,
-      dailyAverage: 0,
-      currentDay: 0,
-    }
+    return err("database", "Couldn't get the daily average try it later")
   }
 }
 
-export const getNetBalance = async (userId: number): Promise<number> => {
+export const getNetBalance = async (
+  userId: number
+): Promise<Result<number>> => {
   try {
     const [accountsResult, transactionsResult] = await Promise.all([
       db
@@ -117,14 +128,16 @@ export const getNetBalance = async (userId: number): Promise<number> => {
         : transactionsSumRaw
 
     // 4. La matemática final viva
-    return openingSum + transactionsSum
+    return ok(openingSum + transactionsSum)
   } catch (error) {
     console.error(error)
-    return 0
+    return err("database", "Couldn't get the net balance try it later")
   }
 }
 
-export const getFundsDistribution = async (userId: number) => {
+export const getFundsDistribution = async (
+  userId: number
+): Promise<Result<FundShare[]>> => {
   try {
     const rows = await db
       .select({
@@ -147,23 +160,25 @@ export const getFundsDistribution = async (userId: number) => {
         bankAccounts.bankAccountType
       )
 
-    const distribution = rows.map((row) => {
+    const distribution: FundShare[] = rows.map((row) => {
       const currentBalance =
         Number(row.openingBalance) + Number(row.netTransactions)
       return {
-        name: row.bankName,
+        name: row.bankName ?? "Unknown",
         type: row.accountType,
         value: currentBalance < 0 ? 0 : Number(currentBalance.toFixed(2)),
       }
     })
-    return distribution /* .filter((account) => account.value > 0) */
+    return ok(distribution) /* .filter((account) => account.value > 0) */
   } catch (error) {
     console.error(error)
-    return []
+    return err("database", "Couldn't get the funds distribution try it later")
   }
 }
 
-export const getExpensesByCategories = async (userId: number) => {
+export const getExpensesByCategories = async (
+  userId: number
+): Promise<Result<CategoryExpense[]>> => {
   const currentYear = new Date().getFullYear()
   const startOfYear = new Date(`${currentYear}-01-01T00:00:00.000Z`)
   const endOfYear = new Date(`${currentYear}-12-31T23:59:59.999Z`)
@@ -189,8 +204,9 @@ export const getExpensesByCategories = async (userId: number) => {
       )
       .groupBy(categories.name, categories.color, categories.icon)
 
-    return result
+    return ok(result)
   } catch (error) {
     console.error(error)
+    return err("database", "Couldn't get the expenses try it later")
   }
 }

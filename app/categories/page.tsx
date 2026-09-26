@@ -9,6 +9,8 @@ export const dynamic = "force-dynamic"
 export default async function CategoriesPage() {
   const [categories] = await Promise.all([getCategories()])
 
+  const items = categories.ok ? categories.data : []
+
   return (
     <section>
       <header className={"flex flex-row justify-between"}>
@@ -22,11 +24,11 @@ export default async function CategoriesPage() {
       </header>
       <div className="mt-8">
         <div className="block md:hidden">
-          <CardCategories data={categories.data ?? []} />
+          <CardCategories data={items} />
         </div>
 
         <div className="hidden md:block">
-          <TableCategories data={categories.data ?? []} />
+          <TableCategories data={items} />
         </div>
       </div>
     </section>
