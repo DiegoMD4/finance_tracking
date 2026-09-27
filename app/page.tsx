@@ -33,7 +33,8 @@ export default async function Page() {
 
   return (
     <section>
-      <div className="flex flex-1 flex-col gap-4 p-6 max-sm:p-3">
+      {/* max-sm:p-3*/}
+      <div className="flex flex-1 flex-col gap-4 p-6 max-sm:p-0">
         <div className="grid auto-rows-min gap-4 md:grid-cols-3">
           <IncomesExpensesChart data={monthlyFinancials} />
 
@@ -68,9 +69,7 @@ export default async function Page() {
                 </span>
               </div>
               <div className="flex flex-col gap-y-2 text-2xl font-bold">
-                <span>
-                  L. {formatCurrency(daily?.dailyAverage ?? 0)}
-                </span>
+                <span>L. {formatCurrency(daily?.dailyAverage ?? 0)}</span>
                 <div className="flex flex-row gap-x-4">
                   <span className="text-xs font-normal text-muted-foreground">
                     This month&apos;s total spent: L.{" "}

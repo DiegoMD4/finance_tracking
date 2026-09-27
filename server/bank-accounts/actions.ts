@@ -8,7 +8,7 @@ import {
   CreateBankAccount,
   UpdateBankAccount,
 } from "@/types/bank-accounts.types"
-import { eq, or, and, ne} from "drizzle-orm"
+import { eq, or, and, ne } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import z from "zod"
 
@@ -97,10 +97,10 @@ export const createBankAccount = async (
 
 export const deleteBankAccount = async (id: number) => {
   try {
-    const res = await db.delete(bankAccounts).where(eq(bankAccounts.id, id))
-  
+    await db.delete(bankAccounts).where(eq(bankAccounts.id, id))
+
     revalidatePath("/bank-accounts")
-    return { success: true, message: "Bank account deleted", res }
+    return { success: true, message: "Bank account deleted" }
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error"
@@ -249,6 +249,3 @@ export async function checkDuplicateAccount({
 
   return { isDuplicate: false, errors: {} }
 }
-
-
-

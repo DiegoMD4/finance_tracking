@@ -25,7 +25,8 @@ export default function CardCategories({ data }: CardCategoriesProps) {
   }
 
   return (
-    <section className="flex flex-col gap-y-4 px-2">
+    /* px-2 */
+    <section className="flex flex-col gap-y-4">
       {data.map((category) => {
         const CategoryIcon = getCategoryIcon(category.icon)
 

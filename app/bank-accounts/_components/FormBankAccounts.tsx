@@ -90,7 +90,9 @@ export default function FormBankAccounts({
       )}
       <FieldGroup>
         <FieldSet>
-          <FieldLegend>{name ? `${name}` : "Bank Account"}</FieldLegend>
+          <FieldLegend>
+            {name ? `${decodeURIComponent(name)}` : "New bank account"}
+          </FieldLegend>
           <FieldDescription>
             The account you want to keep track of your transfers, deposits and
             withdrawals.

@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/chart"
 import { getCategoryIcon } from "@/lib/category-icons"
 import { formatCurrency } from "@/lib/utils"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 export const description = "A horizontal bar chart"
 
@@ -50,6 +51,7 @@ export function ExpensesByCategoryChart({
     fill: item.categoryColor ?? "var(--chart-1)",
   }))
 
+  const isMobile = useIsMobile()
   const renderCategoryTick = (props: {
     x: string | number
     y: string | number
@@ -67,15 +69,23 @@ export function ExpensesByCategoryChart({
 
     return (
       <g transform={`translate(${x},${y})`}>
-        <Icon x={-150} y={-8} width={16} height={16} color={item.fill} />
-        <text
-          x={-128}
-          y={4}
-          textAnchor="start"
-          className="fill-foreground text-xs"
-        >
-          {label}
-        </text>
+        <Icon
+          x={isMobile ? -20 : -150}
+          y={-8}
+          width={16}
+          height={16}
+          color={item.fill}
+        />
+        {!isMobile && (
+          <text
+            x={-128}
+            y={4}
+            textAnchor="start"
+            className="fill-foreground text-xs"
+          >
+            {label}
+          </text>
+        )}
       </g>
     )
   }
@@ -85,6 +95,14 @@ export function ExpensesByCategoryChart({
     const fill = (payload as { fill?: string } | undefined)?.fill
 
     return <Rectangle {...rectangleProps} fill={fill} />
+  }
+
+  const categoryWithHighestValue = () => {
+    const top = newChartData.reduce(
+      (max, item) => (Number(item.amount) > Number(max.amount) ? item : max),
+      newChartData[0] ?? { amount: -Infinity, category: undefined }
+    )
+    return { highestValue: top.amount, categoryName: top.category }
   }
 
   return (
@@ -99,6 +117,7 @@ export function ExpensesByCategoryChart({
             accessibilityLayer
             data={newChartData}
             layout="vertical"
+            /* barCategoryGap={isMobile ? 16 : "10%"} */
             margin={{
               left: 0,
             }}
@@ -110,7 +129,7 @@ export function ExpensesByCategoryChart({
               tickLine={false}
               axisLine={false}
               interval={0}
-              width={160}
+              width={isMobile ? 28 : 160}
               tick={renderCategoryTick}
             />
             <ChartTooltip
@@ -137,10 +156,13 @@ export function ExpensesByCategoryChart({
       </CardContent>
       <CardFooter className="flex-col items-start gap-2 text-sm">
         <div className="flex gap-2 leading-none font-medium">
-          Trending up by 5.2% this month <TrendingUp className="h-4 w-4" />
+          {`The category in which you spend the most is
+          ${categoryWithHighestValue().categoryName} 
+             with L.${formatCurrency(categoryWithHighestValue().highestValue)}`}
+          <TrendingUp className="h-4 w-4" />
         </div>
         <div className="leading-none text-muted-foreground">
-          Showing total visitors for the last 6 months
+          Showing total amount within this year
         </div>
       </CardFooter>
     </Card>

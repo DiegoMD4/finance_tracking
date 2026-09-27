@@ -48,7 +48,7 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar variant="floating" collapsible="offcanvas">
+    <Sidebar variant="floating" collapsible="icon">
       <SidebarContent
         onClick={() => {
           collapseSidebarOnMobileDevices()
@@ -61,7 +61,7 @@ export function AppSidebar() {
               router.push("/")
             }}
           >
-            FINANCE TRACKING
+            {sidebar.state === 'expanded'? 'FINANCE TRACKING': 'FT'}
           </SidebarHeader>
           <SidebarGroupContent>
             <TooltipProvider>
@@ -72,7 +72,8 @@ export function AppSidebar() {
                       asChild
                       tooltip={item.title}
                       isActive={isItemMenuActive(item.url)}
-                      size={"lg"}
+                      size={sidebar.state === "expanded"? 'lg':'default'}
+                      /*  size={"lg"} */
                     >
                       <Link href={item.url}>
                         <item.icon />

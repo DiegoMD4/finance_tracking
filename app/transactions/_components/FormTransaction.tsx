@@ -36,14 +36,14 @@ interface FormTransactionProps {
   bankAccounts: BankAccounts[]
   categories: Category[]
   transaction?: Transaction
-  formType?: 'VIEW' | 'NEW'
+  formType?: "VIEW" | "NEW"
 }
 
 export default function FormTransaction({
   bankAccounts,
   categories,
   transaction,
-  formType = 'NEW'
+  formType = "NEW",
 }: FormTransactionProps) {
   const router = useRouter()
 
@@ -85,7 +85,11 @@ export default function FormTransaction({
       <input type="hidden" name="userId" value={state?.fields?.userId ?? "1"} />
       <FieldGroup>
         <FieldSet>
-          <FieldLegend>New Transaction</FieldLegend>
+          <FieldLegend>
+            {formType === "NEW"
+              ? "New Transaction"
+              : 'Transaction detail'}
+          </FieldLegend>
           <FieldDescription>
             Register income and expenses to keep your account balances updated.
           </FieldDescription>

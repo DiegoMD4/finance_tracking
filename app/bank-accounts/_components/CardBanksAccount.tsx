@@ -49,7 +49,8 @@ if (data.length === 0) {
   )
 }
   return (
-    <section className="flex flex-col gap-y-4 px-2">
+    /* px-2 */
+    <section className="flex flex-col gap-y-4">
       {data.map((element) => (
         <Card className="mx-auto w-full max-w-sm" key={element.id} size="sm">
           <CardContent className="px-1 py-0">

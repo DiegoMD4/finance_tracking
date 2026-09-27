@@ -13,6 +13,9 @@ const connection =
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
+    ssl: {
+      rejectUnauthorized: false, // O false según los certificados de tu proveedor de BD
+    },
     /* connectTimeout: 20000, */
   })
 

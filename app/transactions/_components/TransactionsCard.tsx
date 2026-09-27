@@ -24,7 +24,8 @@ export default function TransactionsCard({ data }: TransactionsCardProps) {
   }
 
   return (
-    <section className="flex flex-col gap-y-4 px-2">
+    /* px-2 */
+    <section className="flex flex-col gap-y-4">
       {data.map((transaction) => (
         <Card
           className="mx-auto w-full max-w-sm"
@@ -41,23 +42,23 @@ export default function TransactionsCard({ data }: TransactionsCardProps) {
                   <div className="flex max-w-[85%] flex-row items-start gap-x-4">
                     <span
                       className={cn(
-                        "w-full truncate font-mono font-bold capitalize"
-                        /*  transaction.transactionType === "income"
+                        "w-full truncate font-mono font-bold capitalize",
+                        transaction.transactionType === "income"
                           ? "text-emerald-500"
-                          : "text-red-500" */
+                          : "text-red-500"
                       )}
                     >
                       {transaction.transactionType}
                     </span>
                     <span
                       className={cn(
-                        "font-mono text-xs text-muted-foreground",
-                       /*  transaction.transactionType === "income"
+                        "font-mono text-xs text-muted-foreground"
+                        /*  transaction.transactionType === "income"
                           ? "text-emerald-500"
                           : "text-red-500" */
                       )}
                     >
-                      {formatCurrency(transaction.amount)}
+                      {`L. ${formatCurrency(transaction.amount)}`}
                     </span>
                   </div>
                   <ChevronDownIcon className="ml-auto h-4 w-4 shrink-0 opacity-50 transition-transform duration-200 group-data-[state=open]:rotate-180" />

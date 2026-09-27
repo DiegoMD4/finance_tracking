@@ -17,7 +17,7 @@ const DEMO_ACCOUNTS = [
     accountName: "Cuenta Corriente",
     bankAccountType: "checking",
     accountEmail: "demo@bac.com",
-    accountCurrency: "Dollars",
+    accountCurrency: "Lempiras",
     openingBalance: "5000.00",
   },
   {
