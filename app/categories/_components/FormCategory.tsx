@@ -167,14 +167,14 @@ export default function FormCategory({
           </Button>
 
           <Button
-            variant="outline"
+            variant="secondary"
             type="button"
             className="cursor-pointer"
             asChild
             disabled={isPending}
           >
             <Link href="/categories" className="cursor-pointer">
-              Back
+              Cancel
             </Link>
           </Button>
         </Field>

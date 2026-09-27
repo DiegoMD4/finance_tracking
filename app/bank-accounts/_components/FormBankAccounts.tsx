@@ -258,14 +258,14 @@ export default function FormBankAccounts({
           </Button>
 
           <Button
-            variant="outline"
+            variant="secondary"
             type="button"
             className="cursor-pointer"
             asChild
             disabled={isPending}
           >
             <Link href="/bank-accounts" className="cursor-pointer">
-              Back
+              Cancel
             </Link>
           </Button>
         </Field>

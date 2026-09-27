@@ -116,7 +116,7 @@ if (data.length === 0) {
                   <Button
                     size="xs"
                     variant="outline"
-                    onClick={() => router.push(`/bank-accounts/${element.id}`)}
+                    onClick={() => router.push(`/bank-accounts/${element.accountName}?id=${element.id}`)}
                   >
                     Edit
                   </Button>

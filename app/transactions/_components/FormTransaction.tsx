@@ -86,9 +86,7 @@ export default function FormTransaction({
       <FieldGroup>
         <FieldSet>
           <FieldLegend>
-            {formType === "NEW"
-              ? "New Transaction"
-              : 'Transaction detail'}
+            {formType === "NEW" ? "New Transaction" : "Transaction detail"}
           </FieldLegend>
           <FieldDescription>
             Register income and expenses to keep your account balances updated.
@@ -238,32 +236,30 @@ export default function FormTransaction({
           </FieldGroup>
         </FieldSet>
 
-        {formType !== "VIEW" && (
-          <>
-            <FieldSeparator />
-            <Field orientation="horizontal">
-              <Button
-                type="submit"
-                className="cursor-pointer"
-                disabled={isPending || !hasAccounts}
-              >
-                {isPending ? "Submitting" : "Submit"}
-              </Button>
+        <FieldSeparator />
+        <Field orientation="horizontal">
+          {formType === "NEW" && (
+            <Button
+              type="submit"
+              className="cursor-pointer"
+              disabled={isPending || !hasAccounts}
+            >
+              {isPending ? "Submitting" : "Submit"}
+            </Button>
+          )}
 
-              <Button
-                variant="outline"
-                type="button"
-                className="cursor-pointer"
-                asChild
-                disabled={isPending}
-              >
-                <Link href="/transactions" className="cursor-pointer">
-                  Back
-                </Link>
-              </Button>
-            </Field>
-          </>
-        )}
+          <Button
+            variant="secondary"
+            type="button"
+            className="cursor-pointer"
+            asChild
+            disabled={isPending}
+          >
+            <Link href="/transactions" className="cursor-pointer">
+              Cancel
+            </Link>
+          </Button>
+        </Field>
       </FieldGroup>
     </form>
   )
