@@ -1,3 +1,4 @@
+"use client"
 import { cn } from "cn"
 
 import { Button } from "@/components/ui/button"
@@ -16,11 +17,13 @@ import {
   FieldSeparator,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { useRouter } from "next/navigation"
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const router = useRouter()
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
@@ -78,9 +81,24 @@ export function LoginForm({
                 <Input id="password" type="password" required />
               </Field>
               <Field>
-                <Button type="submit">Login</Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    router.push("/dashboard")
+                  }}
+                  disabled
+                >{`Login (no enabled yet)`}</Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    router.push("/dashboard")
+                  }}
+                >
+                  Try demo
+                </Button>
                 <FieldDescription className="text-center">
-                  Don&apos;t have an account? <a href="#">Sign up</a>
+                  Don&apos;t have an account? <a href="/signup">Sign up</a>
                 </FieldDescription>
               </Field>
             </FieldGroup>

@@ -1,6 +1,6 @@
 "use server"
 
-import { transactionSchema } from "@/app/transactions/schema"
+import { transactionSchema } from "@/app/(app)/transactions/schema"
 import { db } from "@/db"
 import { transactions } from "@/db/schema/schema"
 import { getDefaultCategory } from "@/server/categories/queries"
@@ -60,13 +60,8 @@ export const createTransaction = async (
     }
   }
 
-  const {
-    userId,
-    accountId,
-    amount,
-    transactionType,
-    transactionDescription,
-  } = validatedFields.data
+  const { userId, accountId, amount, transactionType, transactionDescription } =
+    validatedFields.data
 
   try {
     await db.insert(transactions).values({
@@ -151,13 +146,8 @@ export const updateTransaction = async (
     }
   }
 
-  const {
-    userId,
-    accountId,
-    amount,
-    transactionType,
-    transactionDescription,
-  } = validatedFields.data
+  const { userId, accountId, amount, transactionType, transactionDescription } =
+    validatedFields.data
 
   try {
     await db

@@ -1,6 +1,6 @@
 "use server"
 
-import { categorySchema } from "@/app/categories/schema"
+import { categorySchema } from "@/app/(app)/categories/schema"
 import { db } from "@/db"
 import { categories, transactions } from "@/db/schema/schema"
 import { getDefaultCategory } from "@/server/categories/queries"

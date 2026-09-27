@@ -13,7 +13,7 @@ import { ChevronDownIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTransition } from "react"
 import { toast } from "sonner"
-import { deleteBankAccount } from "../../../server/bank-accounts/actions"
+import { deleteBankAccount } from "../../../../server/bank-accounts/actions"
 
 interface BankAccountsCardProps {
   data: BankAccounts[]
@@ -25,7 +25,7 @@ export default function BankAccountsCard({ data }: BankAccountsCardProps) {
 
   const handleDelete = (e: React.MouseEvent, id: number) => {
     e.preventDefault()
-  
+
     startTransition(async () => {
       try {
         const res = await deleteBankAccount(id)
@@ -41,13 +41,13 @@ export default function BankAccountsCard({ data }: BankAccountsCardProps) {
       }
     })
   }
-if (data.length === 0) {
-  return (
-    <p className="px-2 text-sm text-muted-foreground">
-      There are no bank accounts registered yet.
-    </p>
-  )
-}
+  if (data.length === 0) {
+    return (
+      <p className="px-2 text-sm text-muted-foreground">
+        There are no bank accounts registered yet.
+      </p>
+    )
+  }
   return (
     /* px-2 */
     <section className="flex flex-col gap-y-4">
@@ -116,7 +116,11 @@ if (data.length === 0) {
                   <Button
                     size="xs"
                     variant="outline"
-                    onClick={() => router.push(`/bank-accounts/${element.accountName}?id=${element.id}`)}
+                    onClick={() =>
+                      router.push(
+                        `/bank-accounts/${element.accountName}?id=${element.id}`
+                      )
+                    }
                   >
                     Edit
                   </Button>

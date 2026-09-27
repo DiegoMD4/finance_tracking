@@ -10,6 +10,7 @@ import {
   getMonthlyFinancials,
   getNetBalance,
 } from "@/server/dashboard/queries"
+
 export const revalidate = 60 
 /* import { Plus, Search } from "lucide-react" */
 import { FaMoneyBills } from "react-icons/fa6"

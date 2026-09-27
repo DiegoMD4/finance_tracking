@@ -23,7 +23,7 @@ const ThemeButton = dynamic(() => import("./ui/theme-menu-button"), {
 })
 
 const items = [
-  { title: "Dashboard", url: "/", icon: ChartAreaIcon },
+  { title: "Dashboard", url: "/dashboard", icon: ChartAreaIcon },
   { title: "Bank Accounts", url: "/bank-accounts", icon: Landmark },
   { title: "Transactions", url: "/transactions", icon: HandCoins },
   { title: "Categories", url: "/categories", icon: Tags },

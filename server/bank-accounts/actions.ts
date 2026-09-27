@@ -1,6 +1,6 @@
 "use server"
 
-import { bankAccountSchema } from "@/app/bank-accounts/schema"
+import { bankAccountSchema } from "@/app/(app)/bank-accounts/schema"
 import { db } from "@/db"
 import { bankAccounts } from "@/db/schema/schema"
 import {

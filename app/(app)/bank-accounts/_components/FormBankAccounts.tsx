@@ -32,7 +32,7 @@ import {
 import {
   createBankAccount,
   updateBankAccount,
-} from "../../../server/bank-accounts/actions"
+} from "../../../../server/bank-accounts/actions"
 
 interface FormBankAccountsProps {
   bankAccount?: BankAccounts
