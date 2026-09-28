@@ -8,14 +8,13 @@ import {
 import { AppSidebar } from "@/components/app-sidebar"
 import { Separator } from "@/components/ui/separator"
 import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb"
-import { ToastProvider } from "../toast-provider"
 
-const fontSans = Geist({
+/* const fontSans = Geist({
   subsets: ["latin"],
   variable: "--font-sans",
-})
+}) */
 
-const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" })
+/* const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" }) */
 
 export default function RootLayout({
   children,
@@ -34,7 +33,6 @@ export default function RootLayout({
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4">{children}</div>
-        <ToastProvider />
       </SidebarInset>
     </SidebarProvider>
   )
