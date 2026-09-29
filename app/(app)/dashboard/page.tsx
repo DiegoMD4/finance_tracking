@@ -3,6 +3,7 @@ import { IncomesExpensesChart } from "@/components/IncomesExpensesChart"
 
 import { ChartPieSimple } from "@/components/pie-chart"
 import { cn, formatCurrency } from "@/lib/utils"
+import { requireUserId } from "@/lib/jwt"
 import {
   getDailyAverage,
   getExpensesByCategories,
@@ -17,13 +18,15 @@ import { FaMoneyBills } from "react-icons/fa6"
 import { IoCalendarNumber } from "react-icons/io5"
 
 export default async function Page() {
+  const userId = await requireUserId()
+
   const [data, netBalance, dailyAverage, fundsDistribution, expensesByCategories] =
     await Promise.all([
-      getMonthlyFinancials(1),
-      getNetBalance(1),
-      getDailyAverage(1),
-      getFundsDistribution(1),
-      getExpensesByCategories(1),
+      getMonthlyFinancials(userId),
+      getNetBalance(userId),
+      getDailyAverage(userId),
+      getFundsDistribution(userId),
+      getExpensesByCategories(userId),
     ])
 
   const monthlyFinancials = data.ok ? data.data : []

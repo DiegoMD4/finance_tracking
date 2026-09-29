@@ -9,9 +9,10 @@ import {
   CreateCategory,
   UpdateCategory,
 } from "@/types/categories.types"
-import { eq } from "drizzle-orm"
+import { eq, and } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import z from "zod"
+import { getSessionUserId } from "@/lib/jwt"
 
 export const createCategory = async (
   prevState: CategoriesActionState,
@@ -21,6 +22,15 @@ export const createCategory = async (
     name: formData.get("name")?.toString() || "",
     icon: formData.get("icon")?.toString() || "",
     color: formData.get("color")?.toString() || "",
+  }
+
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return {
+      success: false,
+      message: "Unauthorized: a valid session is required",
+      fields: rawFields,
+    }
   }
 
   const validatedFields = categorySchema.safeParse(rawFields)
@@ -46,7 +56,7 @@ export const createCategory = async (
       name,
       icon,
       color,
-      userId: 1,
+      userId,
     })
 
     revalidatePath("/categories")
@@ -85,6 +95,15 @@ export const updateCategory = async (
     }
   }
 
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return {
+      success: false,
+      message: "Unauthorized: a valid session is required",
+      fields: rawFields,
+    }
+  }
+
   const validatedFields = categorySchema.safeParse(rawFields)
 
   if (!validatedFields.success) {
@@ -107,7 +126,12 @@ export const updateCategory = async (
     await db
       .update(categories)
       .set({ name, icon, color })
-      .where(eq(categories.categoryId, categoryId))
+      .where(
+        and(
+          eq(categories.categoryId, categoryId),
+          eq(categories.userId, userId)
+        )
+      )
 
     revalidatePath("/categories")
 
@@ -126,8 +150,13 @@ export const updateCategory = async (
 }
 
 export const deleteCategory = async (id: number) => {
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return { success: false, message: "Unauthorized: a valid session is required" }
+  }
+
   try {
-    const defaultCategory = await getDefaultCategory()
+    const defaultCategory = await getDefaultCategory(userId)
 
     if (!defaultCategory.ok) {
       return {
@@ -145,13 +174,39 @@ export const deleteCategory = async (id: number) => {
       }
     }
 
+    const [target] = await db
+      .select({ userId: categories.userId })
+      .from(categories)
+      .where(eq(categories.categoryId, id))
+      .limit(1)
+
+    if (!target) {
+      return { success: false, message: "Category not found" }
+    }
+
+    if (target.userId !== userId) {
+      return {
+        success: false,
+        message: "You can only delete your own categories",
+      }
+    }
+
     await db.transaction(async (tx) => {
       await tx
         .update(transactions)
         .set({ categoryId: defaultCategoryId })
-        .where(eq(transactions.categoryId, id))
+        .where(
+          and(
+            eq(transactions.categoryId, id),
+            eq(transactions.userId, userId)
+          )
+        )
 
-      await tx.delete(categories).where(eq(categories.categoryId, id))
+      await tx
+        .delete(categories)
+        .where(
+          and(eq(categories.categoryId, id), eq(categories.userId, userId))
+        )
     })
 
     revalidatePath("/categories")

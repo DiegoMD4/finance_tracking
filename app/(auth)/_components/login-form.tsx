@@ -1,5 +1,6 @@
 "use client"
-import { cn } from "cn"
+
+import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -12,18 +13,40 @@ import {
 import {
   Field,
   FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
   FieldSeparator,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
+
+import { useActionState, useEffect, useTransition } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { toast } from "sonner"
+
+import { loginAsDemo, loginUser } from "@/server/users/actions"
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
   const router = useRouter()
+  const [isDemoPending, startTransition] = useTransition()
+  const [state, formAction, isPending] = useActionState(loginUser, null)
+
+  useEffect(() => {
+    if (!state) return
+
+    if (state.success) {
+      toast.success(state.message)
+      router.push("/dashboard")
+    } else {
+      toast.error(state.message)
+    }
+  }, [state, router])
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
@@ -34,7 +57,7 @@ export function LoginForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form>
+          <form action={formAction}>
             <FieldGroup>
               <Field>
                 <Button variant="outline" type="button">
@@ -63,10 +86,14 @@ export function LoginForm({
                 <FieldLabel htmlFor="email">Email</FieldLabel>
                 <Input
                   id="email"
+                  name="email"
                   type="email"
                   placeholder="m@example.com"
-                  required
+                  autoComplete="email"
+                  defaultValue={state?.fields?.email}
+                  aria-invalid={!!state?.error?.email}
                 />
+                <FieldError>{state?.error?.email}</FieldError>
               </Field>
               <Field>
                 <div className="flex items-center">
@@ -78,27 +105,34 @@ export function LoginForm({
                     Forgot your password?
                   </a>
                 </div>
-                <Input id="password" type="password" required />
+                <PasswordInput
+                  id="password"
+                  name="password"
+                  autoComplete="current-password"
+                  aria-invalid={!!state?.error?.password}
+                />
+                <FieldError>{state?.error?.password}</FieldError>
               </Field>
               <Field>
                 <Button
-                  type="button"
-                  onClick={() => {
-                    router.push("/dashboard")
-                  }}
-                  disabled
-                >{`Login (no enabled yet)`}</Button>
+                  type="submit"
+                  className="cursor-pointer"
+                  disabled={isPending}
+                >
+                  {isPending ? "Logging in..." : "Login"}
+                </Button>
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => {
-                    router.push("/dashboard")
-                  }}
+                  className="w-full cursor-pointer"
+                  disabled={isPending || isDemoPending}
+                  onClick={() => startTransition(() => loginAsDemo())}
                 >
-                  Try demo
+                  {isDemoPending ? "Entering demo..." : "Try demo"}
                 </Button>
                 <FieldDescription className="text-center">
-                  Don&apos;t have an account? <a href="/signup">Sign up</a>
+                  Don&apos;t have an account?{" "}
+                  <Link href="/signup">Sign up</Link>
                 </FieldDescription>
               </Field>
             </FieldGroup>

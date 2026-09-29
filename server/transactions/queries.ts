@@ -1,7 +1,8 @@
 import { db } from "@/db"
 import { bankAccounts, categories, transactions } from "@/db/schema/schema"
 import { err, ok, type Paginated, type Result } from "@/types/result"
-import { desc, eq } from "drizzle-orm"
+import { and, desc, eq } from "drizzle-orm"
+import { getSessionUserId } from "@/lib/jwt"
 import type {
   Transaction,
   TransactionListItem,
@@ -10,6 +11,11 @@ import type {
 export const getTransactions = async (): Promise<
   Result<TransactionListItem[]>
 > => {
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return err("unauthorized", "A valid session is required")
+  }
+
   try {
     const res = await db
       .select({
@@ -28,6 +34,7 @@ export const getTransactions = async (): Promise<
       .from(transactions)
       .leftJoin(bankAccounts, eq(transactions.accountId, bankAccounts.id))
       .leftJoin(categories, eq(transactions.categoryId, categories.categoryId))
+      .where(eq(transactions.userId, userId))
       .orderBy(desc(transactions.createdAt))
 
     return ok(res)
@@ -42,6 +49,11 @@ export const getTransactionsPaginated = async (
   page = 1,
   pageSize = 10
 ): Promise<Result<Paginated<TransactionListItem>>> => {
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return err("unauthorized", "A valid session is required")
+  }
+
   try {
     const res = await db
       .select({
@@ -60,6 +72,7 @@ export const getTransactionsPaginated = async (
       .from(transactions)
       .leftJoin(bankAccounts, eq(transactions.accountId, bankAccounts.id))
       .leftJoin(categories, eq(transactions.categoryId, categories.categoryId))
+      .where(eq(transactions.userId, userId))
       .orderBy(desc(transactions.createdAt))
       .limit(pageSize + 1)
       .offset((page - 1) * pageSize)
@@ -80,6 +93,11 @@ export const getTransactionsById = async ({
 }: {
   id: number
 }): Promise<Result<Transaction>> => {
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return err("unauthorized", "A valid session is required")
+  }
+
   try {
     const [res] = await db
       .select({
@@ -98,7 +116,7 @@ export const getTransactionsById = async ({
       })
       .from(transactions)
       .leftJoin(categories, eq(transactions.categoryId, categories.categoryId))
-      .where(eq(transactions.id, id))
+      .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
       .limit(1)
 
     if (!res) {

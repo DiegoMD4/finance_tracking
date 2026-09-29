@@ -19,7 +19,6 @@ export interface TransactionListItem extends Transaction {
 }
 
 export interface TransactionFormFields {
-  userId: string
   accountId: string
   amount: string
   transactionType: string
@@ -28,7 +27,6 @@ export interface TransactionFormFields {
 }
 
 export interface TransactionFormErrors {
-  userId?: string
   accountId?: string
   amount?: string
   transactionType?: string

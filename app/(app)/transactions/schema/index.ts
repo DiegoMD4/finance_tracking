@@ -1,12 +1,6 @@
 import { z } from "zod"
 
 export const transactionSchema = z.object({
-  userId: z
-    .string()
-    .trim()
-    .min(1, { error: "User is required" })
-    .regex(/^\d+$/, { error: "User is invalid" })
-    .transform((value) => Number(value)),
   accountId: z
     .string()
     .trim()

@@ -10,18 +10,19 @@ import {
   UpdateTransaction,
 } from "@/types/transactions.types"
 
-import { eq } from "drizzle-orm"
+import { eq, and } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import z from "zod"
+import { getSessionUserId } from "@/lib/jwt"
 
-const resolveCategoryId = async (rawCategoryId: string) => {
+const resolveCategoryId = async (rawCategoryId: string, userId: number) => {
   const parsedCategoryId = Number(rawCategoryId)
 
   if (parsedCategoryId) {
     return parsedCategoryId
   }
 
-  const defaultCategory = await getDefaultCategory()
+  const defaultCategory = await getDefaultCategory(userId)
 
   return defaultCategory.ok ? defaultCategory.data : parsedCategoryId
 }
@@ -31,13 +32,21 @@ export const createTransaction = async (
   formData: FormData
 ): Promise<CreateTransaction | undefined> => {
   const rawFields = {
-    userId: formData.get("userId")?.toString() || "",
     accountId: formData.get("accountId")?.toString() || "",
     amount: formData.get("amount")?.toString() || "",
     transactionType: formData.get("transactionType")?.toString() || "",
     transactionDescription:
       formData.get("transactionDescription")?.toString() || "",
     categoryId: formData.get("categoryId")?.toString() || "",
+  }
+
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return {
+      success: false,
+      message: "Unauthorized: a valid session is required",
+      fields: rawFields,
+    }
   }
 
   const validatedFields = transactionSchema.safeParse(rawFields)
@@ -48,7 +57,6 @@ export const createTransaction = async (
       success: false,
       message: "Invalid form data",
       error: {
-        userId: fieldErrors.properties?.userId?.errors[0],
         accountId: fieldErrors.properties?.accountId?.errors[0],
         amount: fieldErrors.properties?.amount?.errors[0],
         transactionType: fieldErrors.properties?.transactionType?.errors[0],
@@ -60,7 +68,7 @@ export const createTransaction = async (
     }
   }
 
-  const { userId, accountId, amount, transactionType, transactionDescription } =
+  const { accountId, amount, transactionType, transactionDescription } =
     validatedFields.data
 
   try {
@@ -70,7 +78,7 @@ export const createTransaction = async (
       amount,
       transactionType,
       transactionDescription,
-      categoryId: await resolveCategoryId(rawFields.categoryId),
+      categoryId: await resolveCategoryId(rawFields.categoryId, userId),
     })
 
     revalidatePath("/transactions")
@@ -90,8 +98,15 @@ export const createTransaction = async (
 }
 
 export const deleteTransaction = async (id: number) => {
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return { success: false, message: "Unauthorized: a valid session is required" }
+  }
+
   try {
-    await db.delete(transactions).where(eq(transactions.id, id))
+    await db
+      .delete(transactions)
+      .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
     revalidatePath("/transactions")
 
     return { success: true, message: "Transaction deleted" }
@@ -110,7 +125,6 @@ export const updateTransaction = async (
   const idRaw = formData.get("id")?.toString()
   const transactionId = idRaw ? parseInt(idRaw, 10) : null
   const rawFields = {
-    userId: formData.get("userId")?.toString() || "",
     accountId: formData.get("accountId")?.toString() || "",
     amount: formData.get("amount")?.toString() || "",
     transactionType: formData.get("transactionType")?.toString() || "",
@@ -127,6 +141,15 @@ export const updateTransaction = async (
     }
   }
 
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return {
+      success: false,
+      message: "Unauthorized: a valid session is required",
+      fields: rawFields,
+    }
+  }
+
   const validatedFields = transactionSchema.safeParse(rawFields)
 
   if (!validatedFields.success) {
@@ -135,7 +158,6 @@ export const updateTransaction = async (
       success: false,
       message: "Invalid form data",
       error: {
-        userId: fieldErrors.properties?.userId?.errors[0],
         accountId: fieldErrors.properties?.accountId?.errors[0],
         amount: fieldErrors.properties?.amount?.errors[0],
         transactionType: fieldErrors.properties?.transactionType?.errors[0],
@@ -146,21 +168,22 @@ export const updateTransaction = async (
     }
   }
 
-  const { userId, accountId, amount, transactionType, transactionDescription } =
+  const { accountId, amount, transactionType, transactionDescription } =
     validatedFields.data
 
   try {
     await db
       .update(transactions)
       .set({
-        userId,
         accountId,
         amount,
         transactionType,
         transactionDescription,
-        categoryId: await resolveCategoryId(rawFields.categoryId),
+        categoryId: await resolveCategoryId(rawFields.categoryId, userId),
       })
-      .where(eq(transactions.id, transactionId))
+      .where(
+        and(eq(transactions.id, transactionId), eq(transactions.userId, userId))
+      )
 
     revalidatePath("/transactions")
 

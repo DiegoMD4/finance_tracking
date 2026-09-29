@@ -22,3 +22,4 @@ export const formatCurrency = (value: string | number) => {
 
 // Y en tu componente lo usas así:
 /* tickFormatter={(value) => mesesEspañol[value] || value} */
+

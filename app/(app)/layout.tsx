@@ -1,5 +1,3 @@
-import { Geist, Geist_Mono, Inter } from "next/font/google"
-
 import {
   SidebarInset,
   SidebarProvider,
@@ -9,21 +7,31 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { Separator } from "@/components/ui/separator"
 import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb"
 
-/* const fontSans = Geist({
-  subsets: ["latin"],
-  variable: "--font-sans",
-}) */
+import { redirect } from "next/navigation"
 
-/* const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" }) */
+import { getCurrentUserId } from "@/lib/jwt"
+import { getUserById } from "@/server/users/queries"
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const userId = await getCurrentUserId()
+
+  if (!userId) {
+    redirect("/")
+  }
+
+  const userResult = await getUserById(userId)
+
+  if (!userResult.success || !userResult.data) {
+    redirect("/")
+  }
+
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <AppSidebar user={userResult.data} />
       <SidebarInset>
         <header className="flex h-16 items-center justify-items-center gap-2 border-b px-4">
           <div className="flex items-center gap-2">

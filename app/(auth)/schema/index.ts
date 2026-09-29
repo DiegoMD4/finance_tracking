@@ -8,10 +8,10 @@ export const signUpSchema = z
       .min(1, { error: "A name is required" })
       .max(255, { error: "The name is too long" }),
     email: z
-      .string()
-      .trim()
+      /*  .email() */
+      /*  .trim()
       .min(1, { error: "An email is required" })
-      .max(255, { error: "The email is too long" })
+      .max(255, { error: "The email is too long" }) */
       .email({ error: "Please enter a valid email" }),
     password: z
       .string()
@@ -27,3 +27,10 @@ export const signUpSchema = z
   })
 
 export type SignUpFields = z.infer<typeof signUpSchema>
+
+export const signInSchema = z.object({
+  email: z.email(),
+  password: z.string().trim().min(1, {error: "Please enter your password"}),
+})
+
+export type SignInFields = z.infer<typeof signInSchema>

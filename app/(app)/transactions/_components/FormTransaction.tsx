@@ -82,7 +82,6 @@ export default function FormTransaction({
       action={formAction}
       autoComplete="off"
     >
-      <input type="hidden" name="userId" value={state?.fields?.userId ?? "1"} />
       <FieldGroup>
         <FieldSet>
           <FieldLegend>

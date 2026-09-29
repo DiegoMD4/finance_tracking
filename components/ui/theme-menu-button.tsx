@@ -1,6 +1,6 @@
 'use client'
 import { useTheme } from "next-themes"
-import { SidebarMenuButton } from "./sidebar"
+import { DropdownMenuItem } from "./dropdown-menu"
 import { SunMoon } from "lucide-react"
 
 export default function ThemeMenuButton() {
@@ -14,11 +14,9 @@ export default function ThemeMenuButton() {
     setTheme(newTheme)
   }
   return (
-    <SidebarMenuButton asChild onClick={changeTheme} className="cursor-pointer">
-      <span className="truncate font-semibold">
-        <SunMoon />
-        <span className="text-lg capitalize">{theme ?? 'system'}</span>
-      </span>
-    </SidebarMenuButton>
+    <DropdownMenuItem onClick={changeTheme} className="cursor-pointer">
+      <SunMoon />
+      <span className="capitalize">{theme ?? "system"}</span>
+    </DropdownMenuItem>
   )
 }

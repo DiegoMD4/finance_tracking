@@ -1,12 +1,21 @@
 import { db } from "@/db"
 import { bankAccounts } from "@/db/schema/schema"
 import { err, ok, type Paginated, type Result } from "@/types/result"
-import { desc } from "drizzle-orm"
+import { and, desc, eq } from "drizzle-orm"
+import { getSessionUserId } from "@/lib/jwt"
 import type { BankAccounts } from "@/types/bank-accounts.types"
 
 export const getBankAccounts = async (): Promise<Result<BankAccounts[]>> => {
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return err("unauthorized", "A valid session is required")
+  }
+
   try {
-    const res = await db.select().from(bankAccounts)
+    const res = await db
+      .select()
+      .from(bankAccounts)
+      .where(eq(bankAccounts.userId, userId))
 
     return ok(res)
   } catch (error) {
@@ -20,10 +29,16 @@ export const getBankAccountsPaginated = async (
   page = 1,
   pageSize = 5
 ): Promise<Result<Paginated<BankAccounts>>> => {
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return err("unauthorized", "A valid session is required")
+  }
+
   try {
     const res = await db
       .select()
       .from(bankAccounts)
+      .where(eq(bankAccounts.userId, userId))
       .orderBy(desc(bankAccounts.createdAt))
       .limit(pageSize + 1)
       .offset((page - 1) * pageSize)
@@ -44,9 +59,15 @@ export const getBankAccountById = async ({
 }: {
   id: number
 }): Promise<Result<BankAccounts>> => {
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return err("unauthorized", "A valid session is required")
+  }
+
   try {
     const res = await db.query.bankAccounts.findFirst({
-      where: (bankAccounts, { eq }) => eq(bankAccounts.id, id),
+      where: (bankAccounts, { and, eq }) =>
+        and(eq(bankAccounts.id, id), eq(bankAccounts.userId, userId)),
     })
 
     if (!res) {

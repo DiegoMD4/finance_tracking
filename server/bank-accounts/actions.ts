@@ -11,6 +11,7 @@ import {
 import { eq, or, and, ne } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import z from "zod"
+import { getSessionUserId } from "@/lib/jwt"
 
 export const createBankAccount = async (
   prevState: BankAccountActionState,
@@ -24,6 +25,15 @@ export const createBankAccount = async (
     accountEmail: formData.get("email")?.toString() || "",
     openingBalance: formData.get("openingBalance")?.toString() || "",
     accountName: formData.get("accountName")?.toString() || "",
+  }
+
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return {
+      success: false,
+      message: "Unauthorized: a valid session is required",
+      fields: rawFields,
+    }
   }
 
   const validatedFields = bankAccountSchema.safeParse(rawFields)
@@ -58,6 +68,7 @@ export const createBankAccount = async (
   const integrityCheck = await checkDuplicateAccount({
     accountNumber,
     accountName,
+    userId,
   })
   if (integrityCheck.isDuplicate) {
     return {
@@ -77,7 +88,7 @@ export const createBankAccount = async (
       accountEmail,
       openingBalance: openingBalance.toString(),
       accountName,
-      userId: 1,
+      userId,
     })
 
     revalidatePath("/bank-accounts")
@@ -96,8 +107,15 @@ export const createBankAccount = async (
 }
 
 export const deleteBankAccount = async (id: number) => {
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return { success: false, message: "Unauthorized: a valid session is required" }
+  }
+
   try {
-    await db.delete(bankAccounts).where(eq(bankAccounts.id, id))
+    await db
+      .delete(bankAccounts)
+      .where(and(eq(bankAccounts.id, id), eq(bankAccounts.userId, userId)))
 
     revalidatePath("/bank-accounts")
     return { success: true, message: "Bank account deleted" }
@@ -128,6 +146,15 @@ export const updateBankAccount = async (
     return {
       success: false,
       message: "Missing or invalid Bank Account ID",
+      fields: rawFields,
+    }
+  }
+
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return {
+      success: false,
+      message: "Unauthorized: a valid session is required",
       fields: rawFields,
     }
   }
@@ -166,6 +193,7 @@ export const updateBankAccount = async (
     accountNumber,
     accountName,
     id: bankAccountId,
+    userId,
   })
   if (integrityCheck.isDuplicate) {
     return {
@@ -187,9 +215,10 @@ export const updateBankAccount = async (
         accountEmail,
         openingBalance: openingBalance.toString(),
         accountName,
-        userId: 1,
       })
-      .where(eq(bankAccounts.id, bankAccountId))
+      .where(
+        and(eq(bankAccounts.id, bankAccountId), eq(bankAccounts.userId, userId))
+      )
 
     revalidatePath("/bank-accounts")
 
@@ -211,16 +240,21 @@ interface ValidateDuplicateProps {
   accountNumber: string
   accountName: string
   id?: number | null
+  userId: number
 }
 
 export async function checkDuplicateAccount({
   accountNumber,
   accountName,
   id,
+  userId,
 }: ValidateDuplicateProps) {
-  let searchCondition = or(
-    eq(bankAccounts.accountNumber, accountNumber),
-    eq(bankAccounts.accountName, accountName)
+  let searchCondition = and(
+    eq(bankAccounts.userId, userId),
+    or(
+      eq(bankAccounts.accountNumber, accountNumber),
+      eq(bankAccounts.accountName, accountName)
+    )
   )
 
   if (id) {
