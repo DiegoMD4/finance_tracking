@@ -1,0 +1,1 @@
+ALTER TABLE `transactions` MODIFY COLUMN `transaction_date` date NOT NULL;

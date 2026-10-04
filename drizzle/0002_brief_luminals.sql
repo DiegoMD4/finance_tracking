@@ -1,0 +1,1 @@
+ALTER TABLE `transactions` ADD `transaction_date` date;

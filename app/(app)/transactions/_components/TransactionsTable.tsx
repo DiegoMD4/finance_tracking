@@ -15,6 +15,7 @@ interface TransactionsTableProps {
 }
 
 export function TransactionsTable({ data }: TransactionsTableProps) {
+  console.log(data)
   return (
     <Table>
       <TableHeader>
@@ -56,7 +57,7 @@ export function TransactionsTable({ data }: TransactionsTableProps) {
                 {`L. ${formatCurrency(transaction.amount)}`}
               </TableCell>
               <TableCell>
-                {transaction.createdAt.toLocaleDateString()}
+                {transaction.transactionDate}
               </TableCell>
               <TableCell className="text-right">
                 <TransactionsActions transaction={transaction} />

@@ -38,6 +38,7 @@ export const createTransaction = async (
     transactionDescription:
       formData.get("transactionDescription")?.toString() || "",
     categoryId: formData.get("categoryId")?.toString() || "",
+    transactionDate: formData.get("transactionDate")?.toString() || "",
   }
 
   const userId = await getSessionUserId()
@@ -62,13 +63,13 @@ export const createTransaction = async (
         transactionType: fieldErrors.properties?.transactionType?.errors[0],
         transactionDescription:
           fieldErrors.properties?.transactionDescription?.errors[0],
-        /* categoryId: fieldErrors.properties?.categoryId?.errors[0], */
+       transactionDate: fieldErrors.properties?.transactionDate?.errors[0]
       },
       fields: rawFields,
     }
   }
 
-  const { accountId, amount, transactionType, transactionDescription } =
+  const { accountId, amount, transactionType, transactionDescription, transactionDate } =
     validatedFields.data
 
   try {
@@ -78,6 +79,7 @@ export const createTransaction = async (
       amount,
       transactionType,
       transactionDescription,
+      transactionDate,
       categoryId: await resolveCategoryId(rawFields.categoryId, userId),
     })
 

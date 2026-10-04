@@ -7,15 +7,17 @@ export interface Transaction {
   amount: string
   transactionType: TransactionType
   transactionDescription: string | null
-  categoryId: number | null,
+  categoryId: number | null
   createdAt: Date
   categoryName: string | null
+  transactionDate: string | null
 }
 
 export interface TransactionListItem extends Transaction {
   accountName: string | null
   bankName: string | null
   categoryName: string | null
+  
 }
 
 export interface TransactionFormFields {
@@ -23,7 +25,7 @@ export interface TransactionFormFields {
   amount: string
   transactionType: string
   transactionDescription: string
-  categoryId: string,
+  categoryId: string
 }
 
 export interface TransactionFormErrors {
@@ -32,6 +34,7 @@ export interface TransactionFormErrors {
   transactionType?: string
   transactionDescription?: string
   categoryId?: string
+  transactionDate?: string
 }
 
 export interface TransactionActionResult {

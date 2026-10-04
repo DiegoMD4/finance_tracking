@@ -19,8 +19,8 @@ export async function getMonthlyFinancials(
 
     const rows = await db
       .select({
-        monthNumber: sql<number>`MONTH(${transactions.createdAt})`,
-        month: sql<string>`MONTHNAME(${transactions.createdAt})`,
+        monthNumber: sql<number>`MONTH(${transactions.transactionDate})`,
+        month: sql<string>`MONTHNAME(${transactions.transactionDate})`,
         income: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.transactionType} = 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
         expense: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.transactionType} = 'expense' THEN ${transactions.amount} ELSE 0 END), 0)`,
       })
@@ -28,14 +28,14 @@ export async function getMonthlyFinancials(
       .where(
         and(
           eq(transactions.userId, userId),
-          gte(transactions.createdAt, sixMonthsAgo)
+          gte(transactions.transactionDate, sixMonthsAgo)
         )
       )
       .groupBy(
-        sql`MONTH(${transactions.createdAt})`,
-        sql`MONTHNAME(${transactions.createdAt})`
+        sql`MONTH(${transactions.transactionDate})`,
+        sql`MONTHNAME(${transactions.transactionDate})`
       )
-      .orderBy(sql`MONTH(${transactions.createdAt})`)
+      .orderBy(sql`MONTH(${transactions.transactionDate})`)
 
     return ok(
       rows.map((row) => ({
@@ -65,7 +65,7 @@ export const getDailyAverage = async (
         and(
           eq(transactions.userId, userId),
           eq(transactions.transactionType, "expense"),
-          gte(transactions.createdAt, monthFirstDay)
+          gte(transactions.transactionDate, monthFirstDay)
         )
       )
     const total = result?.totalExpenses || 0
@@ -197,8 +197,8 @@ export const getExpensesByCategories = async (
         and(
           eq(transactions.userId, userId),
           eq(transactions.transactionType, "expense"),
-          gte(transactions.createdAt, startOfYear),
-          lte(transactions.createdAt, endOfYear),
+          gte(transactions.transactionDate, startOfYear),
+          lte(transactions.transactionDate, endOfYear),
           or(eq(categories.userId, userId), isNull(categories.userId))
         )
       )

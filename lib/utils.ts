@@ -14,6 +14,8 @@ export const formatCurrency = (value: string | number) => {
   }).format(num)
 }
 
+
+
 /* const mesesEspañol: Record<string, string> = {
   January: "Ene", February: "Feb", March: "Mar", April: "Abr", 
   May: "May", June: "Jun", July: "Jul", August: "Ago", 

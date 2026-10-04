@@ -30,10 +30,20 @@ export const transactionSchema = z.object({
 
       return value
     }),
- /*  categoryId: z
-    .string()
-    .trim()
-    .min(1, { error: "A category for this transactions is needed" })
-    .regex(/^\d+$/, { error: "A category for this transactions is needed" })
-    .transform((value) => Number(value)), */
+  transactionDate: z
+    .string({
+      error: (issue) =>
+        issue.input === undefined || issue.input === ""
+          ? "Required"
+          : "Invalid date",
+    })
+    .regex(/^\d{4}-\d{2}-\d{2}$/, { error: "Invalid date" })
+    .refine(
+      (value) => !Number.isNaN(new Date(`${value}T00:00:00`).getTime()),
+      { error: "Invalid date" },
+    )
+    .transform((value) => new Date(`${value}T00:00:00`))
+    .refine((data) => data <= new Date(), {
+      error: "Can't submit a future date",
+    }),
 })

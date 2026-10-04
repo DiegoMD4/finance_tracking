@@ -109,7 +109,7 @@ export default function TransactionsCard({ data }: TransactionsCardProps) {
                   )}
                   <li className="flex justify-between pt-2 text-[10px] opacity-60">
                     <span>Created:</span>
-                    <span>{transaction.createdAt.toLocaleDateString()}</span>
+                    <span>{transaction.transactionDate}</span>
                   </li>
                 </ul>
 

@@ -227,6 +227,7 @@ async function seedTransactions(
         transactionDescription: description,
         categoryId: categoryId ?? categoryMap.get("Miscellaneous / Others")!,
         createdAt,
+        transactionDate: createdAt
       })
 
       totalTransactions++

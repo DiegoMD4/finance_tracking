@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { DatePickerSimple } from "@/components/ui/datepicker"
 import {
   Field,
   FieldDescription,
@@ -53,6 +54,7 @@ export default function FormTransaction({
     prevState: TransactionsActionState,
     formData: FormData
   ) => {
+   
     return createTransaction(prevState, formData)
   }
 
@@ -176,6 +178,16 @@ export default function FormTransaction({
                 Use up to 2 decimals. Examples: 100 or 150.25
               </FieldDescription>
               <FieldError>{state?.error?.amount}</FieldError>
+            </Field>
+            <Field>
+              <DatePickerSimple
+                label="Transaction date"
+                name="transactionDate"
+              />
+              <FieldDescription>
+                The day you did this transaction
+              </FieldDescription>
+              <FieldError>{state?.error?.transactionDate}</FieldError>
             </Field>
             <Field>
               <FieldLabel htmlFor="checkout-categoryId">

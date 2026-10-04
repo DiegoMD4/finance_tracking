@@ -1,7 +1,7 @@
 import { db } from "@/db"
 import { bankAccounts, categories, transactions } from "@/db/schema/schema"
 import { err, ok, type Paginated, type Result } from "@/types/result"
-import { and, desc, eq } from "drizzle-orm"
+import { and, desc, eq, sql } from "drizzle-orm"
 import { getSessionUserId } from "@/lib/jwt"
 import type {
   Transaction,
@@ -30,12 +30,13 @@ export const getTransactions = async (): Promise<
         accountName: bankAccounts.accountName,
         bankName: bankAccounts.bankName,
         categoryName: categories.name,
+        transactionDate: sql<string>`DATE_FORMAT(${transactions.transactionDate}, '%d-%m-%Y')`,
       })
       .from(transactions)
       .leftJoin(bankAccounts, eq(transactions.accountId, bankAccounts.id))
       .leftJoin(categories, eq(transactions.categoryId, categories.categoryId))
       .where(eq(transactions.userId, userId))
-      .orderBy(desc(transactions.createdAt))
+      .orderBy(desc(transactions.transactionDate))
 
     return ok(res)
   } catch (error) {
@@ -68,12 +69,13 @@ export const getTransactionsPaginated = async (
         accountName: bankAccounts.accountName,
         bankName: bankAccounts.bankName,
         categoryName: categories.name,
+        transactionDate: sql<string>`DATE_FORMAT(${transactions.transactionDate}, '%d-%m-%Y')`,
       })
       .from(transactions)
       .leftJoin(bankAccounts, eq(transactions.accountId, bankAccounts.id))
       .leftJoin(categories, eq(transactions.categoryId, categories.categoryId))
       .where(eq(transactions.userId, userId))
-      .orderBy(desc(transactions.createdAt))
+      .orderBy(desc(transactions.transactionDate))
       .limit(pageSize + 1)
       .offset((page - 1) * pageSize)
 
@@ -109,7 +111,7 @@ export const getTransactionsById = async ({
         transactionDescription: transactions.transactionDescription,
         categoryId: transactions.categoryId,
         createdAt: transactions.createdAt,
-
+        transactionDate: sql<string>`DATE_FORMAT(${transactions.transactionDate}, '%d-%m-%Y')`,
         categoryName: categories.name,
         categoryIcon: categories.icon,
         categoryColor: categories.color,

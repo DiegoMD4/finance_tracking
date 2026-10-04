@@ -15,6 +15,20 @@
       "when": 1790628071485,
       "tag": "0001_tiresome_madame_masque",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1791076976838,
+      "tag": "0002_brief_luminals",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1791081891620,
+      "tag": "0003_dusty_boomerang",
+      "breakpoints": true
     }
   ]
 }

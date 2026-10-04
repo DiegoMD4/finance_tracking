@@ -6,6 +6,7 @@ import {
   bigint,
   decimal,
   mysqlEnum,
+  date,
 } from "drizzle-orm/mysql-core"
 
 const timestamps = {
@@ -57,6 +58,7 @@ export const transactions = mysqlTable("transactions", {
   transactionDescription: varchar("transaction_description", { length: 255 }),
   categoryId: bigint("category_id", {mode: "number", unsigned: true}).references(() => categories.categoryId).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  transactionDate: date("transaction_date").notNull()
 })
 
 export const categories = mysqlTable("categories", {
