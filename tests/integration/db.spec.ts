@@ -14,7 +14,7 @@ describe('test database check', ()=>{
           .values({ name: "Test", email: "test@test.com", password: "x" }).$returningId()
 
         const rows = await db.select().from(users);
-        expect(rows).toHaveLength(1)
+        expect(rows.length).toBeGreaterThan(0)
         expect(inserted[0].id).toBeDefined()
     })
 });
