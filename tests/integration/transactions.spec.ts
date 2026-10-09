@@ -8,7 +8,6 @@ import {
 import { truncateDatabase } from "@/tests/setup/db"
 import { beforeEach, describe, expect, test, vi } from "vitest"
 import { eq } from "drizzle-orm"
-import { getSessionUserId } from "@/lib/jwt"
 import { createTransaction } from "@/server/transactions/actions"
 
 const session = vi.hoisted(() => ({ userId: 1 }))
@@ -86,5 +85,48 @@ describe("CreateTransaction", () => {
 
     const rows = await db.select().from(transactions)
     expect(rows).toHaveLength(0)
+  })
+
+  test("ignora un userId spoofeado en el formData", async () => {
+    const [user] = await db
+      .insert(users)
+      .values({
+        name: "Test",
+        email: "test@test.com",
+        password: "x",
+      })
+      .$returningId()
+    session.userId = user.id
+
+    const [account] = await db
+      .insert(bankAccounts)
+      .values({
+        accountNumber: "0001",
+        bankName: "Test Bank",
+        userId: user.id,
+      })
+      .$returningId()
+    const [category] = await db
+      .insert(categories)
+      .values({
+        name: "Food",
+        userId: user.id,
+      })
+      .$returningId()
+
+    const formData = new FormData()
+    formData.set("userId", "999") // ← intento de spoofing
+    formData.set("accountId", String(account.id))
+    formData.set("categoryId", String(category.categoryId))
+    formData.set("amount", "10.00")
+    formData.set("transactionType", "expense")
+    formData.set("transactionDate", "2026-01-10")
+
+    const result = await createTransaction(null, formData)
+
+    expect(result?.success).toBe(true)
+    const rows = await db.select().from(transactions)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].userId).toBe(user.id) // ← y NO 999
   })
 })
