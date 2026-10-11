@@ -9,6 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:maintenance": "playwright test --config=playwright.maintenance.config.ts",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "db:seed": "npx tsx db/seeds/seeds.ts",

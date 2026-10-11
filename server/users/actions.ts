@@ -11,6 +11,8 @@ import { z } from "zod"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
+import { getSessionUserInfo } from "@/server/session"
+
 const DEMO_USER_ID = 1
 
 export const createUser = async (
@@ -151,4 +153,11 @@ export async function loginAsDemo(): Promise<void> {
 export async function logout(): Promise<void> {
   await clearSessionCookie()
   redirect("/")
+}
+
+export async function getSessionStatus(): Promise<
+  "authenticated" | "unauthenticated" | "db-unavailable"
+> {
+  const info = await getSessionUserInfo()
+  return info.status
 }

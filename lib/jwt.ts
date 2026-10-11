@@ -59,6 +59,10 @@ export async function getCurrentUserId(): Promise<number | null> {
   return session?.userId ?? null
 }
 
+export async function hasSessionCookie(): Promise<boolean> {
+  return Boolean((await cookies()).get(SESSION_COOKIE))
+}
+
 export async function requireUserId(): Promise<number> {
   const userId = await getCurrentUserId()
   if (!userId) {

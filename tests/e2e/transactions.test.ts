@@ -2,21 +2,7 @@ import { test, expect } from "@playwright/test"
 import { truncateDatabase } from "@/tests/setup/db"
 import { db } from "@/db"
 import { users, bankAccounts, categories } from "@/db/schema/schema"
-import { SignJWT } from "jose"
-
-function jwtSecret() {
-  const secret = process.env.JWT_SECRET
-  if (!secret) throw new Error("JWT_SECRET is not set")
-  return new TextEncoder().encode(secret)
-}
-
-async function sessionToken(userId: number) {
-  return new SignJWT({ userId })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("7d")
-    .sign(jwtSecret())
-}
+import { addSessionCookie, sessionToken } from "./helpers"
 
 let userId: number
 
@@ -44,16 +30,7 @@ test("register a transactions and appears in the list", async ({
   context,
 }) => {
   const token = await sessionToken(userId)
-  await context.addCookies([
-    {
-      name: "session",
-      value: token,
-      url: "http://localhost:3000",
-      httpOnly: true,
-      sameSite: "Lax",
-      /*   path: "/", */
-    },
-  ])
+  await addSessionCookie(context, token)
   await page.goto("/transactions")
   await expect(
     page.getByRole("heading", { name: "Transactions" })

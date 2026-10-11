@@ -16,7 +16,7 @@ const connection =
     ssl: {
       rejectUnauthorized: false, // O false según los certificados de tu proveedor de BD
     },
-    /* connectTimeout: 20000, */
+    connectTimeout: 10000,
   })
 
 if (process.env.NODE_ENV !== "production") {

@@ -1,16 +1,20 @@
 import { redirect } from "next/navigation"
 
-import { getCurrentUserId } from "@/lib/jwt"
+import { getSessionUserInfo } from "@/server/session"
 
 export default async function AuthLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const userId = await getCurrentUserId()
+  const session = await getSessionUserInfo()
 
-  if (userId) {
+  if (session.status === "authenticated") {
     redirect("/dashboard")
+  }
+
+  if (session.status === "db-unavailable") {
+    redirect("/unavailable")
   }
 
   return (

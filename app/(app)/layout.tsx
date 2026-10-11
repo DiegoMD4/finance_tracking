@@ -9,29 +9,26 @@ import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb"
 
 import { redirect } from "next/navigation"
 
-import { getCurrentUserId } from "@/lib/jwt"
-import { getUserById } from "@/server/users/queries"
+import { getSessionUserInfo } from "@/server/session"
 
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  const userId = await getCurrentUserId()
+  const session = await getSessionUserInfo()
 
-  if (!userId) {
-    redirect("/")
+  if (session.status === "db-unavailable") {
+    redirect("/unavailable")
   }
 
-  const userResult = await getUserById(userId)
-
-  if (!userResult.success || !userResult.data) {
-    redirect("/")
+  if (session.status === "unauthenticated") {
+    redirect(session.reason === "user-not-found" ? "/api/session/clear" : "/")
   }
 
   return (
     <SidebarProvider>
-      <AppSidebar user={userResult.data} />
+      <AppSidebar user={session.user} />
       <SidebarInset>
         <header className="flex h-16 items-center justify-items-center gap-2 border-b px-4">
           <div className="flex items-center gap-2">

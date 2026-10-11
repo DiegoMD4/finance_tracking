@@ -15,6 +15,7 @@ loadEnvFile(".env.test.local")
  */
 export default defineConfig({
   testDir: "./tests/e2e",
+  testIgnore: "**/maintenance.spec.ts",
   /* Run tests in files in parallel */
   fullyParallel: false,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
