@@ -1,7 +1,10 @@
 import { defineConfig, devices } from "@playwright/test"
 import { loadEnvFile } from "node:process"
+import { existsSync } from "node:fs"
 
-loadEnvFile(".env.test.local")
+if (existsSync(".env.test.local")) {
+  loadEnvFile(".env.test.local")
+}
 /**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
