@@ -30,8 +30,9 @@ import {
 } from "@/types/transactions.types"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useActionState, useEffect, useMemo } from "react"
+import { useActionState, useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
+import { UploadBulkTransactionForm } from "./UploadBulkTransactionForm"
 
 interface FormTransactionProps {
   bankAccounts: BankAccounts[]
@@ -47,14 +48,13 @@ export default function FormTransaction({
   formType = "NEW",
 }: FormTransactionProps) {
   const router = useRouter()
-
+  const [showBulkForm, setShowBulkForm] = useState<boolean>(false)
   const hasAccounts = useMemo(() => bankAccounts.length > 0, [bankAccounts])
 
   const formDispatcher = async (
     prevState: TransactionsActionState,
     formData: FormData
   ) => {
-   
     return createTransaction(prevState, formData)
   }
 
@@ -79,199 +79,227 @@ export default function FormTransaction({
   }
 
   return (
-    <form
-      className="flex flex-row justify-center"
-      action={formAction}
-      autoComplete="off"
-    >
-      <FieldGroup>
-        <FieldSet>
+    <>
+      <div className="grid grid-cols-1 gap-y-4 md:grid-cols-2">
+        <span>
           <FieldLegend>
             {formType === "NEW" ? "New Transaction" : "Transaction detail"}
           </FieldLegend>
           <FieldDescription>
-            Register income and expenses to keep your account balances updated.
+            Register income and expenses to keep your account balances updated
           </FieldDescription>
-
-          <FieldGroup className="grid grid-cols-1 md:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="checkout-account">Bank account</FieldLabel>
-              <Select
-                name="accountId"
-                defaultValue={
-                  transaction?.accountId.toString() ?? state?.fields?.accountId
-                }
-              >
-                <SelectTrigger
-                  id="checkout-account"
-                  aria-invalid={!!state?.error?.accountId}
-                >
-                  <SelectValue
-                    placeholder={
-                      hasAccounts
-                        ? "Select an account"
-                        : "No bank accounts available for this user"
+        </span>
+        {formType === "NEW" && (
+          <span>
+            <Button
+              type="button"
+              className="float-right cursor-pointer max-md:w-full"
+              onClick={() => {
+                setShowBulkForm(!showBulkForm)
+              }}
+            >
+              {showBulkForm ? "Single transactions" : "Bulk upload"}
+            </Button>
+          </span>
+        )}
+      </div>
+      {showBulkForm ? (
+        <UploadBulkTransactionForm />
+      ) : (
+        <form
+          className="flex flex-row justify-center pt-4"
+          action={formAction}
+          autoComplete="off"
+        >
+          <FieldGroup>
+            <FieldSet>
+              <FieldGroup className="grid grid-cols-1 md:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="checkout-account">
+                    Bank account
+                  </FieldLabel>
+                  <Select
+                    name="accountId"
+                    defaultValue={
+                      transaction?.accountId.toString() ??
+                      state?.fields?.accountId
                     }
+                  >
+                    <SelectTrigger
+                      id="checkout-account"
+                      aria-invalid={!!state?.error?.accountId}
+                    >
+                      <SelectValue
+                        placeholder={
+                          hasAccounts
+                            ? "Select an account"
+                            : "No bank accounts available for this user"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent position="popper">
+                      <SelectGroup>
+                        {bankAccounts.map((account) => (
+                          <SelectItem
+                            key={account.id}
+                            value={account.id.toString()}
+                          >
+                            {account.accountName || "Unnamed account"} -{" "}
+                            {account.bankName}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  {!hasAccounts && (
+                    <FieldDescription>
+                      You need at least one bank account before creating a
+                      transaction.
+                    </FieldDescription>
+                  )}
+                  <FieldError>{state?.error?.accountId}</FieldError>
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="checkout-transaction-type">
+                    Transaction type
+                  </FieldLabel>
+                  <Select
+                    name="transactionType"
+                    defaultValue={
+                      transaction?.transactionType ??
+                      state?.fields?.transactionType
+                    }
+                  >
+                    <SelectTrigger
+                      id="checkout-transaction-type"
+                      aria-invalid={!!state?.error?.transactionType}
+                    >
+                      <SelectValue placeholder="Select a transaction type" />
+                    </SelectTrigger>
+                    <SelectContent position="popper">
+                      <SelectGroup>
+                        <SelectItem value="income">Income</SelectItem>
+                        <SelectItem value="expense">Expense</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FieldError>{state?.error?.transactionType}</FieldError>
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="checkout-amount">Amount</FieldLabel>
+                  <Input
+                    id="checkout-amount"
+                    name="amount"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    defaultValue={transaction?.amount ?? state?.fields?.amount}
+                    onChange={handleAmountChange}
+                    aria-invalid={!!state?.error?.amount}
                   />
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  <SelectGroup>
-                    {bankAccounts.map((account) => (
-                      <SelectItem
-                        key={account.id}
-                        value={account.id.toString()}
-                      >
-                        {account.accountName || "Unnamed account"} -{" "}
-                        {account.bankName}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              {!hasAccounts && (
-                <FieldDescription>
-                  You need at least one bank account before creating a
-                  transaction.
-                </FieldDescription>
+                  <FieldDescription>
+                    Use up to 2 decimals. Examples: 100 or 150.25
+                  </FieldDescription>
+                  <FieldError>{state?.error?.amount}</FieldError>
+                </Field>
+                <Field>
+                  <DatePickerSimple
+                    label="Transaction date"
+                    name="transactionDate"
+                  />
+                  <FieldDescription>
+                    The day you did this transaction
+                  </FieldDescription>
+                  <FieldError>{state?.error?.transactionDate}</FieldError>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="checkout-categoryId">
+                    Transaction category
+                  </FieldLabel>
+                  <Select
+                    name="categoryId"
+                    defaultValue={
+                      transaction?.categoryId?.toString() ??
+                      state?.fields?.categoryId
+                    }
+                  >
+                    <SelectTrigger
+                      id="checkout-categoryId"
+                      aria-invalid={!!state?.error?.categoryId}
+                    >
+                      <SelectValue placeholder="Select a transaction category">
+                        {transaction?.categoryName}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent position="popper">
+                      <SelectGroup>
+                        {categories.map((cat) => (
+                          <SelectItem
+                            value={cat.categoryId.toString()}
+                            key={cat.categoryId}
+                          >
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FieldError>{state?.error?.categoryId}</FieldError>
+                </Field>
+
+                <Field className="md:col-span-2">
+                  <FieldLabel htmlFor="checkout-description">
+                    Description
+                  </FieldLabel>
+                  <Input
+                    id="checkout-description"
+                    name="transactionDescription"
+                    placeholder="Optional transaction note"
+                    defaultValue={
+                      transaction?.transactionDescription ??
+                      state?.fields?.transactionDescription
+                    }
+                    aria-invalid={!!state?.error?.transactionDescription}
+                  />
+                  <FieldDescription>
+                    Optional. Include context like payment method or category
+                    details.
+                  </FieldDescription>
+                  <FieldError>
+                    {state?.error?.transactionDescription}
+                  </FieldError>
+                </Field>
+              </FieldGroup>
+            </FieldSet>
+
+            <FieldSeparator />
+            <Field orientation="horizontal">
+              {formType === "NEW" && (
+                <Button
+                  type="submit"
+                  className="cursor-pointer"
+                  disabled={isPending || !hasAccounts}
+                >
+                  {isPending ? "Submitting" : "Submit"}
+                </Button>
               )}
-              <FieldError>{state?.error?.accountId}</FieldError>
-            </Field>
 
-            <Field>
-              <FieldLabel htmlFor="checkout-transaction-type">
-                Transaction type
-              </FieldLabel>
-              <Select
-                name="transactionType"
-                defaultValue={
-                  transaction?.transactionType ?? state?.fields?.transactionType
-                }
+              <Button
+                variant="secondary"
+                type="button"
+                className="cursor-pointer"
+                asChild
+                disabled={isPending}
               >
-                <SelectTrigger
-                  id="checkout-transaction-type"
-                  aria-invalid={!!state?.error?.transactionType}
-                >
-                  <SelectValue placeholder="Select a transaction type" />
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  <SelectGroup>
-                    <SelectItem value="income">Income</SelectItem>
-                    <SelectItem value="expense">Expense</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <FieldError>{state?.error?.transactionType}</FieldError>
-            </Field>
-
-            <Field>
-              <FieldLabel htmlFor="checkout-amount">Amount</FieldLabel>
-              <Input
-                id="checkout-amount"
-                name="amount"
-                inputMode="decimal"
-                placeholder="0.00"
-                defaultValue={transaction?.amount ?? state?.fields?.amount}
-                onChange={handleAmountChange}
-                aria-invalid={!!state?.error?.amount}
-              />
-              <FieldDescription>
-                Use up to 2 decimals. Examples: 100 or 150.25
-              </FieldDescription>
-              <FieldError>{state?.error?.amount}</FieldError>
-            </Field>
-            <Field>
-              <DatePickerSimple
-                label="Transaction date"
-                name="transactionDate"
-              />
-              <FieldDescription>
-                The day you did this transaction
-              </FieldDescription>
-              <FieldError>{state?.error?.transactionDate}</FieldError>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="checkout-categoryId">
-                Transaction category
-              </FieldLabel>
-              <Select
-                name="categoryId"
-                defaultValue={
-                  transaction?.categoryId?.toString() ??
-                  state?.fields?.categoryId
-                }
-              >
-                <SelectTrigger
-                  id="checkout-categoryId"
-                  aria-invalid={!!state?.error?.categoryId}
-                >
-                  <SelectValue placeholder="Select a transaction category">
-                    {transaction?.categoryName}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  <SelectGroup>
-                    {categories.map((cat) => (
-                      <SelectItem
-                        value={cat.categoryId.toString()}
-                        key={cat.categoryId}
-                      >
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <FieldError>{state?.error?.categoryId}</FieldError>
-            </Field>
-
-            <Field className="md:col-span-2">
-              <FieldLabel htmlFor="checkout-description">
-                Description
-              </FieldLabel>
-              <Input
-                id="checkout-description"
-                name="transactionDescription"
-                placeholder="Optional transaction note"
-                defaultValue={
-                  transaction?.transactionDescription ??
-                  state?.fields?.transactionDescription
-                }
-                aria-invalid={!!state?.error?.transactionDescription}
-              />
-              <FieldDescription>
-                Optional. Include context like payment method or category
-                details.
-              </FieldDescription>
-              <FieldError>{state?.error?.transactionDescription}</FieldError>
+                <Link href="/transactions" className="cursor-pointer">
+                  Cancel
+                </Link>
+              </Button>
             </Field>
           </FieldGroup>
-        </FieldSet>
-
-        <FieldSeparator />
-        <Field orientation="horizontal">
-          {formType === "NEW" && (
-            <Button
-              type="submit"
-              className="cursor-pointer"
-              disabled={isPending || !hasAccounts}
-            >
-              {isPending ? "Submitting" : "Submit"}
-            </Button>
-          )}
-
-          <Button
-            variant="secondary"
-            type="button"
-            className="cursor-pointer"
-            asChild
-            disabled={isPending}
-          >
-            <Link href="/transactions" className="cursor-pointer">
-              Cancel
-            </Link>
-          </Button>
-        </Field>
-      </FieldGroup>
-    </form>
+        </form>
+      )}
+    </>
   )
 }

@@ -154,7 +154,7 @@ export function AppSidebar({ user }: { user: ServerUser }) {
                   onSelect={() => startTransition(() => logout())}
                 >
                   <LogOut />
-                  Cerrar sesión
+                  Log out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

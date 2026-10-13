@@ -3,7 +3,6 @@ import FormTransaction from "../_components/FormTransaction"
 import { getCategories } from "@/server/categories/queries"
 
 export default async function NewTransactionPage() {
-
   const [responseBankAccounts, responseCategories] = await Promise.all([
     getBankAccounts(),
     getCategories(),
@@ -11,9 +10,12 @@ export default async function NewTransactionPage() {
 
   return (
     <section className="w-full">
-      <div className="w-full p-3">
+      <div className="w-full">
+        {/* P-3 */}
         <FormTransaction
-          bankAccounts={responseBankAccounts.ok ? responseBankAccounts.data : []}
+          bankAccounts={
+            responseBankAccounts.ok ? responseBankAccounts.data : []
+          }
           categories={responseCategories.ok ? responseCategories.data : []}
         />
       </div>

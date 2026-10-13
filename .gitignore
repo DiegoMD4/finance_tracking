@@ -37,10 +37,8 @@ pnpm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# claude
+# agent skills
 MEMORY.md
-.claude/
-!.claude/settings.json
 .agents/
 
 # Playwright
