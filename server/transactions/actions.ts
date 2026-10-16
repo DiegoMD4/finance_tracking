@@ -4,6 +4,7 @@ import { transactionSchema } from "@/app/(app)/transactions/schema"
 import { db } from "@/db"
 import { transactions } from "@/db/schema/schema"
 import { getDefaultCategory } from "@/server/categories/queries"
+import { getUserById } from "@/server/users/queries"
 import {
   TransactionsActionState,
   CreateTransaction,
@@ -14,6 +15,7 @@ import { eq, and } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import z from "zod"
 import { getSessionUserId } from "@/lib/jwt"
+import { getExchangeRate } from "@/lib/currency"
 
 const resolveCategoryId = async (rawCategoryId: string, userId: number) => {
   const parsedCategoryId = Number(rawCategoryId)
@@ -39,6 +41,7 @@ export const createTransaction = async (
       formData.get("transactionDescription")?.toString() || "",
     categoryId: formData.get("categoryId")?.toString() || "",
     transactionDate: formData.get("transactionDate")?.toString() || "",
+    transactionCurrency: formData.get("transactionCurrency")?.toString() || "HNL",
   }
 
   const userId = await getSessionUserId()
@@ -63,20 +66,37 @@ export const createTransaction = async (
         transactionType: fieldErrors.properties?.transactionType?.errors[0],
         transactionDescription:
           fieldErrors.properties?.transactionDescription?.errors[0],
-       transactionDate: fieldErrors.properties?.transactionDate?.errors[0]
+       transactionDate: fieldErrors.properties?.transactionDate?.errors[0],
+       transactionCurrency: fieldErrors.properties?.transactionCurrency?.errors[0]
       },
       fields: rawFields,
     }
   }
 
-  const { accountId, amount, transactionType, transactionDescription, transactionDate } =
+  const { accountId, amount, transactionType, transactionDescription, transactionDate, transactionCurrency } =
     validatedFields.data
+
+  // Obtener moneda por defecto del usuario desde la sesión (no del cliente)
+  const userResult = await getUserById(userId)
+  const defaultCurrency = userResult.success ? (userResult.data?.defaultCurrency ?? "HNL") : "HNL"
+
+  let exchangeRate = 1
+  let amountInDefaultCurrency = Number(amount)
+
+  if (transactionCurrency !== defaultCurrency) {
+    exchangeRate = await getExchangeRate(transactionCurrency, defaultCurrency)
+    amountInDefaultCurrency = Number(amount) * exchangeRate
+  }
 
   try {
     await db.insert(transactions).values({
       userId,
       accountId,
       amount,
+      transactionCurrency,
+      exchangeRate: exchangeRate.toFixed(6),
+      amountInDefaultCurrency: amountInDefaultCurrency.toFixed(2),
+      defaultCurrencyAtTransaction: defaultCurrency,
       transactionType,
       transactionDescription,
       transactionDate,
@@ -133,6 +153,7 @@ export const updateTransaction = async (
     transactionDescription:
       formData.get("transactionDescription")?.toString() || "",
     categoryId: formData.get("categoryId")?.toString() || "",
+    transactionCurrency: formData.get("transactionCurrency")?.toString() || "HNL",
   }
 
   if (!transactionId || isNaN(transactionId)) {
@@ -165,13 +186,26 @@ export const updateTransaction = async (
         transactionType: fieldErrors.properties?.transactionType?.errors[0],
         transactionDescription:
           fieldErrors.properties?.transactionDescription?.errors[0],
+       transactionCurrency: fieldErrors.properties?.transactionCurrency?.errors[0]
       },
       fields: rawFields,
     }
   }
 
-  const { accountId, amount, transactionType, transactionDescription } =
+  const { accountId, amount, transactionType, transactionDescription, transactionCurrency } =
     validatedFields.data
+
+  // Obtener moneda por defecto del usuario desde la sesión (no del cliente)
+  const userResult = await getUserById(userId)
+  const defaultCurrency = userResult.success ? (userResult.data?.defaultCurrency ?? "HNL") : "HNL"
+
+  let exchangeRate = 1
+  let amountInDefaultCurrency = Number(amount)
+
+  if (transactionCurrency !== defaultCurrency) {
+    exchangeRate = await getExchangeRate(transactionCurrency, defaultCurrency)
+    amountInDefaultCurrency = Number(amount) * exchangeRate
+  }
 
   try {
     await db
@@ -179,6 +213,10 @@ export const updateTransaction = async (
       .set({
         accountId,
         amount,
+        transactionCurrency,
+        exchangeRate: exchangeRate.toFixed(6),
+        amountInDefaultCurrency: amountInDefaultCurrency.toFixed(2),
+        defaultCurrencyAtTransaction: defaultCurrency,
         transactionType,
         transactionDescription,
         categoryId: await resolveCategoryId(rawFields.categoryId, userId),

@@ -29,6 +29,13 @@
       "when": 1791081891620,
       "tag": "0003_dusty_boomerang",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1792179175760,
+      "tag": "0004_black_toro",
+      "breakpoints": true
     }
   ]
 }

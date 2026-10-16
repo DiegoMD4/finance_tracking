@@ -204,6 +204,37 @@ export default function FormTransaction({
                   <FieldError>{state?.error?.amount}</FieldError>
                 </Field>
                 <Field>
+                  <FieldLabel htmlFor="checkout-transaction-currency">
+                    Currency
+                  </FieldLabel>
+                  <Select
+                    name="transactionCurrency"
+                    defaultValue={
+                      transaction?.transactionCurrency ??
+                      state?.fields?.transactionCurrency ??
+                      "HNL"
+                    }
+                  >
+                    <SelectTrigger
+                      id="checkout-transaction-currency"
+                      aria-invalid={!!state?.error?.transactionCurrency}
+                    >
+                      <SelectValue placeholder="Select currency" />
+                    </SelectTrigger>
+                    <SelectContent position="popper">
+                      <SelectGroup>
+                        <SelectItem value="HNL">HNL — Lempira hondureño</SelectItem>
+                        <SelectItem value="USD">USD — US Dollar</SelectItem>
+                        <SelectItem value="EUR">EUR — Euro</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FieldDescription>
+                    The currency in which this transaction amount was captured.
+                  </FieldDescription>
+                  <FieldError>{state?.error?.transactionCurrency}</FieldError>
+                </Field>
+                <Field>
                   <DatePickerSimple
                     label="Transaction date"
                     name="transactionDate"

@@ -17,7 +17,7 @@ const DEMO_ACCOUNTS = [
     accountName: "Cuenta Corriente",
     bankAccountType: "checking",
     accountEmail: "demo@bac.com",
-    accountCurrency: "Lempiras",
+    accountCurrency: "HNL",
     openingBalance: "5000.00",
   },
   {
@@ -26,7 +26,7 @@ const DEMO_ACCOUNTS = [
     accountName: "Ahorros Personal",
     bankAccountType: "savings",
     accountEmail: "demo@atlantida.com",
-    accountCurrency: "Lempiras",
+    accountCurrency: "HNL",
     openingBalance: "25000.00",
   },
   {
@@ -35,10 +35,35 @@ const DEMO_ACCOUNTS = [
     accountName: "Tarjeta Nómina",
     bankAccountType: "payroll",
     accountEmail: "demo@ficohsa.com",
-    accountCurrency: "Lempiras",
+    accountCurrency: "HNL",
     openingBalance: "8500.00",
   },
+  {
+    accountNumber: "1111222233",
+    bankName: "Banco Davivienda",
+    accountName: "Cuenta Dólares",
+    bankAccountType: "savings",
+    accountEmail: "demo@davivienda.com",
+    accountCurrency: "USD",
+    openingBalance: "1200.00",
+  },
+  {
+    accountNumber: "4444555566",
+    bankName: "Banco Occidental",
+    accountName: "Cuenta Euros",
+    bankAccountType: "savings",
+    accountEmail: "demo@occidente.com",
+    accountCurrency: "EUR",
+    openingBalance: "900.00",
+  },
 ]
+
+// Tasas de ejemplo (moneda → HNL) usadas para el snapshot de conversión en datos demo
+const DEMO_RATES_TO_HNL: Record<string, number> = {
+  HNL: 1,
+  USD: 24.75,
+  EUR: 27.5,
+}
 
 function randomBetween(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
@@ -174,7 +199,6 @@ async function seedDemoAccounts(userId: number): Promise<number[]> {
 
 async function seedTransactions(
   userId: number,
-  accountIds: number[],
   categoryMap: Map<string, number>
 ): Promise<void> {
   console.log("💰 Generando transacciones de prueba (6 meses)...")
@@ -188,6 +212,15 @@ async function seedTransactions(
     console.log(`  ⏭️  Ya existen ${count} transacciones para este usuario, se omite.`)
     return
   }
+
+  // Cuentas con su moneda, para etiquetar correctamente el snapshot de cada transacción
+  const accountsWithCurrency = await db
+    .select({
+      id: bankAccounts.id,
+      accountCurrency: bankAccounts.accountCurrency,
+    })
+    .from(bankAccounts)
+    .where(eq(bankAccounts.userId, userId))
 
   let totalTransactions = 0
 
@@ -216,18 +249,27 @@ async function seedTransactions(
           randomBetween(0, template.descriptions.length - 1)
         ]
 
-      const accountId = accountIds[randomBetween(0, accountIds.length - 1)]
+      const account =
+        accountsWithCurrency[
+          randomBetween(0, accountsWithCurrency.length - 1)
+        ]
+      const accountCurrency = account.accountCurrency ?? "HNL"
+      const rateToDefault = DEMO_RATES_TO_HNL[accountCurrency] ?? 1
       const createdAt = getRandomDate(monthsAgo)
 
       await db.insert(transactions).values({
         userId,
-        accountId,
+        accountId: account.id,
         amount: amount.toFixed(2),
+        transactionCurrency: accountCurrency,
+        exchangeRate: rateToDefault.toFixed(6),
+        amountInDefaultCurrency: (amount * rateToDefault).toFixed(2),
+        defaultCurrencyAtTransaction: "HNL",
         transactionType: template.type,
         transactionDescription: description,
         categoryId: categoryId ?? categoryMap.get("Miscellaneous / Others")!,
         createdAt,
-        transactionDate: createdAt
+        transactionDate: createdAt,
       })
 
       totalTransactions++
@@ -237,6 +279,93 @@ async function seedTransactions(
   }
 
   console.log(`  ✅ Total: ${totalTransactions} transacciones creadas`)
+
+  // Transacciones de prueba en moneda diferente para validar el snapshot
+  console.log("  💱 Creando transacciones en moneda extranjera (snapshot)...")
+
+  const usdAccount = await db
+    .select({ id: bankAccounts.id })
+    .from(bankAccounts)
+    .where(eq(bankAccounts.accountNumber, "1111222233"))
+    .then((res) => res[0])
+
+  const eurAccount = await db
+    .select({ id: bankAccounts.id })
+    .from(bankAccounts)
+    .where(eq(bankAccounts.accountNumber, "4444555566"))
+    .then((res) => res[0])
+
+  const usdRate = DEMO_RATES_TO_HNL.USD // tasa ejemplo USD → HNL
+  const eurRate = DEMO_RATES_TO_HNL.EUR // tasa ejemplo EUR → HNL
+
+  const foreignTransactions = [
+    {
+      accountId: usdAccount?.id,
+      amount: "100.00",
+      transactionCurrency: "USD",
+      exchangeRate: usdRate.toFixed(6),
+      amountInDefaultCurrency: (100 * usdRate).toFixed(2),
+      defaultCurrencyAtTransaction: "HNL",
+      transactionType: "income" as const,
+      transactionDescription: "Pago freelance en dólares",
+    },
+    {
+      accountId: usdAccount?.id,
+      amount: "250.00",
+      transactionCurrency: "USD",
+      exchangeRate: usdRate.toFixed(6),
+      amountInDefaultCurrency: (250 * usdRate).toFixed(2),
+      defaultCurrencyAtTransaction: "HNL",
+      transactionType: "expense" as const,
+      transactionDescription: "Compra de equipo en dólares",
+    },
+    {
+      accountId: eurAccount?.id,
+      amount: "200.00",
+      transactionCurrency: "EUR",
+      exchangeRate: eurRate.toFixed(6),
+      amountInDefaultCurrency: (200 * eurRate).toFixed(2),
+      defaultCurrencyAtTransaction: "HNL",
+      transactionType: "income" as const,
+      transactionDescription: "Transferencia recibida en euros",
+    },
+    {
+      accountId: eurAccount?.id,
+      amount: "75.00",
+      transactionCurrency: "EUR",
+      exchangeRate: eurRate.toFixed(6),
+      amountInDefaultCurrency: (75 * eurRate).toFixed(2),
+      defaultCurrencyAtTransaction: "HNL",
+      transactionType: "expense" as const,
+      transactionDescription: "Suscripción anual en euros",
+    },
+  ]
+
+  const categoryFallback = categoryMap.get("Miscellaneous / Others")!
+
+  for (const tx of foreignTransactions) {
+    if (!tx.accountId) continue
+    await db.insert(transactions).values({
+      userId,
+      accountId: tx.accountId,
+      amount: tx.amount,
+      transactionCurrency: tx.transactionCurrency,
+      exchangeRate: tx.exchangeRate,
+      amountInDefaultCurrency: tx.amountInDefaultCurrency,
+      defaultCurrencyAtTransaction: tx.defaultCurrencyAtTransaction,
+      transactionType: tx.transactionType,
+      transactionDescription: tx.transactionDescription,
+      categoryId: categoryFallback,
+      createdAt: getRandomDate(0),
+      transactionDate: getRandomDate(0),
+    })
+    totalTransactions++
+  }
+
+  console.log(
+    `  ✅ ${foreignTransactions.length} transacciones en moneda extranjera creadas`,
+  )
+  console.log(`  ✅ Total general: ${totalTransactions} transacciones`)
 }
 
 async function main() {
@@ -265,14 +394,15 @@ async function main() {
       name: "Demo User",
       email: "demo@example.com",
       password: "demo123",
+      defaultCurrency: "HNL",
     })
     console.log("  👤 Usuario demo creado (ID: 1)\n")
   } else {
     console.log("  👤 Usuario demo ya existe (ID: 1)\n")
   }
 
-  const accountIds = await seedDemoAccounts(userId)
-  await seedTransactions(userId, accountIds, categoryMap)
+  await seedDemoAccounts(userId)
+  await seedTransactions(userId, categoryMap)
 
   console.log("\n🎉 ¡Seed de prueba completado!")
   console.log("   Ejecuta 'npm run dev' para ver los gráficos con datos reales.")

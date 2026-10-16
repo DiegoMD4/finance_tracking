@@ -4,7 +4,12 @@ import { signInSchema, SignInFields, signUpSchema } from "@/app/(auth)/schema"
 import { db } from "@/db"
 import { users } from "@/db/schema/schema"
 import { setSessionCookie, clearSessionCookie } from "@/lib/jwt"
-import { CreateUser, LoginUser, UserActionState } from "@/types/users.types"
+import {
+  CreateUser,
+  LoginUser,
+  UpdateDefaultCurrency,
+  UserActionState,
+} from "@/types/users.types"
 import { eq } from "drizzle-orm"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
@@ -12,6 +17,7 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
 import { getSessionUserInfo } from "@/server/session"
+import { getSessionUserId } from "@/lib/jwt"
 
 const DEMO_USER_ID = 1
 
@@ -160,4 +166,57 @@ export async function getSessionStatus(): Promise<
 > {
   const info = await getSessionUserInfo()
   return info.status
+}
+
+export const updateDefaultCurrency = async (
+  prevState: UpdateDefaultCurrency | null | undefined,
+  formData: FormData
+): Promise<UpdateDefaultCurrency> => {
+  const rawFields = {
+    currency: formData.get("currency")?.toString() || "",
+  }
+
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return {
+      success: false,
+      message: "Unauthorized: a valid session is required",
+      fields: rawFields,
+    }
+  }
+
+  const currencySchema = z.enum(["HNL", "USD", "EUR"])
+  const validatedFields = currencySchema.safeParse(rawFields.currency)
+
+  if (!validatedFields.success) {
+    return {
+      success: false,
+      message: "Invalid currency",
+      error: {
+        currency: "Currency must be HNL, USD, or EUR",
+      },
+      fields: rawFields,
+    }
+  }
+
+  const currency = validatedFields.data
+
+  try {
+    await db.update(users).set({ defaultCurrency: currency }).where(eq(users.id, userId))
+
+    revalidatePath("/settings")
+    revalidatePath("/dashboard")
+
+    return {
+      success: true,
+      message: "Default currency updated successfully",
+      fields: rawFields,
+    }
+  } catch (error) {
+    console.error("❌ Error updating default currency:", error)
+
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error"
+    return { success: false, message: errorMessage, fields: rawFields }
+  }
 }

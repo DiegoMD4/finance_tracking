@@ -19,11 +19,9 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart"
 import { useState } from "react"
-import { formatCurrency } from "@/lib/utils"
+import { formatCompactCurrency, formatCurrency } from "@/lib/utils"
 
 export const description = "An area chart with a legend"
-
-const formatAmount = (value: number) => `L.${formatCurrency(value)}`
 
 const chartConfig = {
   income: {
@@ -36,19 +34,22 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-
-
 interface IncomesExpensesChartProps {
-
   data: {
     monthNumber: number
     month: string
     income: number
     expense: number
   }[]
+
+  currency: "HNL" | "USD" | "EUR"
 }
 
-export function IncomesExpensesChart({ data }: IncomesExpensesChartProps) {
+export function IncomesExpensesChart({ data, currency }: IncomesExpensesChartProps) {
+  const formatAmount = (value: number | string) =>
+    formatCurrency(value, currency)
+  const formatAxisAmount = (value: number | string) =>
+    formatCompactCurrency(value, currency)
   const totalIncome = data.reduce((sum, item) => sum + item.income, 0)
   const totalExpense = data.reduce((sum, item) => sum + item.expense, 0)
   const isPositive = totalIncome >= totalExpense
@@ -63,7 +64,7 @@ export function IncomesExpensesChart({ data }: IncomesExpensesChartProps) {
       [dataKey]: !prev[dataKey],
     }))
   }
-/*   const savingRate =
+  /*   const savingRate =
     totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0
  */
 
@@ -98,7 +99,7 @@ export function IncomesExpensesChart({ data }: IncomesExpensesChartProps) {
               axisLine={false}
               tickMargin={8}
               tickCount={3}
-              tickFormatter={formatAmount}
+              tickFormatter={formatAxisAmount}
             />
             <ChartTooltip
               cursor={true}

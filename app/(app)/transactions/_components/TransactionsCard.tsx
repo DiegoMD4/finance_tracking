@@ -5,7 +5,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { Button } from "@/components/ui/button"
-import { cn, formatCurrency } from "@/lib/utils"
+import { cn, formatCurrency, type Currency } from "@/lib/utils"
 import { TransactionListItem } from "@/types/transactions.types"
 import { ChevronDownIcon } from "lucide-react"
 import TransactionsActions from "./TransactionsActions"
@@ -58,7 +58,7 @@ export default function TransactionsCard({ data }: TransactionsCardProps) {
                           : "text-red-500" */
                       )}
                     >
-                      {`L. ${formatCurrency(transaction.amount)}`}
+                      {`${formatCurrency(transaction.amount, transaction.transactionCurrency as Currency)}`}
                     </span>
                   </div>
                   <ChevronDownIcon className="ml-auto h-4 w-4 shrink-0 opacity-50 transition-transform duration-200 group-data-[state=open]:rotate-180" />
@@ -70,7 +70,10 @@ export default function TransactionsCard({ data }: TransactionsCardProps) {
                   <li className="flex justify-between">
                     <span>Amount:</span>
                     <span className="font-bold text-foreground">
-                      {formatCurrency(transaction.amount)}
+                      {formatCurrency(
+                        transaction.amount,
+                        transaction.transactionCurrency as Currency
+                      )}
                     </span>
                   </li>
                   <li className="flex justify-between">

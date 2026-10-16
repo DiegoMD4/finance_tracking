@@ -11,6 +11,11 @@ export interface Transaction {
   createdAt: Date
   categoryName: string | null
   transactionDate: string | null
+
+  transactionCurrency: string
+  exchangeRate: string
+  amountInDefaultCurrency: string
+  defaultCurrencyAtTransaction: string
 }
 
 export interface TransactionListItem extends Transaction {
@@ -26,6 +31,7 @@ export interface TransactionFormFields {
   transactionType: string
   transactionDescription: string
   categoryId: string
+  transactionCurrency: string
 }
 
 export interface TransactionFormErrors {
@@ -35,6 +41,7 @@ export interface TransactionFormErrors {
   transactionDescription?: string
   categoryId?: string
   transactionDate?: string
+  transactionCurrency?: string
 }
 
 export interface TransactionActionResult {

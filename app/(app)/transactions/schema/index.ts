@@ -46,4 +46,7 @@ export const transactionSchema = z.object({
     .refine((data) => data <= new Date(), {
       error: "Can't submit a future date",
     }),
+  transactionCurrency: z.enum(["HNL", "USD", "EUR"], {
+    error: () => ({ message: "Please select a valid currency" }),
+  }).default("HNL"),
 })

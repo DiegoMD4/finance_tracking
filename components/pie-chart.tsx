@@ -19,15 +19,16 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, type Currency } from "@/lib/utils"
 
 export const description = "A simple pie chart"
 
 interface ChartPieSimpleProps {
   data: { name: string; type: string | null; value: number }[]
+  currency: Currency
 }
 
-export function ChartPieSimple({ data }: ChartPieSimpleProps) {
+export function ChartPieSimple({ data, currency }: ChartPieSimpleProps) {
   const chartConfig = {
     value: {
       label: "Balance",
@@ -71,7 +72,7 @@ export function ChartPieSimple({ data }: ChartPieSimpleProps) {
                 <ChartTooltipContent
                   hideLabel
                   formatter={(value, name) =>
-                    `${name} - L.${formatCurrency(value as number)}`
+                    `${name} - ${formatCurrency(value as number, currency)}`
                   }
                 />
               }

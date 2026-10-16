@@ -6,7 +6,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { cn, formatCurrency } from "@/lib/utils"
+import { cn, formatCurrency, type Currency } from "@/lib/utils"
 import { TransactionListItem } from "@/types/transactions.types"
 import TransactionsActions from "./TransactionsActions"
 
@@ -53,7 +53,7 @@ export function TransactionsTable({ data }: TransactionsTableProps) {
                 {transaction.transactionType}
               </TableCell>
               <TableCell className="font-medium">
-                {`L. ${formatCurrency(transaction.amount)}`}
+                {`${formatCurrency(transaction.amount, transaction.transactionCurrency as Currency)}`}
               </TableCell>
               <TableCell>{transaction.transactionDate}</TableCell>
               <TableCell className="text-right">
