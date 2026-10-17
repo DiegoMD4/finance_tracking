@@ -1,6 +1,7 @@
 import { getBankAccounts } from "@/server/bank-accounts/queries"
-import FormTransaction from "../_components/FormTransaction"
+import type { BankAccounts } from "@/types/bank-accounts.types"
 import { getCategories } from "@/server/categories/queries"
+import { NewTransactionClient } from "./_components/NewTransactionClient"
 
 export default async function NewTransactionPage() {
   const [responseBankAccounts, responseCategories] = await Promise.all([
@@ -8,15 +9,18 @@ export default async function NewTransactionPage() {
     getCategories(),
   ])
 
+  const bankAccounts: BankAccounts[] = responseBankAccounts.ok
+    ? responseBankAccounts.data
+    : []
+
+  const categories = responseCategories.ok ? responseCategories.data : []
+
   return (
     <section className="w-full">
       <div className="w-full">
-        {/* P-3 */}
-        <FormTransaction
-          bankAccounts={
-            responseBankAccounts.ok ? responseBankAccounts.data : []
-          }
-          categories={responseCategories.ok ? responseCategories.data : []}
+        <NewTransactionClient
+          bankAccounts={bankAccounts}
+          categories={categories}
         />
       </div>
     </section>

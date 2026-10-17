@@ -65,6 +65,7 @@ export const transactions = mysqlTable("transactions", {
   transactionCurrency: varchar("transaction_currency", { length: 3 })
     .notNull()
     .default("HNL"),
+  bankReference: varchar("bank_reference", { length: 255 }),
   exchangeRate: decimal("exchange_rate", { precision: 12, scale: 6 })
     .notNull()
     .default("1.000000"),

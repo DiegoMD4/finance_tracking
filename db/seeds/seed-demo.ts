@@ -18,25 +18,7 @@ const DEMO_ACCOUNTS = [
     bankAccountType: "checking",
     accountEmail: "demo@bac.com",
     accountCurrency: "HNL",
-    openingBalance: "5000.00",
-  },
-  {
-    accountNumber: "0987654321",
-    bankName: "Banco Atlántida",
-    accountName: "Ahorros Personal",
-    bankAccountType: "savings",
-    accountEmail: "demo@atlantida.com",
-    accountCurrency: "HNL",
-    openingBalance: "25000.00",
-  },
-  {
-    accountNumber: "5555666677",
-    bankName: "Banco Ficohsa",
-    accountName: "Tarjeta Nómina",
-    bankAccountType: "payroll",
-    accountEmail: "demo@ficohsa.com",
-    accountCurrency: "HNL",
-    openingBalance: "8500.00",
+    openingBalance: "2500.00",
   },
   {
     accountNumber: "1111222233",
@@ -45,7 +27,7 @@ const DEMO_ACCOUNTS = [
     bankAccountType: "savings",
     accountEmail: "demo@davivienda.com",
     accountCurrency: "USD",
-    openingBalance: "1200.00",
+    openingBalance: "500.00",
   },
   {
     accountNumber: "4444555566",
@@ -54,7 +36,7 @@ const DEMO_ACCOUNTS = [
     bankAccountType: "savings",
     accountEmail: "demo@occidente.com",
     accountCurrency: "EUR",
-    openingBalance: "900.00",
+    openingBalance: "400.00",
   },
 ]
 
@@ -97,13 +79,13 @@ const INCOME_TRANSACTIONS: TransactionTemplate[] = [
   {
     categoryName: "Salary & Income",
     type: "income",
-    amountRange: [1500, 4000],
+    amountRange: [1500, 5000],
     descriptions: ["Salario quincenal", "Depósito de nómina", "Transferencia recibida"],
   },
   {
     categoryName: "Investments & Savings",
     type: "income",
-    amountRange: [100, 500],
+    amountRange: [100, 400],
     descriptions: ["Rendimiento inversión", "Dividendos", "Intereses ganados"],
   },
 ]
@@ -112,43 +94,43 @@ const EXPENSE_TRANSACTIONS: TransactionTemplate[] = [
   {
     categoryName: "Housing & Utilities",
     type: "expense",
-    amountRange: [2000, 4500],
+    amountRange: [700, 1800],
     descriptions: ["Pago de alquiler", "Servicios públicos", "Agua y luz"],
   },
   {
     categoryName: "Food & Dining",
     type: "expense",
-    amountRange: [150, 600],
+    amountRange: [80, 400],
     descriptions: ["Supermercado", "Restaurante", "Comida delivery", "Café"],
   },
   {
     categoryName: "Transportation",
     type: "expense",
-    amountRange: [50, 300],
+    amountRange: [40, 200],
     descriptions: ["Gasolina", "Uber", "Passaje bus", "Estacionamiento"],
   },
   {
     categoryName: "Shopping & Entertainment",
     type: "expense",
-    amountRange: [100, 800],
+    amountRange: [80, 500],
     descriptions: ["Compra online", "Ropa", "Netflix", "Suscripción"],
   },
   {
     categoryName: "Health & Medical",
     type: "expense",
-    amountRange: [50, 400],
+    amountRange: [40, 250],
     descriptions: ["Farmacia", "Consulta médica", "Exámenes"],
   },
   {
     categoryName: "Education",
     type: "expense",
-    amountRange: [200, 1500],
+    amountRange: [120, 700],
     descriptions: ["Curso online", "Libros", "Materiales"],
   },
   {
     categoryName: "Miscellaneous / Others",
     type: "expense",
-    amountRange: [20, 150],
+    amountRange: [15, 80],
     descriptions: ["Varios", "Regalo", "Propina", "Misceláneos"],
   },
 ]
@@ -239,7 +221,8 @@ async function seedTransactions(
         if (!fallbackId) continue
       }
 
-      const amount = randomBetween(
+      // El monto se define como su equivalente en HNL (rangos de la plantilla)
+      const hnlAmount = randomBetween(
         template.amountRange[0],
         template.amountRange[1]
       )
@@ -255,6 +238,8 @@ async function seedTransactions(
         ]
       const accountCurrency = account.accountCurrency ?? "HNL"
       const rateToDefault = DEMO_RATES_TO_HNL[accountCurrency] ?? 1
+      // Convertir el equivalente en HNL al monto nominal en la moneda de la cuenta
+      const amount = hnlAmount / rateToDefault
       const createdAt = getRandomDate(monthsAgo)
 
       await db.insert(transactions).values({
@@ -263,7 +248,7 @@ async function seedTransactions(
         amount: amount.toFixed(2),
         transactionCurrency: accountCurrency,
         exchangeRate: rateToDefault.toFixed(6),
-        amountInDefaultCurrency: (amount * rateToDefault).toFixed(2),
+        amountInDefaultCurrency: hnlAmount.toFixed(2),
         defaultCurrencyAtTransaction: "HNL",
         transactionType: template.type,
         transactionDescription: description,

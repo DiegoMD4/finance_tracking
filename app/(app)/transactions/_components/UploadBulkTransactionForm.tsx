@@ -1,18 +1,398 @@
 "use client"
 
-import { Dropzone } from "@/components/ui/dropzone"
-import { FieldDescription } from "@/components/ui/field"
+import { useCallback, useState } from "react"
+import { toast } from "sonner"
 
-export function UploadBulkTransactionForm() {
+import { Dropzone } from "@/components/ui/dropzone"
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { cn } from "@/lib/utils"
+import type { BankAccounts } from "@/types/bank-accounts.types"
+import type { Category } from "@/types/categories.types"
+import {
+  extractTransactions,
+  getFileSource,
+} from "@/lib/parsers/file-extractor"
+import type { ParsedTransaction } from "@/lib/parsers/types"
+
+interface UploadBulkTransactionFormProps {
+  bankAccounts: BankAccounts[]
+  categories: Category[]
+}
+
+export function UploadBulkTransactionForm({
+  bankAccounts,
+  categories,
+}: UploadBulkTransactionFormProps) {
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("")
+  const [file, setFile] = useState<File | null>(null)
+  const [transactions, setTransactions] = useState<ParsedTransaction[]>([])
+  const [errors, setErrors] = useState<string[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [parsedSource, setParsedSource] = useState<
+    "csv" | "excel" | "pdf" | "unknown" | null
+  >(null)
+  const [debugInfo, setDebugInfo] = useState<{
+    fileName: string
+    source: string
+    rawText?: string
+    transactionCount: number
+  } | null>(null)
+
+  const handleFileChange = useCallback(
+    async (files: File[]) => {
+      const selectedFile = files[0]
+      if (!selectedFile) return
+      if (!selectedAccountId || selectedAccountId === "none") {
+        toast.error("Select a bank account before uploading the file")
+        setFile(null)
+        return
+      }
+
+      setFile(selectedFile)
+      setIsLoading(true)
+      setErrors([])
+
+      try {
+        const result = await extractTransactions(selectedFile)
+
+        if (result.errors.length > 0 && result.transactions.length === 0) {
+          setErrors(result.errors)
+          result.errors.forEach((e) => toast.error(e))
+          setTransactions([])
+          setParsedSource(null)
+          setDebugInfo({
+            fileName: result.fileName,
+            source: result.source,
+            rawText: result.rawText,
+            transactionCount: 0,
+          })
+          return
+        }
+
+        setTransactions(result.transactions)
+        setParsedSource(result.source)
+        setDebugInfo({
+          fileName: result.fileName,
+          source: result.source,
+          rawText: result.rawText,
+          transactionCount: result.transactions.length,
+        })
+        if (result.errors.length > 0) {
+          result.errors.forEach((e) => toast.warning(e))
+        }
+        toast.success(
+          `Extracted ${result.transactions.length} transaction${
+            result.transactions.length !== 1 ? "s" : ""
+          } from file`
+        )
+      } catch (error) {
+        const msg =
+          error instanceof Error ? error.message : "Unknown error reading file"
+        setErrors([msg])
+        toast.error(msg)
+        setDebugInfo({
+          fileName: selectedFile.name,
+          source: getFileSource(selectedFile.name),
+          rawText: undefined,
+          transactionCount: 0,
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [selectedAccountId]
+  )
+
+  const updateTransaction = useCallback(
+    (tempId: string, updates: Partial<ParsedTransaction>) => {
+      setTransactions((prev) =>
+        prev.map((t) => (t.tempId === tempId ? { ...t, ...updates } : t))
+      )
+    },
+    []
+  )
+
+  const removeTransaction = useCallback((tempId: string) => {
+    setTransactions((prev) => prev.filter((t) => t.tempId !== tempId))
+  }, [])
+
+  const clearAll = useCallback(() => {
+    setTransactions([])
+    setFile(null)
+    setParsedSource(null)
+    setErrors([])
+  }, [])
+
+  const hasTransactions = transactions.length > 0
+
   return (
-    <form className="flex flex-row justify-center pt-4" autoComplete="off">
-      <div className="flex w-full flex-col gap-1.5 pt-4">
+    <form className="flex w-full flex-col gap-6" autoComplete="off">
+      {/* Paso 1: Seleccionar cuenta bancaria */}
+      <Field>
+        <FieldLabel>Destination bank account</FieldLabel>
         <FieldDescription>
-          Upload a file with multiple transactions at once. You can preview and
-          remove the file before submitting.
+          Choose the account where imported transactions will be registered.
         </FieldDescription>
-        <Dropzone name="file" maxFiles={1} label="Transactions file" />
-      </div>
+        <Select
+          value={selectedAccountId}
+          onValueChange={setSelectedAccountId}
+          disabled={isLoading}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select account" />
+          </SelectTrigger>
+          <SelectContent>
+            {bankAccounts.length === 0 ? (
+              <SelectItem disabled value="none">
+                No bank accounts available
+              </SelectItem>
+            ) : (
+              bankAccounts.map((acc) => (
+                <SelectItem key={acc.id} value={String(acc.id)}>
+                  {acc.bankName} - {acc.accountName || "Unnamed account"}
+                  {acc.accountCurrency ? ` (${acc.accountCurrency})` : ""}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+        <FieldError />
+      </Field>
+
+      {/* Paso 2: Dropzone */}
+      <Field>
+        <FieldLabel>Bank statement file</FieldLabel>
+        <FieldDescription>
+          Upload a PDF, Excel or CSV generated by Banco Atlántida. Movements
+          will be read and you can review them before saving.
+        </FieldDescription>
+        <Dropzone
+          name="file"
+          accept=".csv,.xlsx,.xls,.pdf"
+          maxFiles={1}
+          label="Drag your file here"
+          disabled={isLoading || !selectedAccountId}
+          onChange={handleFileChange}
+        />
+        <FieldError />
+      </Field>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          Processing file…
+        </div>
+      )}
+
+      {/* Paso 3: Tabla de vista previa editable */}
+      {hasTransactions && (
+        <section className="flex w-full flex-col gap-4 border-t pt-4">
+          <div className="flex flex-row items-center justify-between">
+            <h2 className="text-lg font-semibold">
+              Detected transactions ({transactions.length}) - parser used: {parsedSource}
+            </h2>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearAll}
+                disabled={isLoading}
+                className="w-full sm:w-auto"
+              >
+                Clear table
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  toast.info(
+                    "Database save action will be implemented in the next phase"
+                  )
+                }}
+                disabled={isLoading}
+                className="w-full sm:w-auto"
+              >
+                Save transactions
+              </Button>
+            </div>
+          </div>
+
+          {errors.length > 0 && (
+            <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-[12px] text-destructive">
+              {errors.map((e, i) => (
+                <div key={i} className="mb-1 last:mb-0">
+                  • {e}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="overflow-x-auto rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[12%]">Date</TableHead>
+                  <TableHead className="w-[26%]">Description</TableHead>
+                  <TableHead className="w-[14%]">Type</TableHead>
+                  <TableHead className="w-[14%]">Amount</TableHead>
+                  <TableHead className="w-[18%]">Bank reference</TableHead>
+                  <TableHead className="w-[12%]">Category</TableHead>
+                  <TableHead className="w-[8%] text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {transactions.map((tx) => (
+                  <TableRow key={tx.tempId}>
+                    <TableCell>
+                      <Input
+                        type="date"
+                        value={tx.transactionDate}
+                        onChange={(e) =>
+                          updateTransaction(tx.tempId, {
+                            transactionDate: e.target.value,
+                          })
+                        }
+                        className="h-8 border-none bg-transparent p-0 text-xs focus:ring-0"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        value={tx.transactionDescription}
+                        onChange={(e) =>
+                          updateTransaction(tx.tempId, {
+                            transactionDescription: e.target.value,
+                          })
+                        }
+                        className="h-8 border-none bg-transparent p-0 text-xs focus:ring-0"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={tx.transactionType}
+                        onValueChange={(v) =>
+                          updateTransaction(tx.tempId, {
+                            transactionType: v as "income" | "expense",
+                          })
+                        }
+                      >
+                        <SelectTrigger className="h-8 border-none bg-transparent p-0 text-xs focus:ring-0">
+                          <SelectValue placeholder="Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="income">
+                            Income (Credit)
+                          </SelectItem>
+                          <SelectItem value="expense">
+                            Expense (Debit)
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        value={tx.amount}
+                        onChange={(e) =>
+                          updateTransaction(tx.tempId, {
+                            amount: e.target.value,
+                          })
+                        }
+                        className="h-8 border-none bg-transparent p-0 text-right font-mono text-xs focus:ring-0"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        value={tx.bankReference ?? ""}
+                        onChange={(e) =>
+                          updateTransaction(tx.tempId, {
+                            bankReference: e.target.value || null,
+                          })
+                        }
+                        className="h-8 border-none bg-transparent p-0 font-mono text-xs text-muted-foreground focus:ring-0"
+                        placeholder="No reference"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={tx.categoryId ?? "none"}
+                        onValueChange={(v) =>
+                          updateTransaction(tx.tempId, {
+                            categoryId:
+                              v === "none" ? undefined : v || undefined,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="h-8 border-none bg-transparent p-0 text-xs focus:ring-0">
+                          <SelectValue placeholder="Category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No category</SelectItem>
+                          {categories.map((c) => (
+                            <SelectItem
+                              key={c.categoryId}
+                              value={String(c.categoryId)}
+                            >
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeTransaction(tx.tempId)}
+                        disabled={isLoading}
+                        aria-label={`Remove ${tx.transactionDescription}`}
+                      >
+                        <span className="sr-only">Remove</span>
+                        <span className="text-destructive">×</span>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </section>
+      )}
+
+      {!hasTransactions && !file && !isLoading && (
+        <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+          Select an account and upload a file to get started.
+        </div>
+      )}
+      {/* 
+      {debugInfo && (
+        <details className="mt-6 border border-muted/30 rounded-md p-4 text-xs bg-muted/50">
+          <summary className="font-semibold text-muted-foreground cursor-pointer">
+            Debug info (raw extracted text)
+          </summary>
+          <div className="mt-2 text-muted-foreground break-all whitespace-pre-wrap font-mono text-[10px]">
+            {debugInfo.rawText ?? "(no text extracted)"}
+          </div>
+        </details>
+      )} */}
     </form>
   )
 }

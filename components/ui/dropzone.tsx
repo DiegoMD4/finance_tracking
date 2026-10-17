@@ -166,7 +166,7 @@ function Dropzone({
         multiple={maxFiles !== 1}
         required={required}
         disabled={disabled}
-        className="sr-only"
+        className="sr-only w-px!"
         onChange={(event) => {
           if (event.target.files?.length) {
             addFiles(Array.from(event.target.files))

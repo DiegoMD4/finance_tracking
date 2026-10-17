@@ -16,6 +16,7 @@ export interface Transaction {
   exchangeRate: string
   amountInDefaultCurrency: string
   defaultCurrencyAtTransaction: string
+  bankReference?: string | null
 }
 
 export interface TransactionListItem extends Transaction {
@@ -32,6 +33,7 @@ export interface TransactionFormFields {
   transactionDescription: string
   categoryId: string
   transactionCurrency: string
+  bankReference?: string | null
 }
 
 export interface TransactionFormErrors {
@@ -42,6 +44,7 @@ export interface TransactionFormErrors {
   categoryId?: string
   transactionDate?: string
   transactionCurrency?: string
+  bankReference?: string
 }
 
 export interface TransactionActionResult {
