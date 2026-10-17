@@ -4,7 +4,7 @@ import { DropdownMenuItem } from "./dropdown-menu"
 import { SunMoon } from "lucide-react"
 
 export default function ThemeMenuButton() {
-  const { setTheme, themes, theme } = useTheme()
+  const { setTheme, themes, theme, } = useTheme()
   const changeTheme = () => {
     const selectThemeIndex = themes.indexOf(theme ?? "system")
     const newTheme =
@@ -16,7 +16,7 @@ export default function ThemeMenuButton() {
   return (
     <DropdownMenuItem onClick={changeTheme} className="cursor-pointer">
       <SunMoon />
-      <span className="capitalize">{theme ?? "system"}</span>
+      <span className="capitalize">Using {theme ?? "system"} theme</span>
     </DropdownMenuItem>
   )
 }

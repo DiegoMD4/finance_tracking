@@ -81,127 +81,136 @@ const findColumnIndex = (headers: string[], candidates: string[]): number | null
   return null
 }
 
-export const parseExcel = (
+export const parseExcel = async (
   file: File,
   fileName: string
 ): Promise<ExtractResult> => {
-  return new Promise((resolve) => {
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      try {
-        const arrayBuffer = event.target?.result as ArrayBuffer
-        const workbook = XLSX.read(arrayBuffer, { type: "array" })
-        const sheetName = workbook.SheetNames[0]
-        const worksheet = workbook.Sheets[sheetName]
-        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[]
+  try {
+    const arrayBuffer = await file.arrayBuffer()
+    const workbook = XLSX.read(arrayBuffer, { type: "array" })
+    const sheetName = workbook.SheetNames[0]
+    const worksheet = workbook.Sheets[sheetName]
+    const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[]
 
-        if (!json || json.length < 2) {
-          resolve({
-            transactions: [],
-            errors: ["The Excel file does not contain data rows"],
-            source: "excel",
-            fileName,
-          })
-          return
-        }
-
-        const headers = json[0] as string[]
-        const rows = json.slice(1)
-
-        const dateIdx = findColumnIndex(headers, ["fecha", "date", "fec"])
-        const refIdx = findColumnIndex(headers, ["referencia", "ref", "documento", "comprobante"])
-        const descIdx = findColumnIndex(headers, ["descripcion", "descripción", "detalle", "concepto", "motivo"])
-        const debitIdx = findColumnIndex(headers, ["debito", "débitos", "cargo", "retiro", "egreso", "salida"])
-        const creditIdx = findColumnIndex(headers, ["credito", "créditos", "abono", "deposito", "depósito", "ingreso", "entrada"])
-        const amountIdx = findColumnIndex(headers, ["monto", "amount", "valor", "total"])
-
-        const transactions: ParsedTransaction[] = []
-        const errors: string[] = []
-
-        rows.forEach((row, i) => {
-          const rowNum = i + 2
-          const getCol = (idx: number | null) =>
-            idx === null ? "" : String(row[idx] ?? "").trim()
-
-          const dateRaw = getCol(dateIdx)
-          const refRaw = getCol(refIdx)
-          const descRaw = getCol(descIdx)
-          const debitRaw = getCol(debitIdx)
-          const creditRaw = getCol(creditIdx)
-          const amountRaw = getCol(amountIdx)
-
-          const date = normalizeDate(dateRaw)
-          if (!date) {
-            errors.push(`Row ${rowNum}: invalid date ("${dateRaw}")`)
-            return
-          }
-
-          let type: "income" | "expense" = "expense"
-          let amount = "0"
-
-          if (amountRaw) {
-            amount = cleanAmount(amountRaw)
-            type = parseFloat(amountRaw.replace(/[^\d.-]/g, "")) < 0 ? "expense" : "income"
-          } else if (debitRaw || creditRaw) {
-            const debit = debitRaw ? parseFloat(cleanAmount(debitRaw)) : 0
-            const credit = creditRaw ? parseFloat(cleanAmount(creditRaw)) : 0
-            if (credit > 0) {
-              type = "income"
-              amount = credit.toFixed(2)
-            } else if (debit > 0) {
-              type = "expense"
-              amount = debit.toFixed(2)
-            } else {
-              type = "expense"
-              amount = "0"
-            }
-          } else {
-            errors.push(`Row ${rowNum}: no valid amount found`)
-            return
-          }
-
-          const description = descRaw || "No description"
-          const bankReference = refRaw || null
-
-          if (!description && !bankReference) {
-            errors.push(`Row ${rowNum}: empty row or no recognizable data`)
-            return
-          }
-
-          transactions.push({
-            tempId: `${fileName}-${rowNum}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            bankReference,
-            transactionDate: date,
-            transactionDescription: description,
-            transactionType: type,
-            amount,
-            row: rowNum,
-          })
-        })
-
-        resolve({
-          transactions,
-          errors,
-          source: "excel",
-          fileName,
-        })
-      } catch {
-        resolve({
-          transactions: [],
-          errors: ["Could not read the Excel file"],
-          source: "excel",
-          fileName,
-        })
-      }
-    }
-    reader.onerror = () => {
-      resolve({
+    if (!json || json.length < 2) {
+      return {
         transactions: [],
-        errors: ["Error al leer el archivo de Excel"],
+        errors: ["The Excel file does not contain data rows"],
         source: "excel",
         fileName,
-      })
+        rawText: "",
+      }
     }
-    reader.readAsArrayBuffer(file)
-  })
+
+    // La primera fila que coincida con una cabecera conocida es la de datos;
+    // los archivos de Atlántida traen 5 filas de metadata antes.
+    const headerRowIdx = json.findIndex((row) =>
+      row.some((cell: any) => {
+        const c = String(cell ?? "").toLowerCase().trim()
+        return c === "transactiondate" || c === "fecha" || c === "date"
+      })
+    )
+
+    if (headerRowIdx === -1) {
+      return {
+        transactions: [],
+        errors: ["No se encontró la fila de cabecera en el archivo Excel"],
+        source: "excel",
+        fileName,
+        rawText: "",
+      }
+    }
+
+    const headers = json[headerRowIdx] as string[]
+    const rows = json.slice(headerRowIdx + 1)
+
+    const dateIdx = findColumnIndex(headers, ["fecha", "date", "fec"])
+    const refIdx = findColumnIndex(headers, ["referencia", "ref", "documento", "comprobante"])
+    const descIdx = findColumnIndex(headers, ["descripcion", "descripción", "detalle", "concepto", "motivo", "description"])
+    const debitIdx = findColumnIndex(headers, ["debito", "débitos", "cargo", "retiro", "egreso", "salida", "debit"])
+    const creditIdx = findColumnIndex(headers, ["credito", "créditos", "abono", "deposito", "depósito", "ingreso", "entrada", "credit"])
+    const amountIdx = findColumnIndex(headers, ["monto", "amount", "valor", "total"])
+
+    const transactions: ParsedTransaction[] = []
+    const errors: string[] = []
+
+    rows.forEach((row, i) => {
+      const rowNum = i + 2
+      const getCol = (idx: number | null) =>
+        idx === null ? "" : String(row[idx] ?? "").trim()
+
+      const dateRaw = getCol(dateIdx)
+      const refRaw = getCol(refIdx)
+      const descRaw = getCol(descIdx)
+      const debitRaw = getCol(debitIdx)
+      const creditRaw = getCol(creditIdx)
+      const amountRaw = getCol(amountIdx)
+
+      const date = normalizeDate(dateRaw)
+      if (!date) {
+        errors.push(`Row ${rowNum}: invalid date ("${dateRaw}")`)
+        return
+      }
+
+      let type: "income" | "expense" = "expense"
+      let amount = "0"
+
+      if (amountRaw) {
+        amount = cleanAmount(amountRaw)
+        type = parseFloat(amountRaw.replace(/[^\d.-]/g, "")) < 0 ? "expense" : "income"
+      } else if (debitRaw || creditRaw) {
+        const debit = debitRaw ? parseFloat(cleanAmount(debitRaw)) : 0
+        const credit = creditRaw ? parseFloat(cleanAmount(creditRaw)) : 0
+        if (credit > 0) {
+          type = "income"
+          amount = credit.toFixed(2)
+        } else if (debit > 0) {
+          type = "expense"
+          amount = debit.toFixed(2)
+        } else {
+          type = "expense"
+          amount = "0"
+        }
+      } else {
+        errors.push(`Row ${rowNum}: no valid amount found`)
+        return
+      }
+
+      const description = descRaw || "No description"
+      const bankReference = refRaw || null
+
+      if (!description && !bankReference) {
+        errors.push(`Row ${rowNum}: empty row or no recognizable data`)
+        return
+      }
+
+      transactions.push({
+        tempId: `${fileName}-${rowNum}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        bankReference,
+        transactionDate: date,
+        transactionDescription: description,
+        transactionType: type,
+        amount,
+        row: rowNum,
+      })
+    })
+
+    const rawText = json.map((row) => String(row.join("\t"))).join("\n")
+
+    return {
+      transactions,
+      errors,
+      source: "excel",
+      fileName,
+      rawText,
+    }
+  } catch {
+    return {
+      transactions: [],
+      errors: ["Could not read the Excel file"],
+      source: "excel",
+      fileName,
+      rawText: "",
+    }
+  }
 }

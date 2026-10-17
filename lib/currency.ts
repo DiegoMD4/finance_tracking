@@ -22,6 +22,7 @@ export async function getExchangeRate(from: string, to: string) {
     CACHE.set(key, { rate: numericRate, expiresAt: now + TTL_MS })
     return numericRate
   } catch (error) {
+    console.log(error)
     throw new Error(
       `No se pudo obtener la tasa de conversión de ${from} a ${to} - error: ${error}`
     )

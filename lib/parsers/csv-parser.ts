@@ -81,12 +81,14 @@ const findColumnIndex = (
   return null
 }
 
-export const parseCsv = (
+export const parseCsv = async (
   file: File,
   fileName: string
 ): Promise<ExtractResult> => {
+  const text = await file.text()
+
   return new Promise((resolve) => {
-    Papa.parse(file, {
+    Papa.parse(text, {
       header: true,
       skipEmptyLines: true,
       transformHeader: (h) => h.trim(),
@@ -96,9 +98,9 @@ export const parseCsv = (
 
         const dateIdx = findColumnIndex(headers, ["fecha", "date", "fec"])
         const refIdx = findColumnIndex(headers, ["referencia", "ref", "documento", "comprobante"])
-        const descIdx = findColumnIndex(headers, ["descripcion", "descripción", "detalle", "concepto", "motivo"])
-        const debitIdx = findColumnIndex(headers, ["debito", "débitos", "cargo", "retiro", "egreso", "salida"])
-        const creditIdx = findColumnIndex(headers, ["credito", "créditos", "abono", "deposito", "depósito", "ingreso", "entrada"])
+        const descIdx = findColumnIndex(headers, ["descripcion", "descripción", "detalle", "concepto", "motivo", "description"])
+        const debitIdx = findColumnIndex(headers, ["debito", "débitos", "cargo", "retiro", "egreso", "salida", "debit"])
+        const creditIdx = findColumnIndex(headers, ["credito", "créditos", "abono", "deposito", "depósito", "ingreso", "entrada", "credit"])
         const amountIdx = findColumnIndex(headers, ["monto", "amount", "valor", "total"])
 
         const transactions: ParsedTransaction[] = []
@@ -170,6 +172,7 @@ export const parseCsv = (
           errors,
           source: "csv",
           fileName,
+          rawText: text,
         })
       },
       error: () => {
@@ -178,6 +181,7 @@ export const parseCsv = (
           errors: ["Could not read the CSV file"],
           source: "csv",
           fileName,
+          rawText: text,
         })
       },
     })
