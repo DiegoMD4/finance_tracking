@@ -19,16 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { CURRENCY_OPTIONS } from "@/lib/utils"
 import { updateDefaultCurrency } from "@/server/users/actions"
 import { UpdateDefaultCurrency } from "@/types/users.types"
 import { useActionState, useEffect } from "react"
 import { toast } from "sonner"
 
-const CURRENCY_OPTIONS = [
-  { value: "HNL", label: "HNL — Lempira hondureño" },
-  { value: "USD", label: "USD — US Dollar" },
-  { value: "EUR", label: "EUR — Euro" },
-]
+
 
 interface FormSettingsProps {
   currentCurrency: string

@@ -30,9 +30,9 @@ import {
 } from "@/types/transactions.types"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useActionState, useEffect, useMemo, useState } from "react"
+import { useActionState, useEffect, useMemo } from "react"
 import { toast } from "sonner"
-import { UploadBulkTransactionForm } from "./UploadBulkTransactionForm"
+
 
 interface FormTransactionProps {
   bankAccounts: BankAccounts[]
@@ -48,7 +48,6 @@ export default function FormTransaction({
   formType = "NEW",
 }: FormTransactionProps) {
   const router = useRouter()
-  const [showBulkForm, setShowBulkForm] = useState<boolean>(false)
   const hasAccounts = useMemo(() => bankAccounts.length > 0, [bankAccounts])
 
   const formDispatcher = async (
