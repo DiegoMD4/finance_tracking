@@ -1,0 +1,1 @@
+ALTER TABLE `transactions` ADD `bank_reference` varchar(255);

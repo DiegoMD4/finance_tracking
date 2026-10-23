@@ -17,28 +17,35 @@ const DEMO_ACCOUNTS = [
     accountName: "Cuenta Corriente",
     bankAccountType: "checking",
     accountEmail: "demo@bac.com",
-    accountCurrency: "Lempiras",
-    openingBalance: "5000.00",
+    accountCurrency: "HNL",
+    openingBalance: "2500.00",
   },
   {
-    accountNumber: "0987654321",
-    bankName: "Banco Atlántida",
-    accountName: "Ahorros Personal",
+    accountNumber: "1111222233",
+    bankName: "Banco Davivienda",
+    accountName: "Cuenta Dólares",
     bankAccountType: "savings",
-    accountEmail: "demo@atlantida.com",
-    accountCurrency: "Lempiras",
-    openingBalance: "25000.00",
+    accountEmail: "demo@davivienda.com",
+    accountCurrency: "USD",
+    openingBalance: "500.00",
   },
   {
-    accountNumber: "5555666677",
-    bankName: "Banco Ficohsa",
-    accountName: "Tarjeta Nómina",
-    bankAccountType: "payroll",
-    accountEmail: "demo@ficohsa.com",
-    accountCurrency: "Lempiras",
-    openingBalance: "8500.00",
+    accountNumber: "4444555566",
+    bankName: "Banco Occidental",
+    accountName: "Cuenta Euros",
+    bankAccountType: "savings",
+    accountEmail: "demo@occidente.com",
+    accountCurrency: "EUR",
+    openingBalance: "400.00",
   },
 ]
+
+// Tasas de ejemplo (moneda → HNL) usadas para el snapshot de conversión en datos demo
+const DEMO_RATES_TO_HNL: Record<string, number> = {
+  HNL: 1,
+  USD: 24.75,
+  EUR: 27.5,
+}
 
 function randomBetween(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
@@ -72,13 +79,13 @@ const INCOME_TRANSACTIONS: TransactionTemplate[] = [
   {
     categoryName: "Salary & Income",
     type: "income",
-    amountRange: [1500, 4000],
+    amountRange: [1500, 5000],
     descriptions: ["Salario quincenal", "Depósito de nómina", "Transferencia recibida"],
   },
   {
     categoryName: "Investments & Savings",
     type: "income",
-    amountRange: [100, 500],
+    amountRange: [100, 400],
     descriptions: ["Rendimiento inversión", "Dividendos", "Intereses ganados"],
   },
 ]
@@ -87,43 +94,43 @@ const EXPENSE_TRANSACTIONS: TransactionTemplate[] = [
   {
     categoryName: "Housing & Utilities",
     type: "expense",
-    amountRange: [2000, 4500],
+    amountRange: [700, 1800],
     descriptions: ["Pago de alquiler", "Servicios públicos", "Agua y luz"],
   },
   {
     categoryName: "Food & Dining",
     type: "expense",
-    amountRange: [150, 600],
+    amountRange: [80, 400],
     descriptions: ["Supermercado", "Restaurante", "Comida delivery", "Café"],
   },
   {
     categoryName: "Transportation",
     type: "expense",
-    amountRange: [50, 300],
+    amountRange: [40, 200],
     descriptions: ["Gasolina", "Uber", "Passaje bus", "Estacionamiento"],
   },
   {
     categoryName: "Shopping & Entertainment",
     type: "expense",
-    amountRange: [100, 800],
+    amountRange: [80, 500],
     descriptions: ["Compra online", "Ropa", "Netflix", "Suscripción"],
   },
   {
     categoryName: "Health & Medical",
     type: "expense",
-    amountRange: [50, 400],
+    amountRange: [40, 250],
     descriptions: ["Farmacia", "Consulta médica", "Exámenes"],
   },
   {
     categoryName: "Education",
     type: "expense",
-    amountRange: [200, 1500],
+    amountRange: [120, 700],
     descriptions: ["Curso online", "Libros", "Materiales"],
   },
   {
     categoryName: "Miscellaneous / Others",
     type: "expense",
-    amountRange: [20, 150],
+    amountRange: [15, 80],
     descriptions: ["Varios", "Regalo", "Propina", "Misceláneos"],
   },
 ]
@@ -174,7 +181,6 @@ async function seedDemoAccounts(userId: number): Promise<number[]> {
 
 async function seedTransactions(
   userId: number,
-  accountIds: number[],
   categoryMap: Map<string, number>
 ): Promise<void> {
   console.log("💰 Generando transacciones de prueba (6 meses)...")
@@ -188,6 +194,15 @@ async function seedTransactions(
     console.log(`  ⏭️  Ya existen ${count} transacciones para este usuario, se omite.`)
     return
   }
+
+  // Cuentas con su moneda, para etiquetar correctamente el snapshot de cada transacción
+  const accountsWithCurrency = await db
+    .select({
+      id: bankAccounts.id,
+      accountCurrency: bankAccounts.accountCurrency,
+    })
+    .from(bankAccounts)
+    .where(eq(bankAccounts.userId, userId))
 
   let totalTransactions = 0
 
@@ -206,7 +221,8 @@ async function seedTransactions(
         if (!fallbackId) continue
       }
 
-      const amount = randomBetween(
+      // El monto se define como su equivalente en HNL (rangos de la plantilla)
+      const hnlAmount = randomBetween(
         template.amountRange[0],
         template.amountRange[1]
       )
@@ -216,18 +232,29 @@ async function seedTransactions(
           randomBetween(0, template.descriptions.length - 1)
         ]
 
-      const accountId = accountIds[randomBetween(0, accountIds.length - 1)]
+      const account =
+        accountsWithCurrency[
+          randomBetween(0, accountsWithCurrency.length - 1)
+        ]
+      const accountCurrency = account.accountCurrency ?? "HNL"
+      const rateToDefault = DEMO_RATES_TO_HNL[accountCurrency] ?? 1
+      // Convertir el equivalente en HNL al monto nominal en la moneda de la cuenta
+      const amount = hnlAmount / rateToDefault
       const createdAt = getRandomDate(monthsAgo)
 
       await db.insert(transactions).values({
         userId,
-        accountId,
+        accountId: account.id,
         amount: amount.toFixed(2),
+        transactionCurrency: accountCurrency,
+        exchangeRate: rateToDefault.toFixed(6),
+        amountInDefaultCurrency: hnlAmount.toFixed(2),
+        defaultCurrencyAtTransaction: "HNL",
         transactionType: template.type,
         transactionDescription: description,
         categoryId: categoryId ?? categoryMap.get("Miscellaneous / Others")!,
         createdAt,
-        transactionDate: createdAt
+        transactionDate: createdAt,
       })
 
       totalTransactions++
@@ -237,6 +264,93 @@ async function seedTransactions(
   }
 
   console.log(`  ✅ Total: ${totalTransactions} transacciones creadas`)
+
+  // Transacciones de prueba en moneda diferente para validar el snapshot
+  console.log("  💱 Creando transacciones en moneda extranjera (snapshot)...")
+
+  const usdAccount = await db
+    .select({ id: bankAccounts.id })
+    .from(bankAccounts)
+    .where(eq(bankAccounts.accountNumber, "1111222233"))
+    .then((res) => res[0])
+
+  const eurAccount = await db
+    .select({ id: bankAccounts.id })
+    .from(bankAccounts)
+    .where(eq(bankAccounts.accountNumber, "4444555566"))
+    .then((res) => res[0])
+
+  const usdRate = DEMO_RATES_TO_HNL.USD // tasa ejemplo USD → HNL
+  const eurRate = DEMO_RATES_TO_HNL.EUR // tasa ejemplo EUR → HNL
+
+  const foreignTransactions = [
+    {
+      accountId: usdAccount?.id,
+      amount: "100.00",
+      transactionCurrency: "USD",
+      exchangeRate: usdRate.toFixed(6),
+      amountInDefaultCurrency: (100 * usdRate).toFixed(2),
+      defaultCurrencyAtTransaction: "HNL",
+      transactionType: "income" as const,
+      transactionDescription: "Pago freelance en dólares",
+    },
+    {
+      accountId: usdAccount?.id,
+      amount: "250.00",
+      transactionCurrency: "USD",
+      exchangeRate: usdRate.toFixed(6),
+      amountInDefaultCurrency: (250 * usdRate).toFixed(2),
+      defaultCurrencyAtTransaction: "HNL",
+      transactionType: "expense" as const,
+      transactionDescription: "Compra de equipo en dólares",
+    },
+    {
+      accountId: eurAccount?.id,
+      amount: "200.00",
+      transactionCurrency: "EUR",
+      exchangeRate: eurRate.toFixed(6),
+      amountInDefaultCurrency: (200 * eurRate).toFixed(2),
+      defaultCurrencyAtTransaction: "HNL",
+      transactionType: "income" as const,
+      transactionDescription: "Transferencia recibida en euros",
+    },
+    {
+      accountId: eurAccount?.id,
+      amount: "75.00",
+      transactionCurrency: "EUR",
+      exchangeRate: eurRate.toFixed(6),
+      amountInDefaultCurrency: (75 * eurRate).toFixed(2),
+      defaultCurrencyAtTransaction: "HNL",
+      transactionType: "expense" as const,
+      transactionDescription: "Suscripción anual en euros",
+    },
+  ]
+
+  const categoryFallback = categoryMap.get("Miscellaneous / Others")!
+
+  for (const tx of foreignTransactions) {
+    if (!tx.accountId) continue
+    await db.insert(transactions).values({
+      userId,
+      accountId: tx.accountId,
+      amount: tx.amount,
+      transactionCurrency: tx.transactionCurrency,
+      exchangeRate: tx.exchangeRate,
+      amountInDefaultCurrency: tx.amountInDefaultCurrency,
+      defaultCurrencyAtTransaction: tx.defaultCurrencyAtTransaction,
+      transactionType: tx.transactionType,
+      transactionDescription: tx.transactionDescription,
+      categoryId: categoryFallback,
+      createdAt: getRandomDate(0),
+      transactionDate: getRandomDate(0),
+    })
+    totalTransactions++
+  }
+
+  console.log(
+    `  ✅ ${foreignTransactions.length} transacciones en moneda extranjera creadas`,
+  )
+  console.log(`  ✅ Total general: ${totalTransactions} transacciones`)
 }
 
 async function main() {
@@ -265,14 +379,15 @@ async function main() {
       name: "Demo User",
       email: "demo@example.com",
       password: "demo123",
+      defaultCurrency: "HNL",
     })
     console.log("  👤 Usuario demo creado (ID: 1)\n")
   } else {
     console.log("  👤 Usuario demo ya existe (ID: 1)\n")
   }
 
-  const accountIds = await seedDemoAccounts(userId)
-  await seedTransactions(userId, accountIds, categoryMap)
+  await seedDemoAccounts(userId)
+  await seedTransactions(userId, categoryMap)
 
   console.log("\n🎉 ¡Seed de prueba completado!")
   console.log("   Ejecuta 'npm run dev' para ver los gráficos con datos reales.")

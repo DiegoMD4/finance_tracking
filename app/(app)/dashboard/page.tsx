@@ -2,8 +2,9 @@ import { ExpensesByCategoryChart } from "@/components/ExpensesByCategoriesChart"
 import { IncomesExpensesChart } from "@/components/IncomesExpensesChart"
 
 import { ChartPieSimple } from "@/components/pie-chart"
-import { cn, formatCurrency } from "@/lib/utils"
+import { cn, formatCurrency, type Currency } from "@/lib/utils"
 import { requireUserId } from "@/lib/jwt"
+import { getUserDefaultCurrency } from "@/server/users/queries"
 import {
   getDailyAverage,
   getExpensesByCategories,
@@ -12,7 +13,7 @@ import {
   getNetBalance,
 } from "@/server/dashboard/queries"
 
-export const revalidate = 60 
+export const revalidate = 60
 /* import { Plus, Search } from "lucide-react" */
 import { FaMoneyBills } from "react-icons/fa6"
 import { IoCalendarNumber } from "react-icons/io5"
@@ -20,14 +21,25 @@ import { IoCalendarNumber } from "react-icons/io5"
 export default async function Page() {
   const userId = await requireUserId()
 
-  const [data, netBalance, dailyAverage, fundsDistribution, expensesByCategories] =
-    await Promise.all([
-      getMonthlyFinancials(userId),
-      getNetBalance(userId),
-      getDailyAverage(userId),
-      getFundsDistribution(userId),
-      getExpensesByCategories(userId),
-    ])
+  const currencyResult = await getUserDefaultCurrency(userId)
+  const currency: Currency =
+    currencyResult.success && currencyResult.data
+      ? (currencyResult.data as Currency)
+      : "HNL"
+
+  const [
+    data,
+    netBalance,
+    dailyAverage,
+    fundsDistribution,
+    expensesByCategories,
+  ] = await Promise.all([
+    getMonthlyFinancials(userId, currency),
+    getNetBalance(userId, currency),
+    getDailyAverage(userId, currency),
+    getFundsDistribution(userId, currency),
+    getExpensesByCategories(userId, currency),
+  ])
 
   const monthlyFinancials = data.ok ? data.data : []
   const totalBalance = netBalance.ok ? netBalance.data : 0
@@ -38,9 +50,9 @@ export default async function Page() {
   return (
     <section>
       {/* max-sm:p-3*/}
-      <div className="flex flex-1 flex-col gap-4 p-6 max-sm:p-0">
+      <div className="fc-enter flex flex-1 flex-col gap-4 p-6 max-sm:p-0">
         <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-          <IncomesExpensesChart data={monthlyFinancials} />
+          <IncomesExpensesChart data={monthlyFinancials} currency={currency} />
 
           {/* Balance neto  */}
           <section className="flex min-h-0 flex-col gap-y-4">
@@ -61,7 +73,7 @@ export default async function Page() {
                       : "text-red-500"
                 )}
               >
-                L. {formatCurrency(totalBalance)}
+                {formatCurrency(totalBalance, currency)}
               </div>
             </div>
             {/* GASTO DIARIO */}
@@ -73,11 +85,11 @@ export default async function Page() {
                 </span>
               </div>
               <div className="flex flex-col gap-y-2 text-2xl font-bold">
-                <span>L. {formatCurrency(daily?.dailyAverage ?? 0)}</span>
+                <span>{formatCurrency(daily?.dailyAverage ?? 0, currency)}</span>
                 <div className="flex flex-row gap-x-4">
                   <span className="text-xs font-normal text-muted-foreground">
-                    This month&apos;s total spent: L.{" "}
-                    {formatCurrency(daily?.monthTotal ?? 0)} •{" "}
+                    This month&apos;s total spent:
+                    {" " + formatCurrency(daily?.monthTotal ?? 0, currency)} •{" "}
                     {(daily?.currentDay ?? 0) > 1
                       ? `${daily?.currentDay ?? 0} days `
                       : `${daily?.currentDay ?? 0} day `}
@@ -87,9 +99,9 @@ export default async function Page() {
               </div>
             </div>
           </section>
-          <ChartPieSimple data={funds} />
+          <ChartPieSimple data={funds} currency={currency} />
         </div>
-        <ExpensesByCategoryChart data={expenses} />
+        <ExpensesByCategoryChart data={expenses} currency={currency} />
         {/*   <ChartCashFlow data={cashFlow} /> */}
       </div>
     </section>

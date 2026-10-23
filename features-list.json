@@ -1,0 +1,35 @@
+{
+  "version": "1",
+  "features": [
+    {
+      "id": "bulk-transaction-import",
+      "title": "Ingreso masivo de transacciones desde estado de cuenta",
+      "path": "/transactions/new-transaction",
+      "status": "in-progress",
+      "description": "Permite subir PDF, Excel o CSV de un banco, extraer movimientos (crédito/débito, monto, fecha, descripción, referencia bancaria), previsualizarlos en una tabla editable y corregirlos antes de guardar.",
+      "scope": [
+        "Seleccionar cuenta bancaria antes del dropzone",
+        "Leer y extraer datos desde archivo en el cliente (CSV, Excel, PDF)",
+        "Parser específico para Banco Atlántida (PDF con dos formatos detectados)",
+        "Parser genérico para CSV y Excel (mapeo inteligente de columnas por sinónimos)",
+        "Campo nueva columna bank_reference en tabla transactions",
+        "Tabla de vista previa editable (tipo, fecha, categoría, descripción, monto, referencia)",
+        "Eliminar fila individual y limpiar tabla completa",
+        "Mensajes de error claros (archivo incompatible, falla de extracción, fila inválida)",
+        "Migración de base de datos para la nueva columna",
+        "Registro de la feature en features-list.json"
+      ],
+      "outOfScope": [
+        "Server action de guardado masivo en BD (fase posterior, por solicitud expresa del usuario no se implementa en esta fase)",
+        "OCR de PDF escaneados",
+        "Parsers específicos de otros bancos para PDF (se agregan por demanda)",
+        "Categorización automática por reglas"
+      ],
+      "dependencies": ["papaparse", "xlsx", "pdfjs-dist"],
+      "databaseChanges": [
+        "Add bank_reference column (varchar 255, nullable) to transactions table",
+        "Migration: drizzle/0005_overrated_black_tarantula.sql"
+      ]
+    }
+  ]
+}

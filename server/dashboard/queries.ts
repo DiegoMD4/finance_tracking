@@ -7,22 +7,72 @@ import type {
   FundShare,
   MonthlyFinancial,
 } from "@/types/dashboard.types"
-import { and, eq, gte, isNull, lte, or, sql } from "drizzle-orm"
+import { and, desc, eq, gte, isNull, lte, or, sql } from "drizzle-orm"
+import { getExchangeRates } from "@/lib/currency"
+import { getUserDefaultCurrency } from "@/server/users/queries"
+
+/**
+ * Convierte un monto de una moneda origen a una moneda destino.
+ * Si son iguales, retorna el monto sin cambios.
+ * Obtiene la tasa de conversión desde Frankfurter API (con caché).
+ */
+async function convertAmount(
+  amount: number | string,
+  fromCurrency: string,
+  toCurrency: string,
+  ratesCache: Record<string, Record<string, number>>
+): Promise<number> {
+  const num = typeof amount === "string" ? parseFloat(amount) : amount
+  if (fromCurrency === toCurrency) return num
+
+  if (!ratesCache[fromCurrency]) {
+    ratesCache[fromCurrency] = await getExchangeRates(fromCurrency, [toCurrency])
+  }
+  const rate = ratesCache[fromCurrency][toCurrency]
+  return num * rate
+}
+
+/**
+ * Obtiene todas las transacciones de un usuario con sus campos de moneda,
+ * listas para ser convertidas a la moneda por defecto actual.
+ */
+async function getTransactionsWithCurrency(userId: number) {
+  return await db
+    .select({
+      id: transactions.id,
+      accountId: transactions.accountId,
+      amount: transactions.amount,
+      transactionCurrency: transactions.transactionCurrency,
+      amountInDefaultCurrency: transactions.amountInDefaultCurrency,
+      defaultCurrencyAtTransaction: transactions.defaultCurrencyAtTransaction,
+      transactionType: transactions.transactionType,
+      transactionDate: transactions.transactionDate,
+      categoryId: transactions.categoryId,
+    })
+    .from(transactions)
+    .where(eq(transactions.userId, userId))
+    .orderBy(desc(transactions.transactionDate))
+}
 
 export async function getMonthlyFinancials(
-  userId: number
+  userId: number,
+  defaultCurrency: string = "HNL"
 ): Promise<Result<MonthlyFinancial[]>> {
   try {
     const sixMonthsAgo = new Date()
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
     sixMonthsAgo.setDate(1)
+    sixMonthsAgo.setHours(0, 0, 0, 0)
 
     const rows = await db
       .select({
-        monthNumber: sql<number>`MONTH(${transactions.transactionDate})`,
-        month: sql<string>`MONTHNAME(${transactions.transactionDate})`,
-        income: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.transactionType} = 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
-        expense: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.transactionType} = 'expense' THEN ${transactions.amount} ELSE 0 END), 0)`,
+        id: transactions.id,
+        amount: transactions.amount,
+        transactionCurrency: transactions.transactionCurrency,
+        amountInDefaultCurrency: transactions.amountInDefaultCurrency,
+        defaultCurrencyAtTransaction: transactions.defaultCurrencyAtTransaction,
+        transactionType: transactions.transactionType,
+        transactionDate: transactions.transactionDate,
       })
       .from(transactions)
       .where(
@@ -31,34 +81,75 @@ export async function getMonthlyFinancials(
           gte(transactions.transactionDate, sixMonthsAgo)
         )
       )
-      .groupBy(
-        sql`MONTH(${transactions.transactionDate})`,
-        sql`MONTHNAME(${transactions.transactionDate})`
-      )
-      .orderBy(sql`MONTH(${transactions.transactionDate})`)
+      .orderBy(transactions.transactionDate)
 
-    return ok(
-      rows.map((row) => ({
-        ...row,
-        income: Number(row.income),
-        expense: Number(row.expense),
+    const ratesCache: Record<string, Record<string, number>> = {}
+
+    const monthlyMap = new Map<
+      string,
+      { monthNumber: number; month: string; income: number; expense: number }
+    >()
+
+    for (const row of rows) {
+      // mysql2 devuelve las columnas DATE como objetos Date a medianoche UTC.
+      // Usar los getters UTC evita el corrimiento de día por la zona horaria local.
+      const rawDate: Date | string = row.transactionDate
+      const date = rawDate instanceof Date ? rawDate : new Date(rawDate)
+      const year = date.getUTCFullYear()
+      const monthNumber = date.getUTCMonth() + 1
+      const month = new Date(Date.UTC(year, monthNumber - 1, 1)).toLocaleString(
+        "en-US",
+        { month: "long", timeZone: "UTC" }
+      )
+      const key = `${year}-${String(monthNumber).padStart(2, "0")}`
+
+      const convertedAmount = await convertAmount(
+        row.amountInDefaultCurrency,
+        row.defaultCurrencyAtTransaction,
+        defaultCurrency,
+        ratesCache
+      )
+
+      if (!monthlyMap.has(key)) {
+        monthlyMap.set(key, { monthNumber, month, income: 0, expense: 0 })
+      }
+      const entry = monthlyMap.get(key)!
+      if (row.transactionType === "income") {
+        entry.income += convertedAmount
+      } else {
+        entry.expense += convertedAmount
+      }
+    }
+
+    const result = Array.from(monthlyMap.values())
+      .map((entry) => ({
+        ...entry,
+        income: Number(entry.income.toFixed(2)),
+        expense: Number(entry.expense.toFixed(2)),
       }))
-    )
+      .sort((a, b) => a.monthNumber - b.monthNumber)
+
+    return ok(result)
   } catch (error) {
-    console.error("Error en getMonthlyFinancials (posible BD dormida):", error)
+    console.error("Error en getMonthlyFinancials:", error)
     return err("database", "Couldn't get monthly financials try it later")
   }
 }
 
 export const getDailyAverage = async (
-  userId: number
+  userId: number,
+  defaultCurrency: string = "HNL"
 ): Promise<Result<DailyAverage>> => {
   try {
     const monthFirstDay = sql<string>`DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')`
     const currentDay = new Date().getDate()
-    const [result] = await db
+
+    const rows = await db
       .select({
-        totalExpenses: sql<number>`SUM(${transactions.amount})`,
+        amount: transactions.amount,
+        transactionCurrency: transactions.transactionCurrency,
+        amountInDefaultCurrency: transactions.amountInDefaultCurrency,
+        defaultCurrencyAtTransaction: transactions.defaultCurrencyAtTransaction,
       })
       .from(transactions)
       .where(
@@ -68,12 +159,25 @@ export const getDailyAverage = async (
           gte(transactions.transactionDate, monthFirstDay)
         )
       )
-    const total = result?.totalExpenses || 0
+
+    const ratesCache: Record<string, Record<string, number>> = {}
+
+    let total = 0
+    for (const row of rows) {
+      const converted = await convertAmount(
+        row.amountInDefaultCurrency,
+        row.defaultCurrencyAtTransaction,
+        defaultCurrency,
+        ratesCache
+      )
+      total += converted
+    }
+
     const dailyAverage = total / currentDay
 
     return ok({
-      monthTotal: total,
-      dailyAverage,
+      monthTotal: Number(total.toFixed(2)),
+      dailyAverage: Number(dailyAverage.toFixed(2)),
       currentDay,
     })
   } catch (error) {
@@ -83,52 +187,53 @@ export const getDailyAverage = async (
 }
 
 export const getNetBalance = async (
-  userId: number
+  userId: number,
+  defaultCurrency: string = "HNL"
 ): Promise<Result<number>> => {
   try {
     const [accountsResult, transactionsResult] = await Promise.all([
       db
         .select({
-          openingSum: sql<
-            string | number
-          >`COALESCE(SUM(${bankAccounts.openingBalance}), 0)`,
+          openingBalance: bankAccounts.openingBalance,
+          accountCurrency: bankAccounts.accountCurrency,
+          id: bankAccounts.id,
         })
         .from(bankAccounts)
         .where(eq(bankAccounts.userId, userId)),
-      db
-        .select({
-          netTransactions: sql<string | number>`
-          COALESCE(
-            SUM(
-              CASE 
-                WHEN ${transactions.transactionType} = 'income' THEN ${transactions.amount}
-                WHEN ${transactions.transactionType} = 'expense' THEN -${transactions.amount}
-                ELSE 0 
-              END
-            ), 0
-          )
-        `,
-        })
-        .from(transactions)
-        .where(eq(transactions.userId, userId)),
+      getTransactionsWithCurrency(userId),
     ])
 
-    // 2. Extraemos los primeros resultados de los arrays devueltos
-    const openingSumRaw = accountsResult[0]?.openingSum ?? 0
-    const transactionsSumRaw = transactionsResult[0]?.netTransactions ?? 0
+    const ratesCache: Record<string, Record<string, number>> = {}
 
-    // 3. Parseamos de forma segura los valores (MySQL suele retornar strings para SUM)
-    const openingSum =
-      typeof openingSumRaw === "string"
-        ? parseFloat(openingSumRaw)
-        : openingSumRaw
-    const transactionsSum =
-      typeof transactionsSumRaw === "string"
-        ? parseFloat(transactionsSumRaw)
-        : transactionsSumRaw
+    // Sumar opening balances convertidos a la moneda por defecto del usuario
+    let openingSum = 0
+    for (const account of accountsResult) {
+      const converted = await convertAmount(
+        account.openingBalance,
+        account.accountCurrency ?? defaultCurrency,
+        defaultCurrency,
+        ratesCache
+      )
+      openingSum += converted
+    }
 
-    // 4. La matemática final viva
-    return ok(openingSum + transactionsSum)
+    // Sumar transacciones netas convertidas a la moneda por defecto del usuario
+    let transactionsSum = 0
+    for (const tx of transactionsResult) {
+      const converted = await convertAmount(
+        tx.amountInDefaultCurrency,
+        tx.defaultCurrencyAtTransaction,
+        defaultCurrency,
+        ratesCache
+      )
+      if (tx.transactionType === "income") {
+        transactionsSum += converted
+      } else {
+        transactionsSum -= converted
+      }
+    }
+
+    return ok(Number((openingSum + transactionsSum).toFixed(2)))
   } catch (error) {
     console.error(error)
     return err("database", "Couldn't get the net balance try it later")
@@ -136,40 +241,65 @@ export const getNetBalance = async (
 }
 
 export const getFundsDistribution = async (
-  userId: number
+  userId: number,
+  defaultCurrency: string = "HNL"
 ): Promise<Result<FundShare[]>> => {
   try {
-    const rows = await db
+    const accounts = await db
       .select({
+        id: bankAccounts.id,
         bankName: bankAccounts.bankName,
         accountType: bankAccounts.bankAccountType,
         openingBalance: bankAccounts.openingBalance,
-        netTransactions: sql<number>`COALESCE(SUM(
-    CASE
-     WHEN ${transactions.transactionType} = 'income' THEN ${transactions.amount}
-     WHEN ${transactions.transactionType} = 'expense' THEN -${transactions.amount}
-     ELSE 0
-      END), 0)`,
+        accountCurrency: bankAccounts.accountCurrency,
       })
       .from(bankAccounts)
-      .leftJoin(transactions, eq(bankAccounts.id, transactions.accountId))
       .where(eq(bankAccounts.userId, userId))
-      .groupBy(
-        bankAccounts.id,
-        bankAccounts.bankName,
-        bankAccounts.bankAccountType
+
+    const transactionsByAccount = await getTransactionsWithCurrency(userId)
+
+    const ratesCache: Record<string, Record<string, number>> = {}
+
+    const distribution: FundShare[] = []
+
+    for (const account of accounts) {
+      const accountTxs = transactionsByAccount.filter(
+        (tx) => tx.accountId === account.id
       )
 
-    const distribution: FundShare[] = rows.map((row) => {
-      const currentBalance =
-        Number(row.openingBalance) + Number(row.netTransactions)
-      return {
-        name: row.bankName ?? "Unknown",
-        type: row.accountType,
-        value: currentBalance < 0 ? 0 : Number(currentBalance.toFixed(2)),
+      // Opening balance convertido a la moneda por defecto del usuario
+      const convertedOpening = await convertAmount(
+        account.openingBalance,
+        account.accountCurrency ?? defaultCurrency,
+        defaultCurrency,
+        ratesCache
+      )
+
+      // Transacciones netas de esta cuenta convertidas
+      let netTransactions = 0
+      for (const tx of accountTxs) {
+        const converted = await convertAmount(
+          tx.amountInDefaultCurrency,
+          tx.defaultCurrencyAtTransaction,
+          defaultCurrency,
+          ratesCache
+        )
+        if (tx.transactionType === "income") {
+          netTransactions += converted
+        } else {
+          netTransactions -= converted
+        }
       }
-    })
-    return ok(distribution) /* .filter((account) => account.value > 0) */
+
+      const currentBalance = convertedOpening + netTransactions
+      distribution.push({
+        name: account.bankName ?? "Unknown",
+        type: account.accountType,
+        value: currentBalance < 0 ? 0 : Number(currentBalance.toFixed(2)),
+      })
+    }
+
+    return ok(distribution)
   } catch (error) {
     console.error(error)
     return err("database", "Couldn't get the funds distribution try it later")
@@ -177,22 +307,28 @@ export const getFundsDistribution = async (
 }
 
 export const getExpensesByCategories = async (
-  userId: number
+  userId: number,
+  defaultCurrency: string = "HNL"
 ): Promise<Result<CategoryExpense[]>> => {
   const currentYear = new Date().getFullYear()
   const startOfYear = new Date(`${currentYear}-01-01T00:00:00.000Z`)
   const endOfYear = new Date(`${currentYear}-12-31T23:59:59.999Z`)
+
   try {
-    const result = await db
+    const rows = await db
       .select({
+        id: transactions.id,
+        amount: transactions.amount,
+        transactionCurrency: transactions.transactionCurrency,
+        amountInDefaultCurrency: transactions.amountInDefaultCurrency,
+        defaultCurrencyAtTransaction: transactions.defaultCurrencyAtTransaction,
+        categoryId: transactions.categoryId,
         categoryName: categories.name,
         categoryColor: categories.color,
         categoryIcon: categories.icon,
-        total_amount: sql<number>`CAST(COALESCE(SUM(${transactions.amount}), 0) AS DECIMAL(10,2))`,
       })
       .from(transactions)
       .innerJoin(categories, eq(categories.categoryId, transactions.categoryId))
-
       .where(
         and(
           eq(transactions.userId, userId),
@@ -202,7 +338,41 @@ export const getExpensesByCategories = async (
           or(eq(categories.userId, userId), isNull(categories.userId))
         )
       )
-      .groupBy(categories.name, categories.color, categories.icon)
+
+    const ratesCache: Record<string, Record<string, number>> = {}
+
+    const categoryMap = new Map<
+      string,
+      { categoryName: string; categoryColor: string | null; categoryIcon: string | null; total: number }
+    >()
+
+    for (const row of rows) {
+      const converted = await convertAmount(
+        row.amountInDefaultCurrency,
+        row.defaultCurrencyAtTransaction,
+        defaultCurrency,
+        ratesCache
+      )
+
+      const key = String(row.categoryId)
+      if (!categoryMap.has(key)) {
+        categoryMap.set(key, {
+          categoryName: row.categoryName ?? "Unknown",
+          categoryColor: row.categoryColor,
+          categoryIcon: row.categoryIcon,
+          total: 0,
+        })
+      }
+      const entry = categoryMap.get(key)!
+      entry.total += converted
+    }
+
+    const result = Array.from(categoryMap.values()).map((entry) => ({
+      categoryName: entry.categoryName,
+      categoryColor: entry.categoryColor,
+      categoryIcon: entry.categoryIcon,
+      total_amount: Number(entry.total.toFixed(2)),
+    }))
 
     return ok(result)
   } catch (error) {

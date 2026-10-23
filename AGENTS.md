@@ -44,3 +44,13 @@ Pages that need to branch behavior on mobile vs desktop (e.g. `transactions/page
   - `app/transactions/_components/FormTransaction.tsx` (hidden `userId` input defaulting to `"1"`)
   - `app/page.tsx` (dashboard calls to `getMonthlyFinancials`, `getNetBalance`, `getDailyAverage`, `getFundsDistribution`)
   - When real auth is added, all of these need to switch to a real session-derived `userId`, and `transactions` queries/actions (which currently take `userId` as a form field, not a hardcoded constant — see `transactionSchema`) should also be revisited to make sure the value can't be spoofed from the client.
+
+## Rules
+
+1. **No leer archivos fuera de este directorio sin permiso.** Antes de navegar a inspeccionar cualquier archivo o directorio fuera de `D:\Proyectos de Programación\financial-control`, debes pedir permiso al usuario explícitamente y esperar su confirmación.
+
+2. **Modo de planeación para tareas grandes.** Cuando se vaya a ejecutar una funcionalidad o tarea demasiado grande o compleja, empieza siempre con una fase de planeación e investigación antes de tocar código. No implementes directamente sin haber investigado y planificado primero.
+
+3. **Uso de git para cambios grandes.** Si una tarea va a generar demasiados cambios (múltiples archivos o modificaciones extensas), utiliza git para gestionarlos: crea ramas adecuadas, haz commits atómicos y mantén el historial limpio antes de aplicar los cambios.
+
+5. **Revisar la documentación de la versión instalada antes de usar librerías o APIs.** Antes de implementar cualquier funcionalidad que use una librería, framework o API externa, verifica la documentación correspondiente a la versión exactamente instalada en el proyecto (revisa `package.json` y `package-lock.json`). No asumas que existe una función, método o propiedad basada en versiones más nuevas o más antiguas. Usa solo lo que está soportado por la versión instalada para evitar errores de compilación o runtime por funciones inexistentes.

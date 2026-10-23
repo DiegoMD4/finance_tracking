@@ -44,14 +44,15 @@ Follow these steps to run the development server locally:
 
 1. **Clone the repository:**
    ```bash
-   git clone [https://github.com/DiegoMD4/finance_tracking.git](https://github.com/DiegoMD4/finance_tracking.git)
+   git clone https://github.com/DiegoMD4/finance_tracking.git
+   ```
 
 ## 🚀 Getting Started
 
 ### Navigate into the project directory
 
 ```bash
-cd financial-control
+cd finance_tracking
 ```
 
 ### Install project dependencies

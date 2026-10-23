@@ -6,7 +6,7 @@ import {
   CollapsibleContent,
   Collapsible,
 } from "@/components/ui/collapsible"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, type Currency } from "@/lib/utils"
 
 import { BankAccounts } from "@/types/bank-accounts.types"
 import { ChevronDownIcon } from "lucide-react"
@@ -95,7 +95,10 @@ export default function BankAccountsCard({ data }: BankAccountsCardProps) {
                   <li className="flex justify-between">
                     <span>Opening Balance:</span>
                     <span className="font-bold text-foreground">
-                      {formatCurrency(element.openingBalance)}
+                      {formatCurrency(
+                        element.openingBalance,
+                        (element.accountCurrency ?? "HNL") as Currency
+                      )}
                     </span>
                   </li>
                   {element.accountEmail && (

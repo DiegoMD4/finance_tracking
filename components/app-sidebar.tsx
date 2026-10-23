@@ -1,6 +1,6 @@
 "use client"
 import dynamic from "next/dynamic"
-import { Landmark, HandCoins, ChartAreaIcon, Tags, LogOut } from "lucide-react"
+import { Landmark, HandCoins, ChartAreaIcon, Tags, LogOut, Settings } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -38,6 +38,7 @@ const items = [
   { title: "Bank Accounts", url: "/bank-accounts", icon: Landmark },
   { title: "Transactions", url: "/transactions", icon: HandCoins },
   { title: "Categories", url: "/categories", icon: Tags },
+  { title: "Settings", url: "/settings", icon: Settings },
 ]
 
 export function AppSidebar({ user }: { user: ServerUser }) {
@@ -154,7 +155,7 @@ export function AppSidebar({ user }: { user: ServerUser }) {
                   onSelect={() => startTransition(() => logout())}
                 >
                   <LogOut />
-                  Cerrar sesión
+                  Log out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

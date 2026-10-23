@@ -65,7 +65,12 @@ export async function getUserById(id: number): Promise<{
 }> {
   try {
     const user = await db
-      .select({ id: users.id, name: users.name, email: users.email })
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        defaultCurrency: users.defaultCurrency,
+      })
       .from(users)
       .where(eq(users.id, id))
       .then((res) => res[0])
@@ -73,13 +78,45 @@ export async function getUserById(id: number): Promise<{
     if (!user) {
       return { success: false, error: "User not found" }
     }
-    return { success: true, data: user }
+
+    return {
+      success: true,
+      data: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        defaultCurrency: user.defaultCurrency ?? "HNL",
+      },
+    }
   } catch (error) {
     console.error("❌ Error fetching user:", error)
     return {
       success: false,
       error: "Failed to fetch user",
       dbUnavailable: isDbUnavailableError(error),
+    }
+  }
+}
+
+export async function getUserDefaultCurrency(
+  userId: number
+): Promise<{ success: boolean; data?: string; error?: string }> {
+  try {
+    const result = await getUserById(userId)
+
+    if (!result.success || !result.data) {
+      return {
+        success: false,
+        error: result.error ?? "User not found",
+      }
+    }
+
+    return { success: true, data: result.data.defaultCurrency }
+  } catch (error) {
+    console.error("❌ Error getting user default currency:", error)
+    return {
+      success: false,
+      error: "Failed to get user default currency",
     }
   }
 }

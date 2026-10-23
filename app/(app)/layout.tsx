@@ -6,9 +6,7 @@ import {
 import { AppSidebar } from "@/components/app-sidebar"
 import { Separator } from "@/components/ui/separator"
 import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb"
-
 import { redirect } from "next/navigation"
-
 import { getSessionUserInfo } from "@/server/session"
 
 export default async function RootLayout({

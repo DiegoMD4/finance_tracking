@@ -1,6 +1,8 @@
 {
   "name": "finance-tracking",
   "version": "0.0.1",
+  "description": "A modern, high-performance, and responsive Fullstack web application to take control of personal finances. Track income, expenses, categories, and visualize spending trends with interactive charts. Built with Next.js 16, TypeScript, Tailwind CSS, shadcn/ui, and MySQL.",
+  "keywords": ["finance", "personal-finance", "nextjs", "typescript", "tailwindcss", "shadcn-ui", "mysql", "drizzle-orm", "finance-tracker", "expense-tracker", "budgeting"],
   "type": "module",
   "private": true,
   "scripts": {
@@ -18,7 +20,7 @@
     "db:clean": "npx tsx db/seeds/clean.ts",
     "db:push": "drizzle-kit push && npm run db:seed",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate && npm run db:seed-demo"
+    "db:migrate": "drizzle-kit migrate && npx tsx db/seeds/seed-demo.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -32,6 +34,8 @@
     "mysql2": "^3.22.3",
     "next": "16.1.7",
     "next-themes": "^0.4.6",
+    "papaparse": "^5.7.0",
+    "pdfjs-dist": "^5.6.205",
     "radix-ui": "^1.4.3",
     "react": "^19.2.4",
     "react-day-picker": "^10.0.2",
@@ -42,6 +46,7 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "tw-animate-css": "^1.4.0",
+    "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -53,8 +58,10 @@
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
     "@types/node": "^25.5.0",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@types/xlsx": "^0.0.35",
     "@vitejs/plugin-react": "^6.1.2",
     "@vitest/coverage-v8": "^4.1.11",
     "drizzle-kit": "^0.31.10",

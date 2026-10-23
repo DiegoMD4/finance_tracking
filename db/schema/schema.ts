@@ -7,6 +7,7 @@ import {
   decimal,
   mysqlEnum,
   date,
+  boolean,
 } from "drizzle-orm/mysql-core"
 
 const timestamps = {
@@ -20,6 +21,7 @@ export const users = mysqlTable("users", {
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   password: varchar("password", { length: 255 }).notNull(),
+  defaultCurrency: varchar("default_currency", { length: 3 }).default("HNL"),
   ...timestamps,
 })
 
@@ -32,7 +34,7 @@ export const bankAccounts = mysqlTable("bank_accounts", {
     "savings"
   ),
   accountEmail: varchar("account_email", { length: 255 }),
-  accountCurrency: varchar("account_currency", { length: 255 }),
+  accountCurrency: varchar("account_currency", { length: 3 }),
   openingBalance: decimal("opening_balance", { precision: 12, scale: 2 })
     .notNull()
     .default("0.00"),
@@ -56,15 +58,47 @@ export const transactions = mysqlTable("transactions", {
     "expense",
   ]).notNull(),
   transactionDescription: varchar("transaction_description", { length: 255 }),
-  categoryId: bigint("category_id", {mode: "number", unsigned: true}).references(() => categories.categoryId).notNull(),
+  categoryId: bigint("category_id", { mode: "number", unsigned: true })
+    .references(() => categories.categoryId)
+    .notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-  transactionDate: date("transaction_date").notNull()
+  transactionDate: date("transaction_date").notNull(),
+  transactionCurrency: varchar("transaction_currency", { length: 3 })
+    .notNull()
+    .default("HNL"),
+  bankReference: varchar("bank_reference", { length: 255 }),
+  exchangeRate: decimal("exchange_rate", { precision: 12, scale: 6 })
+    .notNull()
+    .default("1.000000"),
+  amountInDefaultCurrency: decimal("amount_in_default_currency", {
+    precision: 12,
+    scale: 2,
+  })
+    .notNull()
+    .default("0.00"),
+  defaultCurrencyAtTransaction: varchar("default_currency_at_transaction", {
+    length: 3,
+  })
+    .notNull()
+    .default("HNL"),
+})
+
+export const currencies = mysqlTable("currencies", {
+  id: serial("currency_id").primaryKey(),
+  code: varchar("code", { length: 3 }).notNull().unique(),
+  name: varchar("name", { length: 100 }).notNull(),
+  symbol: varchar("symbol", { length: 10 }),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at"),
 })
 
 export const categories = mysqlTable("categories", {
   categoryId: serial("category_id").primaryKey(),
-  userId: bigint("user_id", {mode: "number", unsigned: true}).references(() => users.id),
+  userId: bigint("user_id", { mode: "number", unsigned: true }).references(
+    () => users.id
+  ),
   name: varchar("name", { length: 256 }).notNull(),
-  icon: varchar("icon", { length: 50 }), 
+  icon: varchar("icon", { length: 50 }),
   color: varchar("color", { length: 7 }),
 })

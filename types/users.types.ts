@@ -28,10 +28,25 @@ export interface LoginUser {
   }
 }
 
+export interface UpdateDefaultCurrency {
+  success: boolean
+  message: string
+  error?: { currency?: string }
+  fields: {
+    currency: string
+  }
+}
+
 export interface ServerUser {
   id: number
   name: string
   email: string
+  defaultCurrency: string
 }
 
-export type UserActionState = CreateUser | LoginUser | null | undefined
+export type UserActionState =
+  | CreateUser
+  | LoginUser
+  | UpdateDefaultCurrency
+  | null
+  | undefined

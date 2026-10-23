@@ -20,7 +20,7 @@ const mockGetCurrentUserId = vi.mocked(getCurrentUserId)
 const mockHasSessionCookie = vi.mocked(hasSessionCookie)
 const mockGetUserById = vi.mocked(getUserById)
 
-const user = { id: 1, name: "Ana", email: "ana@test.com" }
+const user = { id: 1, name: "Ana", email: "ana@test.com", defaultCurrency: "HNL" }
 
 beforeEach(() => {
   mockGetCurrentUserId.mockReset()

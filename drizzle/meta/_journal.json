@@ -29,6 +29,27 @@
       "when": 1791081891620,
       "tag": "0003_dusty_boomerang",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1792179175760,
+      "tag": "0004_black_toro",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1792193874269,
+      "tag": "0005_overrated_black_tarantula",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1792715072144,
+      "tag": "0006_worthless_darwin",
+      "breakpoints": true
     }
   ]
 }

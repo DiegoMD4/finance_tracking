@@ -19,7 +19,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart"
 import { getCategoryIcon } from "@/lib/category-icons"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, type Currency } from "@/lib/utils"
 import { useIsMobile } from "@/hooks/use-mobile"
 
 export const description = "A horizontal bar chart"
@@ -39,10 +39,12 @@ interface ExpensesByCategoriesChartProps {
         total_amount: number
       }[]
     | null
+  currency: Currency
 }
 
 export function ExpensesByCategoryChart({
   data,
+  currency,
 }: ExpensesByCategoriesChartProps) {
   const newChartData = (data ?? []).map((item) => ({
     category: item.categoryName,
@@ -143,7 +145,7 @@ export function ExpensesByCategoryChart({
                         {item.payload.category}
                       </span>
                       <span className="font-mono font-medium text-foreground">
-                        L.{formatCurrency(value as number)}
+                        {formatCurrency(value as number, currency)}
                       </span>
                     </div>
                   )}
@@ -158,7 +160,7 @@ export function ExpensesByCategoryChart({
         <div className="flex gap-2 leading-none font-medium">
           {`The category in which you spend the most is
           ${categoryWithHighestValue().categoryName} 
-             with L.${formatCurrency(categoryWithHighestValue().highestValue)}`}
+             with ${formatCurrency(categoryWithHighestValue().highestValue, currency)}`}
           <TrendingUp className="h-4 w-4" />
         </div>
         <div className="leading-none text-muted-foreground">
