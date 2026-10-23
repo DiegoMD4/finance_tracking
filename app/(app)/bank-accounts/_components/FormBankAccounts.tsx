@@ -220,9 +220,9 @@ export default function FormBankAccounts({
                 </SelectTrigger>
                 <SelectContent position="popper">
                   <SelectGroup>
-                    <SelectItem value="Lempiras">Lempiras</SelectItem>
-                    {/*   <SelectItem value="Dollars">Dollars</SelectItem>
-                    <SelectItem value="Euros">Euros</SelectItem> */}
+                    <SelectItem value="HNL">HNL — Lempira hondureño</SelectItem>
+                    <SelectItem value="USD">USD — US Dollar</SelectItem>
+                    <SelectItem value="EUR">EUR — Euro</SelectItem>
                   </SelectGroup>
                 </SelectContent>
               </Select>

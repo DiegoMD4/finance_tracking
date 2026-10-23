@@ -22,9 +22,9 @@ export const bankAccountSchema = z.object({
     },
   }),
   accountEmail: z.email({ error: "Please enter a valid email" }),
-  accountCurrency: z.enum(["Lempiras", "Dollars", "Euros"], {
+  accountCurrency: z.enum(["HNL", "USD", "EUR"], {
     error: () => {
-      return { message: "Please select a currency for this account" }
+      return { message: "Please select a valid currency for this account" }
     },
   }),
   openingBalance: z
