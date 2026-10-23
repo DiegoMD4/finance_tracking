@@ -1,6 +1,8 @@
 {
   "name": "finance-tracking",
   "version": "0.0.1",
+  "description": "A modern, high-performance, and responsive Fullstack web application to take control of personal finances. Track income, expenses, categories, and visualize spending trends with interactive charts. Built with Next.js 16, TypeScript, Tailwind CSS, shadcn/ui, and MySQL.",
+  "keywords": ["finance", "personal-finance", "nextjs", "typescript", "tailwindcss", "shadcn-ui", "mysql", "drizzle-orm", "finance-tracker", "expense-tracker", "budgeting"],
   "type": "module",
   "private": true,
   "scripts": {
@@ -18,7 +20,7 @@
     "db:clean": "npx tsx db/seeds/clean.ts",
     "db:push": "drizzle-kit push && npm run db:seed",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate && npm run db:seed-demo"
+    "db:migrate": "drizzle-kit migrate && npx tsx db/seeds/seed-demo.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

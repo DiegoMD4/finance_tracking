@@ -7,6 +7,7 @@ import {
   decimal,
   mysqlEnum,
   date,
+  boolean,
 } from "drizzle-orm/mysql-core"
 
 const timestamps = {
@@ -33,7 +34,7 @@ export const bankAccounts = mysqlTable("bank_accounts", {
     "savings"
   ),
   accountEmail: varchar("account_email", { length: 255 }),
-  accountCurrency: varchar("account_currency", { length: 255 }),
+  accountCurrency: varchar("account_currency", { length: 3 }),
   openingBalance: decimal("opening_balance", { precision: 12, scale: 2 })
     .notNull()
     .default("0.00"),
@@ -80,6 +81,16 @@ export const transactions = mysqlTable("transactions", {
   })
     .notNull()
     .default("HNL"),
+})
+
+export const currencies = mysqlTable("currencies", {
+  id: serial("currency_id").primaryKey(),
+  code: varchar("code", { length: 3 }).notNull().unique(),
+  name: varchar("name", { length: 100 }).notNull(),
+  symbol: varchar("symbol", { length: 10 }),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at"),
 })
 
 export const categories = mysqlTable("categories", {
