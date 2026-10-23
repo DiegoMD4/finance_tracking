@@ -11,11 +11,13 @@ import type { Category } from "@/types/categories.types"
 interface NewTransactionClientProps {
   bankAccounts: BankAccounts[]
   categories: Category[]
+  defaultCurrency: string
 }
 
 export function NewTransactionClient({
   bankAccounts,
   categories,
+  defaultCurrency,
 }: NewTransactionClientProps) {
   const [activeTab, setActiveTab] = useState<"individual" | "bulk">(
     "individual"
@@ -54,6 +56,7 @@ export function NewTransactionClient({
           <UploadBulkTransactionForm
             bankAccounts={bankAccounts}
             categories={categories}
+            defaultCurrency={defaultCurrency}
           />
         </div>
       )}

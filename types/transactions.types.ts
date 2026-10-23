@@ -59,3 +59,46 @@ export type CreateTransaction = TransactionActionResult
 export type UpdateTransaction = TransactionActionResult
 
 export type TransactionsActionState = TransactionActionResult | null | undefined
+
+/** Raw row payload sent by the bulk upload form, before validation. */
+export interface BulkTransactionRawInput {
+  tempId?: string
+  row?: number
+  amount: string
+  transactionType: string
+  transactionDescription?: string
+  transactionDate: string // YYYY-MM-DD
+  bankReference?: string | null
+  categoryId?: string | null
+}
+
+/** Validated bulk row produced by bulkTransactionSchema on the server. */
+export interface BulkTransactionInput {
+  accountId: number
+  amount: string
+  transactionType: TransactionType
+  transactionDescription: string | null
+  transactionDate: Date
+  bankReference: string | null
+  categoryId: number
+  userId: number
+}
+
+export interface BulkTransactionRowResult {
+  success: boolean
+  tempId: string
+  row?: number
+  error?: string
+}
+
+export interface BulkTransactionResult {
+  success: boolean
+  message: string
+  saved: number
+  failed: number
+  rows: BulkTransactionRowResult[]
+  /** tempIds que sí quedaron persistidos, para que el cliente los quite de la tabla */
+  savedTempIds: string[]
+}
+
+export type BulkTransactionActionState = BulkTransactionResult | null | undefined

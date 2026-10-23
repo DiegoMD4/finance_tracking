@@ -1,7 +1,7 @@
 import { db } from "@/db"
 import { bankAccounts } from "@/db/schema/schema"
 import { err, ok, type Paginated, type Result } from "@/types/result"
-import { and, desc, eq } from "drizzle-orm"
+import { desc, eq } from "drizzle-orm"
 import { getSessionUserId } from "@/lib/jwt"
 import type { BankAccounts } from "@/types/bank-accounts.types"
 

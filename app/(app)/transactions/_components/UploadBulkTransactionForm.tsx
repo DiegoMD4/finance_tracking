@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useActionState, useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
 
 import { Dropzone } from "@/components/ui/dropzone"
@@ -8,6 +8,7 @@ import {
   Field,
   FieldDescription,
   FieldError,
+  FieldGroup,
   FieldLabel,
 } from "@/components/ui/field"
 import { Button } from "@/components/ui/button"
@@ -15,6 +16,7 @@ import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -27,25 +29,36 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { cn } from "@/lib/utils"
 import type { BankAccounts } from "@/types/bank-accounts.types"
 import type { Category } from "@/types/categories.types"
 import {
   extractTransactions,
-  getFileSource,
+  /* getFileSource, */
 } from "@/lib/parsers/file-extractor"
 import type { ParsedTransaction } from "@/lib/parsers/types"
+import { BulkTransactionActionState } from "@/types/transactions.types"
+import { createBulkTransactions } from "@/server/transactions/actions"
+import { useRouter } from "next/navigation"
+import { CURRENCY_OPTIONS } from "@/lib/utils"
 
 interface UploadBulkTransactionFormProps {
   bankAccounts: BankAccounts[]
   categories: Category[]
+  defaultCurrency: string
 }
 
 export function UploadBulkTransactionForm({
   bankAccounts,
   categories,
+  defaultCurrency,
 }: UploadBulkTransactionFormProps) {
   const [selectedAccountId, setSelectedAccountId] = useState<string>("")
+  const [transactionCurrency, setTransactionCurrency] = useState<string>(() =>
+    CURRENCY_OPTIONS.some((option) => option.value === defaultCurrency)
+      ? defaultCurrency
+      : "HNL"
+  )
+  const [currencyTouched, setCurrencyTouched] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [transactions, setTransactions] = useState<ParsedTransaction[]>([])
   const [errors, setErrors] = useState<string[]>([])
@@ -53,12 +66,66 @@ export function UploadBulkTransactionForm({
   const [parsedSource, setParsedSource] = useState<
     "csv" | "excel" | "pdf" | "unknown" | null
   >(null)
-  const [debugInfo, setDebugInfo] = useState<{
+  const router = useRouter()
+  /*   const [debugInfo, setDebugInfo] = useState<{
     fileName: string
     source: string
     rawText?: string
     transactionCount: number
-  } | null>(null)
+  } | null>(null) */
+
+  const handleAccountChange = useCallback(
+    (accountId: string) => {
+      setSelectedAccountId(accountId)
+
+      // Si el usuario aún no eligió moneda, se propone la de la cuenta.
+      if (currencyTouched) return
+      const account = bankAccounts.find((acc) => String(acc.id) === accountId)
+      const accountCurrency = account?.accountCurrency
+      if (
+        accountCurrency &&
+        CURRENCY_OPTIONS.some((option) => option.value === accountCurrency)
+      ) {
+        setTransactionCurrency(accountCurrency)
+      }
+    },
+    [bankAccounts, currencyTouched]
+  )
+
+  const formDispatcher = async (
+    prevState: BulkTransactionActionState,
+    formData: FormData
+  ) => {
+    formData.append("accountId", selectedAccountId)
+    formData.append("transactionsJson", JSON.stringify(transactions))
+    formData.delete("file")
+
+    return createBulkTransactions(prevState, formData)
+  }
+
+  const [state, formAction, isPending] = useActionState(formDispatcher, null)
+
+  useEffect(() => {
+    if (!state) return
+
+    // Quita de la tabla lo que ya quedó guardado: si el guardado fue parcial,
+    // un reintento solo reenviaría las filas pendientes.
+    if (state.savedTempIds.length > 0) {
+      const savedTempIds = new Set(state.savedTempIds)
+      setTransactions((prev) => {
+        const remaining = prev.filter((tx) => !savedTempIds.has(tx.tempId))
+        return remaining.length === prev.length ? prev : remaining
+      })
+    }
+
+    if (state.success) {
+      toast.success(state.message)
+      router.push("/transactions")
+      return
+    }
+
+    toast.error(state.message)
+  }, [state, router])
 
   const handleFileChange = useCallback(
     async (files: File[]) => {
@@ -82,23 +149,23 @@ export function UploadBulkTransactionForm({
           result.errors.forEach((e) => toast.error(e))
           setTransactions([])
           setParsedSource(null)
-          setDebugInfo({
+          /* setDebugInfo({
             fileName: result.fileName,
             source: result.source,
             rawText: result.rawText,
             transactionCount: 0,
-          })
+          }) */
           return
         }
 
         setTransactions(result.transactions)
         setParsedSource(result.source)
-        setDebugInfo({
+        /*  setDebugInfo({
           fileName: result.fileName,
           source: result.source,
           rawText: result.rawText,
           transactionCount: result.transactions.length,
-        })
+        }) */
         if (result.errors.length > 0) {
           result.errors.forEach((e) => toast.warning(e))
         }
@@ -112,12 +179,12 @@ export function UploadBulkTransactionForm({
           error instanceof Error ? error.message : "Unknown error reading file"
         setErrors([msg])
         toast.error(msg)
-        setDebugInfo({
+        /*  setDebugInfo({
           fileName: selectedFile.name,
           source: getFileSource(selectedFile.name),
           rawText: undefined,
           transactionCount: 0,
-        })
+        }) */
       } finally {
         setIsLoading(false)
       }
@@ -147,37 +214,94 @@ export function UploadBulkTransactionForm({
 
   const hasTransactions = transactions.length > 0
 
+  // Errores de la última ejecución, solo para filas que siguen en la tabla.
+  const failedRows = (() => {
+    if (!state?.rows.length) return []
+    const currentTempIds = new Set(transactions.map((tx) => tx.tempId))
+    const seen = new Set<string>()
+
+    return state.rows.filter((row) => {
+      if (
+        row.success ||
+        !currentTempIds.has(row.tempId) ||
+        seen.has(row.tempId)
+      ) {
+        return false
+      }
+
+      seen.add(row.tempId)
+      return true
+    })
+  })()
+
   return (
-    <form className="flex w-full flex-col gap-6" autoComplete="off">
+    <form
+      className="flex w-full flex-col gap-6"
+      autoComplete="off"
+      action={formAction}
+    >
       {/* Paso 1: Seleccionar cuenta bancaria */}
       <Field>
         <FieldLabel>Destination bank account</FieldLabel>
         <FieldDescription>
           Choose the account where imported transactions will be registered.
         </FieldDescription>
-        <Select
-          value={selectedAccountId}
-          onValueChange={setSelectedAccountId}
-          disabled={isLoading}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select account" />
-          </SelectTrigger>
-          <SelectContent>
-            {bankAccounts.length === 0 ? (
-              <SelectItem disabled value="none">
-                No bank accounts available
-              </SelectItem>
-            ) : (
-              bankAccounts.map((acc) => (
-                <SelectItem key={acc.id} value={String(acc.id)}>
-                  {acc.bankName} - {acc.accountName || "Unnamed account"}
-                  {acc.accountCurrency ? ` (${acc.accountCurrency})` : ""}
-                </SelectItem>
-              ))
-            )}
-          </SelectContent>
-        </Select>
+        <FieldGroup className="grid grid-cols-1 gap-4 py-2 md:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="bankAccount">Bank account</FieldLabel>
+            <Select
+              value={selectedAccountId}
+              onValueChange={handleAccountChange}
+              disabled={isLoading || isPending}
+            >
+              <SelectTrigger id="bankAccount">
+                <SelectValue placeholder="Select account" />
+              </SelectTrigger>
+              <SelectContent>
+                {bankAccounts.length === 0 ? (
+                  <SelectItem disabled value="none">
+                    No bank accounts available
+                  </SelectItem>
+                ) : (
+                  bankAccounts.map((acc) => (
+                    <SelectItem key={acc.id} value={String(acc.id)}>
+                      {acc.bankName} - {acc.accountName || "Unnamed account"}
+                      {acc.accountCurrency ? ` (${acc.accountCurrency})` : ""}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="transactionCurrency">Currency</FieldLabel>
+            <Select
+              name="transactionCurrency"
+              value={transactionCurrency}
+              onValueChange={(value) => {
+                setCurrencyTouched(true)
+                setTransactionCurrency(value)
+              }}
+              disabled={isLoading || isPending}
+            >
+              <SelectTrigger id="transactionCurrency">
+                <SelectValue placeholder="Select currency" />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                <SelectGroup>
+                  {CURRENCY_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <FieldDescription>
+              Applied to every transaction in this upload.
+            </FieldDescription>
+          </Field>
+        </FieldGroup>
         <FieldError />
       </Field>
 
@@ -193,7 +317,7 @@ export function UploadBulkTransactionForm({
           accept=".csv,.xlsx,.xls,.pdf"
           maxFiles={1}
           label="Drag your file here"
-          disabled={isLoading || !selectedAccountId}
+          disabled={isLoading || isPending || !selectedAccountId}
           onChange={handleFileChange}
         />
         <FieldError />
@@ -210,27 +334,25 @@ export function UploadBulkTransactionForm({
         <section className="flex w-full flex-col gap-4 border-t pt-4">
           <div className="flex flex-row items-center justify-between">
             <h2 className="text-lg font-semibold">
-              Detected transactions ({transactions.length}) - parser used: {parsedSource}
+              Detected transactions ({transactions.length}) - parser used:{" "}
+              {parsedSource}
             </h2>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={clearAll}
-                disabled={isLoading}
-                className="w-full sm:w-auto"
+                disabled={isLoading || isPending}
+                className="w-full cursor-pointer sm:w-auto"
               >
                 Clear table
               </Button>
               <Button
+                type="submit"
                 size="sm"
-                onClick={() => {
-                  toast.info(
-                    "Database save action will be implemented in the next phase"
-                  )
-                }}
-                disabled={isLoading}
-                className="w-full sm:w-auto"
+                disabled={isLoading || isPending}
+                className="w-full cursor-pointer sm:w-auto"
               >
                 Save transactions
               </Button>
@@ -242,6 +364,19 @@ export function UploadBulkTransactionForm({
               {errors.map((e, i) => (
                 <div key={i} className="mb-1 last:mb-0">
                   • {e}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {failedRows.length > 0 && (
+            <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-[12px] text-destructive">
+              <p className="mb-1 font-medium">
+                Rows that could not be saved:
+              </p>
+              {failedRows.map((row) => (
+                <div key={row.tempId} className="mb-1 last:mb-0">
+                  • Row {row.row ?? "?"}: {row.error ?? "Unknown error"}
                 </div>
               ))}
             </div>
@@ -359,6 +494,7 @@ export function UploadBulkTransactionForm({
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
+                        type="button"
                         variant="ghost"
                         size="icon"
                         onClick={() => removeTransaction(tx.tempId)}

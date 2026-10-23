@@ -1,30 +1,46 @@
-const CACHE = new Map()
-const TTL_MS = 12 * 60 * 60 * 1000
+type CacheItem = { rate: number; expiresAt: number }
 
-export async function getExchangeRate(from: string, to: string) {
+const CACHE = new Map<string, CacheItem>()
+const TTL_MS = 12 * 60 * 60 * 1000 // 12 horas
+
+export async function getExchangeRate(
+  from: string,
+  to: string
+): Promise<number> {
   if (from === to) return 1
   const key = `${from}-${to}`
   const now = Date.now()
   const cached = CACHE.get(key)
+
   if (cached) {
     if (cached.expiresAt > now) {
       return cached.rate
     }
     CACHE.delete(key)
   }
+
   try {
     const res = await fetch(`https://open.er-api.com/v6/latest/${from}`)
     if (!res.ok) throw new Error(`Exchange API error: ${res.status}`)
     const data = await res.json()
-    const rate = data.rates?.[to]
+    const rates = data.rates ?? {}
+
+    // Guardamos TODAS las tasas que nos dio la API en caché para no volver a pedir esta moneda base
+    for (const [targetCurrency, rateValue] of Object.entries(rates)) {
+      CACHE.set(`${from}-${targetCurrency}`, {
+        rate: Number(rateValue),
+        expiresAt: now + TTL_MS,
+      })
+    }
+
+    const rate = rates[to]
     if (!rate) throw new Error(`No rate found for ${to}`)
-    const numericRate = Number(rate)
-    CACHE.set(key, { rate: numericRate, expiresAt: now + TTL_MS })
-    return numericRate
+    return Number(rate)
   } catch (error) {
-    console.log(error)
+    console.error(error)
+    const message = error instanceof Error ? error.message : String(error)
     throw new Error(
-      `No se pudo obtener la tasa de conversión de ${from} a ${to} - error: ${error}`
+      `No se pudo obtener la tasa de conversión de ${from} a ${to}. Error: ${message}`
     )
   }
 }
@@ -44,8 +60,14 @@ export async function getExchangeRates(
     }
     const key = `${from}-${to}`
     const cached = CACHE.get(key)
-    if (cached && cached.expiresAt > now) {
-      result[to] = cached.rate
+
+    if (cached) {
+      if (cached.expiresAt > now) {
+        result[to] = cached.rate
+      } else {
+        CACHE.delete(key) // Borrado pasivo si expiró
+        pending.push(to)
+      }
     } else {
       pending.push(to)
     }
@@ -57,19 +79,25 @@ export async function getExchangeRates(
       if (!res.ok) throw new Error(`Exchange API error: ${res.status}`)
       const data = await res.json()
       const rates = data.rates ?? {}
-      for (const to of pending) {
-        const rate = rates[to]
-        if (!rate) throw new Error(`No rate found for ${to}`)
-        const numericRate = Number(rate)
-        result[to] = numericRate
-        CACHE.set(`${from}-${to}`, {
-          rate: numericRate,
+
+      // Poblamos todo el caché
+      for (const [targetCurrency, rateValue] of Object.entries(rates)) {
+        CACHE.set(`${from}-${targetCurrency}`, {
+          rate: Number(rateValue),
           expiresAt: now + TTL_MS,
         })
       }
+
+      for (const to of pending) {
+        const rate = rates[to]
+        if (!rate) throw new Error(`No rate found for ${to}`)
+        result[to] = Number(rate)
+      }
     } catch (error) {
+      console.error(error)
+      const message = error instanceof Error ? error.message : String(error)
       throw new Error(
-        `No se pudieron obtener las tasas de conversión de ${from} - error: ${error}`
+        `No se pudieron obtener las tasas de conversión de ${from}. Error: ${message}`
       )
     }
   }
@@ -77,14 +105,12 @@ export async function getExchangeRates(
   return result
 }
 
-setInterval(
-  () => {
-    const now = Date.now()
-    for (const [key, value] of CACHE.entries()) {
-      if (value.expiresAt <= now) {
-        CACHE.delete(key)
-      }
+// Barrido pasivo cada 12 horas para liberar memoria
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, value] of CACHE.entries()) {
+    if (value.expiresAt <= now) {
+      CACHE.delete(key)
     }
-  },
-  12 * 60 * 60 * 1000
-)
+  }
+}, TTL_MS)
