@@ -53,4 +53,6 @@ Pages that need to branch behavior on mobile vs desktop (e.g. `transactions/page
 
 3. **Uso de git para cambios grandes.** Si una tarea va a generar demasiados cambios (múltiples archivos o modificaciones extensas), utiliza git para gestionarlos: crea ramas adecuadas, haz commits atómicos y mantén el historial limpio antes de aplicar los cambios.
 
+4. **Si algo no está claro, revisá el código y lo que conversamos.** Si seguís con dudas, preguntame. No inventes requisitos ni hagas cambios fuera de lo que te pedí.
+
 5. **Revisar la documentación de la versión instalada antes de usar librerías o APIs.** Antes de implementar cualquier funcionalidad que use una librería, framework o API externa, verifica la documentación correspondiente a la versión exactamente instalada en el proyecto (revisa `package.json` y `package-lock.json`). No asumas que existe una función, método o propiedad basada en versiones más nuevas o más antiguas. Usa solo lo que está soportado por la versión instalada para evitar errores de compilación o runtime por funciones inexistentes.
