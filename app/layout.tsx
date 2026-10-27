@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     title: "Personal Finance Tracker",
     description:
       "Track income and expenses and see spending trends in an interactive dashboard.",
-    url: "/",
+   /*  url: "/", */
     type: "website",
     images: [{ url: "/og.png", width: 1200, height: 630 }],
   },

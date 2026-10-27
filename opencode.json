@@ -1,6 +1,8 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "instructions": ["AGENTS.md"],
+  "instructions": [
+    "AGENTS.md"
+  ],
   "permission": {
     "bash": {
       "npm run *": "allow",
@@ -15,6 +17,17 @@
       "type": "remote",
       "url": "https://mcp.notion.com/mcp",
       "enabled": true
+    }
+  },
+  "plugins": [
+    "@mohak34/opencode-notifier"
+  ],
+  "pluginConfig": {
+    "@mohak34/opencode-notifier": {
+      "sound": true,
+      "notification": true,
+      "suppressWhenFocused": true,
+      "minDuration": 5
     }
   }
 }
