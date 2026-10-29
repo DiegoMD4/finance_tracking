@@ -205,7 +205,7 @@ export const updateBankAccount = async (
   }
 
   try {
-    await db
+    const [updateResult] = await db
       .update(bankAccounts)
       .set({
         accountNumber: accountNumber!,
@@ -219,6 +219,14 @@ export const updateBankAccount = async (
       .where(
         and(eq(bankAccounts.id, bankAccountId), eq(bankAccounts.userId, userId))
       )
+
+    if (updateResult.affectedRows === 0) {
+      return {
+        success: false,
+        message: "Bank account not found",
+        fields: rawFields,
+      }
+    }
 
     revalidatePath("/bank-accounts")
 

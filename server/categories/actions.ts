@@ -123,7 +123,7 @@ export const updateCategory = async (
   const { name, icon, color } = validatedFields.data
 
   try {
-    await db
+    const [updateResult] = await db
       .update(categories)
       .set({ name, icon, color })
       .where(
@@ -132,6 +132,14 @@ export const updateCategory = async (
           eq(categories.userId, userId)
         )
       )
+
+    if (updateResult.affectedRows === 0) {
+      return {
+        success: false,
+        message: "Category not found",
+        fields: rawFields,
+      }
+    }
 
     revalidatePath("/categories")
 

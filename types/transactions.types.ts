@@ -10,6 +10,8 @@ export interface Transaction {
   categoryId: number | null
   createdAt: Date
   categoryName: string | null
+  categoryIcon?: string | null
+  categoryColor?: string | null
   transactionDate: string | null
 
   transactionCurrency: string
@@ -32,6 +34,7 @@ export interface TransactionFormFields {
   transactionType: string
   transactionDescription: string
   categoryId: string
+  transactionDate: string
   transactionCurrency: string
   bankReference?: string | null
 }

@@ -94,6 +94,16 @@ export const createTransaction = async (
     transactionCurrency,
   } = validatedFields.data
 
+  // La cuenta debe existir y pertenecer al usuario de la sesión.
+  const accountResult = await getBankAccountById({ id: accountId })
+  if (!accountResult.ok) {
+    return {
+      success: false,
+      message: accountResult.error.message,
+      fields: rawFields,
+    }
+  }
+
   // Obtener moneda por defecto del usuario desde la sesión (no del cliente)
   const userResult = await getUserById(userId)
   const defaultCurrency = userResult.success
@@ -155,9 +165,14 @@ export const deleteTransaction = async (id: number) => {
   }
 
   try {
-    await db
+    const [deleteResult] = await db
       .delete(transactions)
       .where(and(eq(transactions.id, id), eq(transactions.userId, userId)))
+
+    if (deleteResult.affectedRows === 0) {
+      return { success: false, message: "Transaction not found" }
+    }
+
     revalidatePath("/transactions")
 
     return { success: true, message: "Transaction deleted" }
@@ -182,6 +197,7 @@ export const updateTransaction = async (
     transactionDescription:
       formData.get("transactionDescription")?.toString() || "",
     categoryId: formData.get("categoryId")?.toString() || "",
+    transactionDate: formData.get("transactionDate")?.toString() || "",
     transactionCurrency:
       formData.get("transactionCurrency")?.toString() || "HNL",
   }
@@ -216,6 +232,7 @@ export const updateTransaction = async (
         transactionType: fieldErrors.properties?.transactionType?.errors[0],
         transactionDescription:
           fieldErrors.properties?.transactionDescription?.errors[0],
+        transactionDate: fieldErrors.properties?.transactionDate?.errors[0],
         transactionCurrency:
           fieldErrors.properties?.transactionCurrency?.errors[0],
       },
@@ -228,8 +245,19 @@ export const updateTransaction = async (
     amount,
     transactionType,
     transactionDescription,
+    transactionDate,
     transactionCurrency,
   } = validatedFields.data
+
+  // La cuenta debe existir y pertenecer al usuario de la sesión.
+  const accountResult = await getBankAccountById({ id: accountId })
+  if (!accountResult.ok) {
+    return {
+      success: false,
+      message: accountResult.error.message,
+      fields: rawFields,
+    }
+  }
 
   // Obtener moneda por defecto del usuario desde la sesión (no del cliente)
   const userResult = await getUserById(userId)
@@ -263,6 +291,7 @@ export const updateTransaction = async (
         defaultCurrencyAtTransaction: defaultCurrency,
         transactionType,
         transactionDescription,
+        transactionDate,
         categoryId: await resolveCategoryId(rawFields.categoryId, userId),
       })
       .where(

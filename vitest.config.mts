@@ -19,6 +19,10 @@ export default defineConfig({
             "tests/unit/**/*.spec.ts",
           ],
           setupFiles: ["tests/setup/db.ts"],
+          // Los tests de integración comparten una única base MySQL real y
+          // truncan las mismas tablas en beforeEach, así que no pueden
+          // ejecutarse en paralelo entre archivos.
+          fileParallelism: false,
         },
       },
       {
