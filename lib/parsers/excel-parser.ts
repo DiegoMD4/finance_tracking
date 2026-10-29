@@ -90,7 +90,9 @@ export const parseExcel = async (
     const workbook = XLSX.read(arrayBuffer, { type: "array" })
     const sheetName = workbook.SheetNames[0]
     const worksheet = workbook.Sheets[sheetName]
-    const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[]
+    const json = XLSX.utils.sheet_to_json<unknown[]>(worksheet, {
+      header: 1,
+    })
 
     if (!json || json.length < 2) {
       return {
@@ -105,7 +107,7 @@ export const parseExcel = async (
     // La primera fila que coincida con una cabecera conocida es la de datos;
     // los archivos de Atlántida traen 5 filas de metadata antes.
     const headerRowIdx = json.findIndex((row) =>
-      row.some((cell: any) => {
+      row.some((cell) => {
         const c = String(cell ?? "").toLowerCase().trim()
         return c === "transactiondate" || c === "fecha" || c === "date"
       })
@@ -127,8 +129,8 @@ export const parseExcel = async (
     const dateIdx = findColumnIndex(headers, ["fecha", "date", "fec"])
     const refIdx = findColumnIndex(headers, ["referencia", "ref", "documento", "comprobante"])
     const descIdx = findColumnIndex(headers, ["descripcion", "descripción", "detalle", "concepto", "motivo", "description"])
-    const debitIdx = findColumnIndex(headers, ["debito", "débitos", "cargo", "retiro", "egreso", "salida", "debit"])
-    const creditIdx = findColumnIndex(headers, ["credito", "créditos", "abono", "deposito", "depósito", "ingreso", "entrada", "credit"])
+    const debitIdx = findColumnIndex(headers, ["debito", "débito", "débitos", "cargo", "retiro", "egreso", "salida", "debit"])
+    const creditIdx = findColumnIndex(headers, ["credito", "crédito", "créditos", "abono", "deposito", "depósito", "ingreso", "entrada", "credit"])
     const amountIdx = findColumnIndex(headers, ["monto", "amount", "valor", "total"])
 
     const transactions: ParsedTransaction[] = []
@@ -156,7 +158,8 @@ export const parseExcel = async (
       let amount = "0"
 
       if (amountRaw) {
-        amount = cleanAmount(amountRaw)
+        // El signo define el tipo; el monto se guarda siempre positivo.
+        amount = cleanAmount(amountRaw).replace(/^-/, "")
         type = parseFloat(amountRaw.replace(/[^\d.-]/g, "")) < 0 ? "expense" : "income"
       } else if (debitRaw || creditRaw) {
         const debit = debitRaw ? parseFloat(cleanAmount(debitRaw)) : 0

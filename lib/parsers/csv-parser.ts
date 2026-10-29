@@ -16,7 +16,7 @@ const MONTH_ES: Record<string, string> = {
   dic: "12",
 }
 
-const cleanAmount = (raw: string): string => {
+export const cleanAmount = (raw: string): string => {
   if (!raw) return "0"
   let v = raw.replace(/[L$€]\s*/g, "").replace(/[^\d.,-]/g, "").trim()
   // Detectar formato europeo/latam: 1.234,56 vs 1,234.56
@@ -44,7 +44,7 @@ const cleanAmount = (raw: string): string => {
   return isNaN(num) ? "0" : num.toFixed(2)
 }
 
-const normalizeDate = (raw: string): string | null => {
+export const normalizeDate = (raw: string): string | null => {
   if (!raw) return null
   const v = raw.trim()
 
@@ -99,8 +99,8 @@ export const parseCsv = async (
         const dateIdx = findColumnIndex(headers, ["fecha", "date", "fec"])
         const refIdx = findColumnIndex(headers, ["referencia", "ref", "documento", "comprobante"])
         const descIdx = findColumnIndex(headers, ["descripcion", "descripción", "detalle", "concepto", "motivo", "description"])
-        const debitIdx = findColumnIndex(headers, ["debito", "débitos", "cargo", "retiro", "egreso", "salida", "debit"])
-        const creditIdx = findColumnIndex(headers, ["credito", "créditos", "abono", "deposito", "depósito", "ingreso", "entrada", "credit"])
+        const debitIdx = findColumnIndex(headers, ["debito", "débito", "débitos", "cargo", "retiro", "egreso", "salida", "debit"])
+        const creditIdx = findColumnIndex(headers, ["credito", "crédito", "créditos", "abono", "deposito", "depósito", "ingreso", "entrada", "credit"])
         const amountIdx = findColumnIndex(headers, ["monto", "amount", "valor", "total"])
 
         const transactions: ParsedTransaction[] = []
@@ -128,7 +128,8 @@ export const parseCsv = async (
           let amount = "0"
 
           if (amountRaw) {
-            amount = cleanAmount(amountRaw)
+            // El signo define el tipo; el monto se guarda siempre positivo.
+            amount = cleanAmount(amountRaw).replace(/^-/, "")
             type = parseFloat(amountRaw.replace(/[^\d.-]/g, "")) < 0 ? "expense" : "income"
           } else if (debitRaw || creditRaw) {
             const debit = debitRaw ? parseFloat(cleanAmount(debitRaw)) : 0
