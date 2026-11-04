@@ -175,7 +175,7 @@ beforeEach(async () => {
 })
 
 describe("getMonthlyFinancials", () => {
-  it("D-01: agrupa ingresos y gastos por mes", async () => {
+  it("D-01:groups income and expenses by month", async () => {
     // Dado: un usuario con transacciones en el mes actual y los dos anteriores
     const userId = await createTestUser("d01@test.com")
     const accountId = await insertTestAccount({ userId })
@@ -251,7 +251,7 @@ describe("getMonthlyFinancials", () => {
     expect(twoMonthsAgo?.expense).toBe(50)
   })
 
-  it("D-02: convierte los montos a la moneda por defecto", async () => {
+  it("D-02:converts amounts to default currency", async () => {
     // Dado: una transacción en USD y una tasa USD -> HNL de 24.5
     const userId = await createTestUser("d02@test.com", "HNL")
     const accountId = await insertTestAccount({ userId })
@@ -283,7 +283,7 @@ describe("getMonthlyFinancials", () => {
     expect(mockGetExchangeRates).toHaveBeenCalledWith("USD", ["HNL"])
   })
 
-  it("D-03: sin transacciones retorna un array vacío", async () => {
+  it("D-03:without transactions returns empty array", async () => {
     // Dado: un usuario sin transacciones
     const userId = await createTestUser("d03@test.com")
 
@@ -298,7 +298,7 @@ describe("getMonthlyFinancials", () => {
 })
 
 describe("getDailyAverage", () => {
-  it("D-04: calcula el total y el promedio diario del mes actual", async () => {
+  it("D-04:calculates total and daily average of current month", async () => {
     // Dado: dos gastos del mes actual y un ingreso que no debe sumar
     const userId = await createTestUser("d04@test.com")
     const accountId = await insertTestAccount({ userId })
@@ -344,7 +344,7 @@ describe("getDailyAverage", () => {
     )
   })
 
-  it("D-05: sin gastos del mes retorna totales en cero", async () => {
+  it("D-05:without monthly expenses returns totals zero", async () => {
     // Dado: un gasto del mes anterior, fuera del rango del query
     const userId = await createTestUser("d05@test.com")
     const accountId = await insertTestAccount({ userId })
@@ -372,7 +372,7 @@ describe("getDailyAverage", () => {
 })
 
 describe("getNetBalance", () => {
-  it("D-06: suma opening balances e ingresos y resta gastos", async () => {
+  it("D-06:sums opening balances and income and subtracts expenses", async () => {
     // Dado: una cuenta con saldo inicial y dos transacciones
     const userId = await createTestUser("d06@test.com")
     const accountId = await insertTestAccount({
@@ -406,7 +406,7 @@ describe("getNetBalance", () => {
     expect(mockGetExchangeRates).not.toHaveBeenCalled()
   })
 
-  it("D-07: convierte cuentas y transacciones a la moneda por defecto", async () => {
+  it("D-07:converts accounts and transactions to default currency", async () => {
     // Dado: una cuenta USD, una cuenta EUR y una transacción en USD
     const userId = await createTestUser("d07@test.com", "HNL")
     const usdAccountId = await insertTestAccount({
@@ -449,7 +449,7 @@ describe("getNetBalance", () => {
     expect(mockGetExchangeRates).toHaveBeenCalledWith("EUR", ["HNL"])
   })
 
-  it("D-08: sin cuentas retorna cero", async () => {
+  it("D-08:without accounts returns zero", async () => {
     // Dado: un usuario sin cuentas ni transacciones
     const userId = await createTestUser("d08@test.com")
 
@@ -464,7 +464,7 @@ describe("getNetBalance", () => {
 })
 
 describe("getFundsDistribution", () => {
-  it("D-09: distribuye el saldo por cuenta", async () => {
+  it("D-09:distributes balance by account", async () => {
     // Dado: dos cuentas con saldos distintos
     const userId = await createTestUser("d09@test.com")
     const firstAccountId = await insertTestAccount({
@@ -520,7 +520,7 @@ describe("getFundsDistribution", () => {
     })
   })
 
-  it("D-10: una cuenta con saldo negativo reporta cero", async () => {
+  it("D-10:account with negative balance reports zero", async () => {
     // Dado: una cuenta cuyo gasto supera el saldo inicial
     const userId = await createTestUser("d10@test.com")
     const accountId = await insertTestAccount({
@@ -548,7 +548,7 @@ describe("getFundsDistribution", () => {
     expect(result.data[0].value).toBe(0)
   })
 
-  it("D-11: sin cuentas retorna un array vacío", async () => {
+  it("D-11:without accounts returns empty array", async () => {
     // Dado: un usuario sin cuentas
     const userId = await createTestUser("d11@test.com")
 
@@ -563,7 +563,7 @@ describe("getFundsDistribution", () => {
 })
 
 describe("getExpensesByCategories", () => {
-  it("D-12: agrupa los gastos del año por categoría", async () => {
+  it("D-12:groups yearly expenses by category", async () => {
     // Dado: dos categorías con gastos del año actual
     const userId = await createTestUser("d12@test.com")
     const accountId = await insertTestAccount({ userId })
@@ -652,7 +652,7 @@ describe("getExpensesByCategories", () => {
     })
   })
 
-  it("D-13: incluye categorías globales y excluye las de otros usuarios", async () => {
+  it("D-13:includes global categories and excludes others' categories", async () => {
     // Dado: una categoría global, una propia y una de otro usuario
     const userId = await createTestUser("d13@test.com")
     const otherUserId = await createTestUser("d13-other@test.com")
@@ -710,7 +710,7 @@ describe("getExpensesByCategories", () => {
     ])
   })
 
-  it("D-14: sin gastos del año retorna un array vacío", async () => {
+  it("D-14:without yearly expenses returns empty array", async () => {
     // Dado: un usuario con un ingreso y un gasto de otro año
     const userId = await createTestUser("d14@test.com")
     const accountId = await insertTestAccount({ userId })

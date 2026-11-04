@@ -23,14 +23,14 @@ afterEach(() => {
 })
 
 describe("getExchangeRate", () => {
-  it("L-01: retorna 1 para la misma moneda sin llamar a la API", async () => {
+  it("L-01:returns 1 for same currency without calling the API", async () => {
     const rate = await getExchangeRate("HNL", "HNL")
 
     expect(rate).toBe(1)
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it("L-02: usa una tasa cacheada sin volver a llamar a la API", async () => {
+  it("L-02:uses a cached rate without calling the API again", async () => {
     // Dado: una primera llamada que llena el caché
     fetchMock.mockResolvedValueOnce(jsonResponse({ rates: { HNL: 2.5 } }))
     await getExchangeRate("C02", "HNL")
@@ -44,7 +44,7 @@ describe("getExchangeRate", () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it("L-03: obtiene la tasa de la API y llena el caché", async () => {
+  it("L-03:gets rate from API and fills cache", async () => {
     // Dado: la API responde con una tasa
     fetchMock.mockResolvedValueOnce(jsonResponse({ rates: { HNL: 3.75 } }))
 
@@ -64,7 +64,7 @@ describe("getExchangeRate", () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it("L-04: lanza un error cuando la API responde con error", async () => {
+  it("L-04:throws an error when API responds with error", async () => {
     // Dado: la API responde 500
     fetchMock.mockResolvedValueOnce(new Response("error", { status: 500 }))
 
@@ -74,7 +74,7 @@ describe("getExchangeRate", () => {
     )
   })
 
-  it("L-05: lanza un error cuando la moneda destino no está en la respuesta", async () => {
+  it("L-05:throws an error when target currency is not in response", async () => {
     // Dado: la API responde sin la tasa de HNL
     fetchMock.mockResolvedValueOnce(jsonResponse({ rates: { EUR: 0.9 } }))
 
@@ -86,7 +86,7 @@ describe("getExchangeRate", () => {
 })
 
 describe("getExchangeRates", () => {
-  it("L-06: devuelve las tasas de múltiples monedas con un solo fetch", async () => {
+  it("L-06:returns rates for multiple currencies with a single fetch", async () => {
     // Dado: la API devuelve ambas tasas
     fetchMock.mockResolvedValueOnce(
       jsonResponse({ rates: { HNL: 24.5, EUR: 0.9 } })
@@ -103,7 +103,7 @@ describe("getExchangeRates", () => {
     )
   })
 
-  it("L-07: pide a la API solo las monedas que no están en caché", async () => {
+  it("L-07:asks API only for currencies not in cache", async () => {
     // Dado: una primera llamada que cachea HNL y EUR (todas las tasas devueltas)
     fetchMock.mockResolvedValueOnce(
       jsonResponse({ rates: { HNL: 24.5, EUR: 0.9 } })
@@ -123,7 +123,7 @@ describe("getExchangeRates", () => {
     )
   })
 
-  it("L-06b: retorna 1 para la misma moneda sin llamar a la API", async () => {
+  it("L-06b:returns 1 for same currency without calling the API", async () => {
     // Dado: la moneda destino es igual a la de origen
     const rates = await getExchangeRates("USD", ["USD"])
 

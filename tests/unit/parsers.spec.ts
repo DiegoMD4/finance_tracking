@@ -36,25 +36,25 @@ afterEach(() => {
 })
 
 describe("getFileSource", () => {
-  it("L-13: detecta archivos CSV", () => {
+  it("L-13:detects CSV files", () => {
     expect(getFileSource("estado.csv")).toBe("csv")
   })
 
-  it("L-14: detecta archivos Excel", () => {
+  it("L-14:detects Excel files", () => {
     expect(getFileSource("movs.xlsx")).toBe("excel")
   })
 
-  it("L-15: detecta archivos PDF", () => {
+  it("L-15:detects PDF files", () => {
     expect(getFileSource("estado.pdf")).toBe("pdf")
   })
 
-  it("L-16: retorna unknown para formatos no soportados", () => {
+  it("L-16:returns unknown for unsupported formats", () => {
     expect(getFileSource("foto.jpg")).toBe("unknown")
   })
 })
 
 describe("parseCsv", () => {
-  it("L-17: parsea un CSV válido y guarda los montos positivos", async () => {
+  it("L-17:parses valid CSV and keeps positive amounts", async () => {
     // Dado: un CSV con un gasto negativo y un ingreso positivo
     const file = csvFile(
       [
@@ -90,7 +90,7 @@ describe("parseCsv", () => {
     })
   })
 
-  it("L-18: omite la fila con fecha inválida y reporta el error", async () => {
+  it("L-18:skips row with invalid date and reports error", async () => {
     // Dado: una fila con una fecha que no coincide con ningún formato
     const file = csvFile(
       [
@@ -109,7 +109,7 @@ describe("parseCsv", () => {
     expect(result.errors).toEqual(['Row 3: invalid date ("basura")'])
   })
 
-  it("L-19: usa las columnas débito/crédito cuando no hay monto", async () => {
+  it("L-19:uses debit/credit columns when no amount", async () => {
     // Dado: un CSV con headers acentuados en singular y sin columna monto
     const file = csvFile(
       [
@@ -137,7 +137,7 @@ describe("parseCsv", () => {
     })
   })
 
-  it("L-20: reporta un error cuando Papa no puede leer el archivo", async () => {
+  it("L-20:reports error when Papa cannot read file", async () => {
     // Dado: Papa.parse falla antes de emitir el callback complete
     vi.spyOn(Papa, "parse").mockImplementation(
       ((_source: unknown, config: { error?: (error: Error, file: File) => void }) => {
@@ -156,7 +156,7 @@ describe("parseCsv", () => {
 })
 
 describe("parseExcel", () => {
-  it("L-21: parsea un Excel válido con columnas débito/crédito", async () => {
+  it("L-21:parses valid Excel with debit/credit columns", async () => {
     // Dado: una hoja con headers acentuados y filas de gasto/ingreso
     const file = xlsxFile([
       ["Fecha", "Descripción", "Débito", "Crédito"],
@@ -185,7 +185,7 @@ describe("parseExcel", () => {
     })
   })
 
-  it("L-22: convierte un serial de Excel a YYYY-MM-DD", async () => {
+  it("L-22:converts Excel serial to YYYY-MM-DD", async () => {
     // Dado: una fecha guardada como número de serie de Excel
     const file = xlsxFile([
       ["Fecha", "Descripción", "Monto"],
@@ -206,7 +206,7 @@ describe("parseExcel", () => {
     })
   })
 
-  it("L-23: reporta un error cuando no encuentra la fila de cabecera", async () => {
+  it("L-23:reports error when header row not found", async () => {
     // Dado: una hoja sin ninguna celda de fecha conocida
     const file = xlsxFile([
       ["foo", "bar"],
@@ -225,7 +225,7 @@ describe("parseExcel", () => {
 })
 
 describe("parseAtlántidaPDF", () => {
-  it("L-24: parsea el formato 1 con fechas DD/MM/YYYY y montos L", () => {
+  it("L-24:parses format 1 with DD/MM/YYYY dates and L amounts", () => {
     // Dado: un texto con dos movimientos del formato 1
     const text = [
       "07/09/2026 REF001 Compra supermercado L 500.00 L 0.00 L 1500.00",
@@ -257,7 +257,7 @@ describe("parseAtlántidaPDF", () => {
     })
   })
 
-  it("L-25: parsea el formato 2 con fechas YYYY-Mes-DD", () => {
+  it("L-25:parses format 2 with YYYY-Mes-DD dates", () => {
     // Dado: un texto con dos movimientos del formato 2
     const text = [
       "2026-Sep-07 REF010 Compra supermercado 500.00 0.00 1500.00",
@@ -284,7 +284,7 @@ describe("parseAtlántidaPDF", () => {
     })
   })
 
-  it("L-26: reporta un error cuando no hay movimientos", () => {
+  it("L-26:reports error when no movements", () => {
     // Dado: un texto que no coincide con ninguno de los dos formatos
     const result = parseAtlántidaPDF(
       "Estado de cuenta sin movimientos",
@@ -300,7 +300,7 @@ describe("parseAtlántidaPDF", () => {
 })
 
 describe("extractTransactions", () => {
-  it("L-27: rechaza un archivo con formato desconocido", async () => {
+  it("L-27:rejects file with unknown format", async () => {
     // Dado: un archivo PNG
     const file = new File(["contenido"], "foto.png", { type: "image/png" })
 
@@ -318,21 +318,21 @@ describe("extractTransactions", () => {
 })
 
 describe("cleanAmount", () => {
-  it("L-28: convierte el formato europeo 1.234,56", () => {
+  it("L-28:converts European format 1.234,56", () => {
     expect(cleanAmount("1.234,56")).toBe("1234.56")
   })
 
-  it("L-29: limpia el símbolo L y el separador de miles", () => {
+  it("L-29:cleans L symbol and thousands separator", () => {
     expect(cleanAmount("L 3,300.00")).toBe("3300.00")
   })
 })
 
 describe("normalizeDate", () => {
-  it("L-30: convierte DD/MM/YYYY a YYYY-MM-DD", () => {
+  it("L-30:converts DD/MM/YYYY to YYYY-MM-DD", () => {
     expect(normalizeDate("07/09/2026")).toBe("2026-09-07")
   })
 
-  it("L-31: convierte YYYY-Mes-DD a YYYY-MM-DD", () => {
+  it("L-31:converts YYYY-Mes-DD to YYYY-MM-DD", () => {
     expect(normalizeDate("2026-Sep-07")).toBe("2026-09-07")
   })
 })
