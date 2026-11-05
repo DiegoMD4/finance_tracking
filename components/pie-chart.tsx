@@ -79,7 +79,7 @@ export function ChartPieSimple({ data, currency }: ChartPieSimpleProps) {
             />
             <Pie data={formattedChartData} dataKey="value" nameKey="name" />
             <ChartLegend
-              content={<ChartLegendContent nameKey="name" />}
+              content={<ChartLegendContent nameKey="key" />}
               className="-translate-y-2 flex-wrap gap-2 *:basis-1/4 *:justify-center"
             />
           </PieChart>
