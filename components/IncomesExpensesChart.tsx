@@ -73,7 +73,7 @@ export function IncomesExpensesChart({ data, currency }: IncomesExpensesChartPro
       <CardHeader>
         <CardTitle>Incomes vs Expenses</CardTitle>
         <CardDescription>
-          Comparisson between incomes and expenses on the last 6 months
+          Comparison between incomes and expenses on the last 6 months
         </CardDescription>
       </CardHeader>
       <CardContent>

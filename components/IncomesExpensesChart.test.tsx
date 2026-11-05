@@ -18,7 +18,7 @@ describe("IncomesExpensesChart (UI-09)", () => {
 
     expect(screen.getByText("Incomes vs Expenses")).toBeInTheDocument()
     expect(
-      screen.getByText(/Comparisson between incomes and expenses/i)
+      screen.getByText(/Comparison between incomes and expenses/i)
     ).toBeInTheDocument()
   })
 

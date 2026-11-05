@@ -2,6 +2,7 @@ import { ExpensesByCategoryChart } from "@/components/ExpensesByCategoriesChart"
 import { IncomesExpensesChart } from "@/components/IncomesExpensesChart"
 
 import { ChartPieSimple } from "@/components/pie-chart"
+import { ErrorBanner } from "@/components/ui/error-banner"
 import { cn, formatCurrency, type Currency } from "@/lib/utils"
 import { requireUserId } from "@/lib/jwt"
 import { getUserDefaultCurrency } from "@/server/users/queries"
@@ -12,6 +13,11 @@ import {
   getMonthlyFinancials,
   getNetBalance,
 } from "@/server/dashboard/queries"
+
+type QueryError = {
+  query: string
+  message: string
+}
 
 export const revalidate = 60
 /* import { Plus, Search } from "lucide-react" */
@@ -41,6 +47,13 @@ export default async function Page() {
     getExpensesByCategories(userId, currency),
   ])
 
+  const queryErrors: QueryError[] = []
+  if (!data.ok) queryErrors.push({ query: "monthlyFinancials", message: data.error.message })
+  if (!netBalance.ok) queryErrors.push({ query: "netBalance", message: netBalance.error.message })
+  if (!dailyAverage.ok) queryErrors.push({ query: "dailyAverage", message: dailyAverage.error.message })
+  if (!fundsDistribution.ok) queryErrors.push({ query: "fundsDistribution", message: fundsDistribution.error.message })
+  if (!expensesByCategories.ok) queryErrors.push({ query: "expensesByCategories", message: expensesByCategories.error.message })
+
   const monthlyFinancials = data.ok ? data.data : []
   const totalBalance = netBalance.ok ? netBalance.data : 0
   const daily = dailyAverage.ok ? dailyAverage.data : null
@@ -49,6 +62,7 @@ export default async function Page() {
 
   return (
     <section>
+      {queryErrors.length > 0 && <ErrorBanner errors={queryErrors} />}
       {/* max-sm:p-3*/}
       <div className="fc-enter flex flex-1 flex-col gap-4 p-6 max-sm:p-0">
         <div className="grid auto-rows-min gap-4 md:grid-cols-3">
