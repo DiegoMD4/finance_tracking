@@ -105,6 +105,7 @@ describe("TransactionsCard (UI-14)", () => {
 
     await user.click(screen.getByRole("button", { name: /expense/i }))
     await user.click(await screen.findByRole("button", { name: /delete/i }))
+    await user.click(await screen.findByRole("button", { name: /delete/i }))
 
     await waitFor(() => expect(mockDeleteTransaction).toHaveBeenCalledWith(1))
     await waitFor(() =>

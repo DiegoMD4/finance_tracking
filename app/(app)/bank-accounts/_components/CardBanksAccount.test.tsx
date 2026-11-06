@@ -93,6 +93,7 @@ describe("BankAccountsCard (UI-14)", () => {
 
     await user.click(screen.getByRole("button", { name: /savings/i }))
     await user.click(await screen.findByRole("button", { name: /delete/i }))
+    await user.click(await screen.findByRole("button", { name: /delete/i }))
 
     await waitFor(() => expect(mockDeleteBankAccount).toHaveBeenCalledWith(1))
     await waitFor(() =>
