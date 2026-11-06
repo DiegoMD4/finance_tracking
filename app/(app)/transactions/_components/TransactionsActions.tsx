@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -14,6 +15,7 @@ import { MoreHorizontalIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTransition } from "react"
 import { toast } from "sonner"
+import ConfirmDeleteTransaction from "./ConfirmDeleteTransaction"
 
 interface TransactionsActionsProps {
   transaction: TransactionListItem
@@ -25,69 +27,81 @@ export default function TransactionsActions({
   variant = "menu",
 }: TransactionsActionsProps) {
   const [isPending, startTransition] = useTransition()
-    const router = useRouter()
+  const router = useRouter()
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
 
   const handleView = () => {
     router.push(`/transactions/transaction-detail?id=${transaction.id}`)
   }
 
-  const handleDelete = (event?: React.MouseEvent) => {
-    event?.preventDefault()
-
-    startTransition(async () => {
-      try {
-        const response = await deleteTransaction(transaction.id)
-
-        if (response.success) {
-          toast.success("Transaction deleted")
-          return
-        }
-
-        toast.error(response.message || "Unknown error")
-      } catch (error) {
-        console.error(error)
-        toast.error("An error occurred while deleting transaction")
-      }
-    })
+  const handleOpenDeleteDialog = () => {
+    setDeleteDialogOpen(true)
   }
+
+  const itemName = transaction.transactionDescription ?? "transaction"
 
   if (variant === "buttons") {
     return (
-      <div className="flex w-full flex-row justify-end gap-3 pt-2">
-         <Button size="xs" variant="outline" onClick={handleView}>
-          View details
-        </Button>
-        <Button
-          size="xs"
-          variant="destructive"
-          onClick={(event) => handleDelete(event)}
-          disabled={isPending}
-        >
-          {isPending ? "Deleting" : "Delete"}
-        </Button>
-      </div>
+      <>
+        <ConfirmDeleteTransaction
+          transactionId={transaction.id}
+          transactionDescription={transaction.transactionDescription}
+          open={deleteDialogOpen}
+          onOpenChange={(open) => {
+            setDeleteDialogOpen(open)
+            return open
+          }}
+        />
+        <div className="flex w-full flex-row justify-end gap-3 pt-2">
+           <Button size="xs" variant="outline" onClick={handleView}>
+            View details
+          </Button>
+          <Button
+            size="xs"
+            variant="destructive"
+            onClick={(event) => {
+              event.preventDefault()
+              handleOpenDeleteDialog()
+            }}
+            disabled={isPending}
+          >
+            {isPending ? "Deleting" : "Delete"}
+          </Button>
+        </div>
+      </>
     )
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="size-8">
-          <MoreHorizontalIcon />
-          <span className="sr-only">Open menu</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-         <DropdownMenuItem onClick={handleView}>View details</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          variant="destructive"
-          onClick={(event) => handleDelete(event)}
-          disabled={isPending}
-        >
-          {isPending ? "Deleting..." : "Delete"}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <ConfirmDeleteTransaction
+        transactionId={transaction.id}
+        transactionDescription={transaction.transactionDescription}
+        open={deleteDialogOpen}
+        onOpenChange={(open) => setDeleteDialogOpen(open)}
+      />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="size-8">
+            <MoreHorizontalIcon />
+            <span className="sr-only">Open menu</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+           <DropdownMenuItem onClick={handleView}>View details</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={(event) => {
+              event.preventDefault()
+              handleOpenDeleteDialog()
+            }}
+            disabled={isPending}
+          >
+            {isPending ? "Deleting..." : "Delete"}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   )
 }
