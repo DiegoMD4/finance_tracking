@@ -108,6 +108,7 @@ export default function FormTransaction({
                   }
                 >
                   <SelectTrigger
+                    disabled={formType === 'VIEW'}
                     id="checkout-account"
                     aria-invalid={!!state?.error?.accountId}
                   >

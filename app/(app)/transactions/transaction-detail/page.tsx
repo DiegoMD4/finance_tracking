@@ -19,7 +19,7 @@ export default async function TransactionDetailPage({
 
   const [responseBankAccounts, responseCategories, responseTransaction] =
     await Promise.all([
-      getBankAccounts(),
+      getBankAccounts({ includeDeleted: true }),
       getCategories(),
       getTransactionsById({ id: Number(id) }),
     ])

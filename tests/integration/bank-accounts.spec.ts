@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { bankAccounts, users } from "@/db/schema/schema"
 import { truncateDatabase } from "@/tests/setup/db"
-import { eq } from "drizzle-orm"
+import { and, eq, isNull } from "drizzle-orm"
 import {
   checkDuplicateAccount,
   createBankAccount,
@@ -371,7 +371,7 @@ describe("updateBankAccount", () => {
 })
 
 describe("deleteBankAccount", () => {
-  it("BA-11: elimina una cuenta propia", async () => {
+  it("BA-11: elimina (soft delete) una cuenta propia", async () => {
     // Dado: un usuario autenticado con una cuenta existente
     const userId = await createTestUser("ba11@test.com")
     session.userId = userId
@@ -384,12 +384,22 @@ describe("deleteBankAccount", () => {
     expect(result.success).toBe(true)
     expect(result.message).toBe("Bank account deleted")
 
-    // Y: la fila ya no existe
+    // Y: la fila sigue existiendo pero marcada con deletedAt (soft delete)
     const rows = await db
       .select()
       .from(bankAccounts)
       .where(eq(bankAccounts.id, accountId))
-    expect(rows).toHaveLength(0)
+    expect(rows).toHaveLength(1)
+    expect(rows[0].deletedAt).not.toBeNull()
+
+    // Y: ya no aparece en el listado de cuentas activas
+    const active = await db
+      .select()
+      .from(bankAccounts)
+      .where(
+        and(eq(bankAccounts.userId, userId), isNull(bankAccounts.deletedAt))
+      )
+    expect(active).toHaveLength(0)
 
     // Y: se revalidó la ruta del listado
     expect(mockRevalidatePath).toHaveBeenCalledWith("/bank-accounts")

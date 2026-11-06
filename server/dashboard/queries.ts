@@ -75,10 +75,12 @@ export async function getMonthlyFinancials(
         transactionDate: transactions.transactionDate,
       })
       .from(transactions)
+      .innerJoin(bankAccounts, eq(transactions.accountId, bankAccounts.id))
       .where(
         and(
           eq(transactions.userId, userId),
-          gte(transactions.transactionDate, sixMonthsAgo)
+          gte(transactions.transactionDate, sixMonthsAgo),
+          isNull(bankAccounts.deletedAt)
         )
       )
       .orderBy(transactions.transactionDate)
@@ -152,10 +154,12 @@ export const getDailyAverage = async (
         defaultCurrencyAtTransaction: transactions.defaultCurrencyAtTransaction,
       })
       .from(transactions)
+      .innerJoin(bankAccounts, eq(transactions.accountId, bankAccounts.id))
       .where(
         and(
           eq(transactions.userId, userId),
           eq(transactions.transactionType, "expense"),
+          isNull(bankAccounts.deletedAt),
           gte(transactions.transactionDate, monthFirstDay)
         )
       )
@@ -199,9 +203,13 @@ export const getNetBalance = async (
           id: bankAccounts.id,
         })
         .from(bankAccounts)
-        .where(eq(bankAccounts.userId, userId)),
+        .where(
+          and(eq(bankAccounts.userId, userId), isNull(bankAccounts.deletedAt))
+        ),
       getTransactionsWithCurrency(userId),
     ])
+
+    const activeAccountIds = accountsResult.map((a) => a.id)
 
     const ratesCache: Record<string, Record<string, number>> = {}
 
@@ -217,9 +225,12 @@ export const getNetBalance = async (
       openingSum += converted
     }
 
-    // Sumar transacciones netas convertidas a la moneda por defecto del usuario
+    // Sumar transacciones netas convertidas a la moneda por defecto del usuario.
+    // Solo se consideran transacciones de cuentas activas (no soft-deleted).
     let transactionsSum = 0
     for (const tx of transactionsResult) {
+      if (!activeAccountIds.includes(tx.accountId)) continue
+
       const converted = await convertAmount(
         tx.amountInDefaultCurrency,
         tx.defaultCurrencyAtTransaction,
@@ -254,7 +265,9 @@ export const getFundsDistribution = async (
         accountCurrency: bankAccounts.accountCurrency,
       })
       .from(bankAccounts)
-      .where(eq(bankAccounts.userId, userId))
+      .where(
+        and(eq(bankAccounts.userId, userId), isNull(bankAccounts.deletedAt))
+      )
 
     const transactionsByAccount = await getTransactionsWithCurrency(userId)
 
@@ -329,13 +342,15 @@ export const getExpensesByCategories = async (
       })
       .from(transactions)
       .innerJoin(categories, eq(categories.categoryId, transactions.categoryId))
+      .innerJoin(bankAccounts, eq(transactions.accountId, bankAccounts.id))
       .where(
         and(
           eq(transactions.userId, userId),
           eq(transactions.transactionType, "expense"),
           gte(transactions.transactionDate, startOfYear),
           lte(transactions.transactionDate, endOfYear),
-          or(eq(categories.userId, userId), isNull(categories.userId))
+          or(eq(categories.userId, userId), isNull(categories.userId)),
+          isNull(bankAccounts.deletedAt)
         )
       )
 

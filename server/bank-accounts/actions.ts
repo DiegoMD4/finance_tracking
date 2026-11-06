@@ -8,7 +8,7 @@ import {
   CreateBankAccount,
   UpdateBankAccount,
 } from "@/types/bank-accounts.types"
-import { eq, or, and, ne } from "drizzle-orm"
+import { eq, or, and, ne, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import z from "zod"
 import { getSessionUserId } from "@/lib/jwt"
@@ -113,9 +113,14 @@ export const deleteBankAccount = async (id: number) => {
   }
 
   try {
-    await db
-      .delete(bankAccounts)
+    const [result] = await db
+      .update(bankAccounts)
+      .set({ deletedAt: sql`CURRENT_TIMESTAMP` })
       .where(and(eq(bankAccounts.id, id), eq(bankAccounts.userId, userId)))
+
+    if (result.affectedRows === 0) {
+      return { success: false, message: "Bank account not found" }
+    }
 
     revalidatePath("/bank-accounts")
     return { success: true, message: "Bank account deleted" }
