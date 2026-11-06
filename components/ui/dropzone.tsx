@@ -59,6 +59,8 @@ interface DropzoneProps {
   description?: React.ReactNode
   errors?: Array<{ message?: string } | undefined>
   onChange?: (files: File[]) => void
+  onRemove?: (file: File) => void
+  hideOnFile?: boolean
 }
 
 function Dropzone({
@@ -72,6 +74,8 @@ function Dropzone({
   description,
   errors,
   onChange,
+  onRemove,
+  hideOnFile = false,
 }: DropzoneProps) {
   const inputRef = React.useRef<HTMLInputElement>(null)
   const inputId = React.useId()
@@ -121,9 +125,9 @@ function Dropzone({
   )
 
   const removeFile = (index: number) => {
-    setFiles((current) =>
-      current.filter((_, fileIndex) => fileIndex !== index)
-    )
+    const file = files[index]
+    setFiles((prev) => prev.filter((_, fileIndex) => fileIndex !== index))
+    onRemove?.(file)
   }
 
   const openPicker = () => {
@@ -174,46 +178,48 @@ function Dropzone({
         }}
       />
       <div className="flex w-full flex-col gap-1.5">
-        <div
-          data-slot="dropzone"
-          onClick={openPicker}
-          onDragOver={handleDragOver}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className={cn(
-            "group flex min-h-28 cursor-pointer flex-col items-center justify-center gap-2 rounded-none border-2 border-dashed border-input bg-background px-4 py-6 text-center text-xs text-muted-foreground outline-none transition-colors",
-            "hover:border-primary/50 hover:bg-muted/50 focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50",
-            "disabled:cursor-not-allowed disabled:opacity-50",
-            isDragging && "border-primary bg-muted",
-            disabled && "pointer-events-none opacity-50",
-            className
-          )}
-        >
-          <Upload
-            size={20}
-            strokeWidth={1.5}
-            aria-hidden="true"
-            className="text-muted-foreground"
-          />
-          <span>Drag and drop your file here</span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={disabled}
-            className="cursor-pointer"
-            onClick={(event) => {
-              event.stopPropagation()
-              openPicker()
-            }}
+        {(!hideOnFile || files.length === 0) && (
+          <div
+            data-slot="dropzone"
+            onClick={openPicker}
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={cn(
+              "group flex min-h-28 cursor-pointer flex-col items-center justify-center gap-2 rounded-none border-2 border-dashed border-input bg-background px-4 py-6 text-center text-xs text-muted-foreground outline-none transition-colors",
+              "hover:border-primary/50 hover:bg-muted/50 focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              isDragging && "border-primary bg-muted",
+              disabled && "pointer-events-none opacity-50",
+              className
+            )}
           >
-            Browse files
-          </Button>
-          {maxFiles > 1 && (
-            <span className="text-[10px]">Up to {maxFiles} files</span>
-          )}
-        </div>
+            <Upload
+              size={20}
+              strokeWidth={1.5}
+              aria-hidden="true"
+              className="text-muted-foreground"
+            />
+            <span>Drag and drop your file here</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={disabled}
+              className="cursor-pointer"
+              onClick={(event) => {
+                event.stopPropagation()
+                openPicker()
+              }}
+            >
+              Browse files
+            </Button>
+            {maxFiles > 1 && (
+              <span className="text-[10px]">Up to {maxFiles} files</span>
+            )}
+          </div>
+        )}
 
         {files.length > 0 && (
           <ul data-slot="dropzone-list" className="flex w-full flex-col gap-1.5">

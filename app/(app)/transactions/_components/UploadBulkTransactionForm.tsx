@@ -320,6 +320,8 @@ export function UploadBulkTransactionForm({
           label="Drag your file here"
           disabled={isLoading || isPending || !selectedAccountId}
           onChange={handleFileChange}
+          onRemove={() => setTransactions([])}
+          hideOnFile
         />
         <FieldError />
       </Field>
