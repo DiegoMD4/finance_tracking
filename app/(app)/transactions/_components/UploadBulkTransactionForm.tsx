@@ -1,6 +1,7 @@
 "use client"
 
 import { useActionState, useCallback, useEffect, useState } from "react"
+import { Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
 import { Dropzone } from "@/components/ui/dropzone"
@@ -502,7 +503,7 @@ export function UploadBulkTransactionForm({
                         aria-label={`Remove ${tx.transactionDescription}`}
                       >
                         <span className="sr-only">Remove</span>
-                        <span className="text-destructive">×</span>
+                        <Trash2Icon className="h-4 w-4 text-destructive" />
                       </Button>
                     </TableCell>
                   </TableRow>
