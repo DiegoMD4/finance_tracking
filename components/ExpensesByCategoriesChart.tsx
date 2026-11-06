@@ -1,7 +1,7 @@
 "use client"
 
 import { TrendingUp } from "lucide-react"
-import { Bar, BarChart, Rectangle, XAxis, YAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, Rectangle, XAxis, YAxis } from "recharts"
 import type { BarShapeProps } from "recharts"
 
 import {
@@ -19,7 +19,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart"
 import { getCategoryIcon } from "@/lib/category-icons"
-import { formatCurrency, type Currency } from "@/lib/utils"
+import { formatCompactCurrency, formatCurrency, type Currency } from "@/lib/utils"
 import { useIsMobile } from "@/hooks/use-mobile"
 
 export const description = "A horizontal bar chart"
@@ -54,6 +54,9 @@ export function ExpensesByCategoryChart({
   }))
 
   const isMobile = useIsMobile()
+  const formatAxisAmount = (value: number | string) =>
+    formatCompactCurrency(value, currency)
+
   const renderCategoryTick = (props: {
     x: string | number
     y: string | number
@@ -119,12 +122,20 @@ export function ExpensesByCategoryChart({
             accessibilityLayer
             data={newChartData}
             layout="vertical"
-            /* barCategoryGap={isMobile ? 16 : "10%"} */
             margin={{
               left: 0,
             }}
           >
-            <XAxis type="number" dataKey="amount" hide />
+            <CartesianGrid horizontal={false} />
+            <XAxis
+              type="number"
+              dataKey="amount"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              tickCount={5}
+              tickFormatter={formatAxisAmount}
+            />
             <YAxis
               dataKey="category"
               type="category"

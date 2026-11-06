@@ -51,7 +51,7 @@ Pages that need to branch behavior on mobile vs desktop (e.g. `transactions/page
 
 2. **Modo de planeación para tareas grandes.** Cuando se vaya a ejecutar una funcionalidad o tarea demasiado grande o compleja, empieza siempre con una fase de planeación e investigación antes de tocar código. No implementes directamente sin haber investigado y planificado primero.
 
-3. **Uso de git para cambios grandes.** Si una tarea va a generar demasiados cambios (múltiples archivos o modificaciones extensas), utiliza git para gestionarlos: crea ramas adecuadas, haz commits atómicos y mantén el historial limpio antes de aplicar los cambios.
+3. **Uso de git para cambios grandes.** No realices commits ni crees ramas automáticamente. **No hagas commit sin mi confirmación explícita.** Solo haz commit cuando yo lo indique explícitamente. Antes de iniciar cualquier funcionalidad grande (múltiples archivos o modificaciones extensas), pregúntame si deseo continuar y cómo quiero manejar la rama y el commit.
 
 4. **Si algo no está claro, revisá el código y lo que conversamos.** Si seguís con dudas, preguntame. No inventes requisitos ni hagas cambios fuera de lo que te pedí.
 
