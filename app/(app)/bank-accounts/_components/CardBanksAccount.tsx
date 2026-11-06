@@ -1,4 +1,5 @@
 "use client"
+import React from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -13,7 +14,7 @@ import { ChevronDownIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTransition } from "react"
 import { toast } from "sonner"
-import { deleteBankAccount } from "../../../../server/bank-accounts/actions"
+import ConfirmDeleteBankAccount from "./ConfirmDeleteBankAccount"
 
 interface BankAccountsCardProps {
   data: BankAccounts[]
@@ -22,25 +23,14 @@ interface BankAccountsCardProps {
 export default function BankAccountsCard({ data }: BankAccountsCardProps) {
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [deleteTargetId, setDeleteTargetId] = React.useState<number | null>(null)
 
-  const handleDelete = (e: React.MouseEvent, id: number) => {
-    e.preventDefault()
-
-    startTransition(async () => {
-      try {
-        const res = await deleteBankAccount(id)
-
-        if (res?.success) {
-          toast.success("Bank account deleted")
-        } else {
-          toast.error(res?.message || "Unknown error")
-        }
-      } catch (error) {
-        console.error(error)
-        toast.error("An error ocurred, try againg")
-      }
-    })
+  const handleOpenDeleteDialog = (id: number) => {
+    setDeleteTargetId(id)
+    setDeleteDialogOpen(true)
   }
+
   if (data.length === 0) {
     return (
       <p className="px-2 text-sm text-muted-foreground">
@@ -131,7 +121,8 @@ export default function BankAccountsCard({ data }: BankAccountsCardProps) {
                     size="xs"
                     variant="destructive"
                     onClick={(e) => {
-                      handleDelete(e, element.id)
+                      e.preventDefault()
+                      handleOpenDeleteDialog(element.id)
                     }}
                   >
                     {isPending ? "Deleting" : "Delete"}
@@ -142,6 +133,22 @@ export default function BankAccountsCard({ data }: BankAccountsCardProps) {
           </CardContent>
         </Card>
       ))}
+
+      {deleteTargetId && (
+        <ConfirmDeleteBankAccount
+          bankAccountId={deleteTargetId}
+          bankAccountName={
+            data.find((e) => e.id === deleteTargetId)?.accountName ??
+            "bank account"
+          }
+          open={deleteDialogOpen}
+          onOpenChange={(open) => {
+            setDeleteDialogOpen(open)
+            if (!open) setDeleteTargetId(null)
+            return open
+          }}
+        />
+      )}
     </section>
   )
 }

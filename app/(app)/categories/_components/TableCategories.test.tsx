@@ -96,6 +96,7 @@ describe("TableCategories (UI-13)", () => {
 
     await user.click(screen.getAllByRole("button", { name: /open menu/i })[0])
     await user.click(await screen.findByRole("menuitem", { name: /delete/i }))
+    await user.click(await screen.findByRole("button", { name: /delete/i }))
 
     await waitFor(() => expect(mockDeleteCategory).toHaveBeenCalledWith(1))
     await waitFor(() =>

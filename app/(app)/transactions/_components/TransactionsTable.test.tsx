@@ -118,6 +118,7 @@ describe("TransactionsTable (UI-12)", () => {
 
     await user.click(screen.getByRole("button", { name: /open menu/i }))
     await user.click(await screen.findByRole("menuitem", { name: /delete/i }))
+    await user.click(await screen.findByRole("button", { name: /delete/i }))
 
     await waitFor(() => expect(mockDeleteTransaction).toHaveBeenCalledWith(1))
     await waitFor(() =>
