@@ -1,6 +1,7 @@
-"use client"
+﻿"use client"
 
 import { useActionState, useCallback, useEffect, useState } from "react"
+import { Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
 import { Dropzone } from "@/components/ui/dropzone"
@@ -12,6 +13,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Button } from "@/components/ui/button"
+import { DatePickerCell } from "@/components/ui/date-picker-cell"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -319,6 +321,8 @@ export function UploadBulkTransactionForm({
           label="Drag your file here"
           disabled={isLoading || isPending || !selectedAccountId}
           onChange={handleFileChange}
+          onRemove={() => setTransactions([])}
+          hideOnFile
         />
         <FieldError />
       </Field>
@@ -399,15 +403,13 @@ export function UploadBulkTransactionForm({
                 {transactions.map((tx) => (
                   <TableRow key={tx.tempId}>
                     <TableCell>
-                      <Input
-                        type="date"
+                      <DatePickerCell
                         value={tx.transactionDate}
-                        onChange={(e) =>
+                        onChange={(date) =>
                           updateTransaction(tx.tempId, {
-                            transactionDate: e.target.value,
+                            transactionDate: date,
                           })
                         }
-                        className="h-8 border-none bg-transparent p-0 text-xs focus:ring-0"
                       />
                     </TableCell>
                     <TableCell>
@@ -502,7 +504,7 @@ export function UploadBulkTransactionForm({
                         aria-label={`Remove ${tx.transactionDescription}`}
                       >
                         <span className="sr-only">Remove</span>
-                        <span className="text-destructive">×</span>
+                        <Trash2Icon className="h-4 w-4 text-destructive" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -532,3 +534,7 @@ export function UploadBulkTransactionForm({
     </form>
   )
 }
+
+
+
+

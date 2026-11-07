@@ -53,6 +53,12 @@ Pages that need to branch behavior on mobile vs desktop (e.g. `transactions/page
 
 3. **Uso de git para cambios grandes.** No realices commits ni crees ramas automáticamente. **No hagas commit sin mi confirmación explícita.** Solo haz commit cuando yo lo indique explícitamente. Antes de iniciar cualquier funcionalidad grande (múltiples archivos o modificaciones extensas), pregúntame si deseo continuar y cómo quiero manejar la rama y el commit.
 
-4. **Si algo no está claro, revisá el código y lo que conversamos.** Si seguís con dudas, preguntame. No inventes requisitos ni hagas cambios fuera de lo que te pedí.
+4. **Flujo de ramas (git workflow).**
+   - Cada nueva feature o tarea debe empezarse siempre en la rama `testbranch`.
+   - La rama `dev` es para probar el deploy de desarrollo.
+   - **No hagas merge de `testbranch` a `dev` sin preguntarme primero.** Siempre confirma conmigo si deseo promover los cambios a `dev`.
+   - No hagas push a `origin` sin mi autorización explícita.
+
+5. **Si algo no está claro, revisá el código y lo que conversamos.** Si seguís con dudas, preguntame. No inventes requisitos ni hagas cambios fuera de lo que te pedí.
 
 5. **Revisar la documentación de la versión instalada antes de usar librerías o APIs.** Antes de implementar cualquier funcionalidad que use una librería, framework o API externa, verifica la documentación correspondiente a la versión exactamente instalada en el proyecto (revisa `package.json` y `package-lock.json`). No asumas que existe una función, método o propiedad basada en versiones más nuevas o más antiguas. Usa solo lo que está soportado por la versión instalada para evitar errores de compilación o runtime por funciones inexistentes.

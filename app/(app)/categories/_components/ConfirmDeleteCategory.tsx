@@ -1,6 +1,6 @@
 "use client"
 
-import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { AlertDialogDestructive } from "@/components/ui/alert-dialog-destructive"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
@@ -40,14 +40,14 @@ export default function ConfirmDeleteCategory({
   const itemName = categoryName ?? "category"
 
   return (
-    <ConfirmDialog
+    <AlertDialogDestructive
       open={open}
       onOpenChange={onOpenChange}
-      title={`Are you sure you want to delete this ${itemName}?`}
-      description="This can't be undone."
-      confirmLabel="Delete"
+      title={`Delete ${itemName}?`}
+      description="This will permanently delete this category. This can't be undone."
       cancelLabel="Cancel"
-      onConfirm={handleDelete}
+      actionLabel="Delete"
+      onAction={handleDelete}
     />
   )
 }

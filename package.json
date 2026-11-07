@@ -18,9 +18,9 @@
     "db:seed": "npx tsx db/seeds/seeds.ts",
     "db:seed-demo": "npx tsx db/seeds/seed-demo.ts",
     "db:clean": "npx tsx db/seeds/clean.ts",
-    "db:push": "drizzle-kit push && npm run db:seed",
+    "db:push": "drizzle-kit push && npm run db:seed-demo",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate && npx tsx db/seeds/seed-demo.ts"
+    "db:migrate": "drizzle-kit migrate && npm run db:seed-demo"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

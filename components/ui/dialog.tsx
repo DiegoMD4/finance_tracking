@@ -8,14 +8,48 @@ import { cn } from "@/lib/utils"
 
 const Dialog = DialogPrimitive.Root
 
-const DialogTrigger = DialogPrimitive.Trigger
+const DialogTrigger = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Trigger> & {
+    render?: (props: { open: boolean }) => React.ReactNode
+  }
+>(({ render, ...props }, ref) => {
+  if (render) {
+    return (
+      <DialogPrimitive.Trigger ref={ref} {...props} asChild>
+        {render({ open: false })}
+      </DialogPrimitive.Trigger>
+    )
+  }
+  return <DialogPrimitive.Trigger ref={ref} {...props} />
+})
+DialogTrigger.displayName = DialogPrimitive.Trigger.displayName
+
+const DialogClose = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Close>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Close> & {
+    render?: (props: { onClick: () => void }) => React.ReactNode
+  }
+>(({ render, ...props }, ref) => {
+  if (render) {
+    return (
+      <DialogPrimitive.Close ref={ref} {...props} asChild>
+        {render({ onClick: () => {} })}
+      </DialogPrimitive.Close>
+    )
+  }
+  return <DialogPrimitive.Close ref={ref} {...props} />
+})
+DialogClose.displayName = DialogPrimitive.Close.displayName
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => (
   <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+    <DialogPrimitive.Overlay
+      className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+    />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
@@ -67,10 +101,7 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn(
-      "text-lg font-semibold leading-none tracking-tight",
-      className
-    )}
+    className={cn("text-lg font-semibold leading-none tracking-tight", className)}
     {...props}
   />
 ))
@@ -96,4 +127,5 @@ export {
   DialogFooter,
   DialogTitle,
   DialogDescription,
+  DialogClose,
 }
