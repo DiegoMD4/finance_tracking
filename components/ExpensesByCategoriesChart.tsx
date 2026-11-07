@@ -19,7 +19,11 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart"
 import { getCategoryIcon } from "@/lib/category-icons"
-import { formatCompactCurrency, formatCurrency, type Currency } from "@/lib/utils"
+import {
+  formatCompactCurrency,
+  formatCurrency,
+  type Currency,
+} from "@/lib/utils"
 import { useIsMobile } from "@/hooks/use-mobile"
 
 export const description = "A horizontal bar chart"
@@ -122,6 +126,7 @@ export function ExpensesByCategoryChart({
             accessibilityLayer
             data={newChartData}
             layout="vertical"
+            barSize={isMobile ? undefined : 30}
             margin={{
               left: 0,
             }}
