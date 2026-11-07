@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useActionState, useCallback, useEffect, useState } from "react"
 import { Trash2Icon } from "lucide-react"
@@ -13,6 +13,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Button } from "@/components/ui/button"
+import { DatePickerCell } from "@/components/ui/date-picker-cell"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -402,15 +403,13 @@ export function UploadBulkTransactionForm({
                 {transactions.map((tx) => (
                   <TableRow key={tx.tempId}>
                     <TableCell>
-                      <Input
-                        type="date"
+                      <DatePickerCell
                         value={tx.transactionDate}
-                        onChange={(e) =>
+                        onChange={(date) =>
                           updateTransaction(tx.tempId, {
-                            transactionDate: e.target.value,
+                            transactionDate: date,
                           })
                         }
-                        className="h-8 border-none bg-transparent p-0 text-xs focus:ring-0"
                       />
                     </TableCell>
                     <TableCell>
@@ -535,3 +534,7 @@ export function UploadBulkTransactionForm({
     </form>
   )
 }
+
+
+
+
