@@ -1,5 +1,4 @@
 "use client"
-import dynamic from "next/dynamic"
 import { Landmark, HandCoins, ChartAreaIcon, Tags, LogOut, Settings } from "lucide-react"
 import {
   Sidebar,
@@ -25,13 +24,9 @@ import { useTransition } from "react"
 import { logout } from "@/server/users/actions"
 import { ServerUser } from "@/types/users.types"
 import { TooltipProvider } from "./ui/tooltip"
+import ThemeMenuButton from "./ui/theme-menu-button"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-
-const ThemeButton = dynamic(() => import("./ui/theme-menu-button"), {
-  ssr: false,
-  loading: () => <div className="h-8 w-full animate-pulse rounded bg-muted" />,
-})
 
 const items = [
   { title: "Dashboard", url: "/dashboard", icon: ChartAreaIcon },
@@ -147,7 +142,7 @@ export function AppSidebar({ user }: { user: ServerUser }) {
                   </div>
                 </DropdownMenuLabel> */}
                 <DropdownMenuSeparator />
-                <ThemeButton />
+                <ThemeMenuButton />
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="cursor-pointer"
