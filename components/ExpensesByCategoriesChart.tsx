@@ -121,7 +121,10 @@ export function ExpensesByCategoryChart({
         <CardDescription>Throughout {new Date().getFullYear()}</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig}>
+        <ChartContainer
+          config={chartConfig}
+          className="aspect-auto h-90 w-full"
+        >
           <BarChart
             accessibilityLayer
             data={newChartData}
