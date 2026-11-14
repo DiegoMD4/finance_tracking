@@ -42,6 +42,11 @@ import { BulkTransactionActionState } from "@/types/transactions.types"
 import { createBulkTransactions } from "@/server/transactions/actions"
 import { useRouter } from "next/navigation"
 import { CURRENCY_OPTIONS } from "@/lib/utils"
+import { SuggestionConfidence } from "@/types/ai.types"
+import { suggestTransactionCategories } from "@/server/transactions/ai-actions"
+import { Switch } from "@/components/ui/switch"
+import { Spinner } from "@/components/ui/spinner"
+import { GeminiIcon } from "@/components/icons/gemini"
 
 interface UploadBulkTransactionFormProps {
   bankAccounts: BankAccounts[]
@@ -69,6 +74,11 @@ export function UploadBulkTransactionForm({
     "csv" | "excel" | "pdf" | "unknown" | null
   >(null)
   const router = useRouter()
+  const [isSuggesting, setIsSuggesting] = useState(false)
+  const [overwriteCategories, setOverwriteCategories] = useState(false)
+  const [suggestionMeta, setSuggestionMeta] = useState<
+    Record<string, { confidence: SuggestionConfidence; reason: string | null }>
+  >({})
   /*   const [debugInfo, setDebugInfo] = useState<{
     fileName: string
     source: string
@@ -80,7 +90,6 @@ export function UploadBulkTransactionForm({
     (accountId: string) => {
       setSelectedAccountId(accountId)
 
-      // Si el usuario aún no eligió moneda, se propone la de la cuenta.
       if (currencyTouched) return
       const account = bankAccounts.find((acc) => String(acc.id) === accountId)
       const accountCurrency = account?.accountCurrency
@@ -110,8 +119,6 @@ export function UploadBulkTransactionForm({
   useEffect(() => {
     if (!state) return
 
-    // Quita de la tabla lo que ya quedó guardado: si el guardado fue parcial,
-    // un reintento solo reenviaría las filas pendientes.
     if (state.savedTempIds.length > 0) {
       const savedTempIds = new Set(state.savedTempIds)
       setTransactions((prev) => {
@@ -141,6 +148,7 @@ export function UploadBulkTransactionForm({
 
       setFile(selectedFile)
       setIsLoading(true)
+      setSuggestionMeta({})
       setErrors([])
 
       try {
@@ -212,11 +220,11 @@ export function UploadBulkTransactionForm({
     setFile(null)
     setParsedSource(null)
     setErrors([])
+    setSuggestionMeta({})
   }, [])
 
   const hasTransactions = transactions.length > 0
 
-  // Errores de la última ejecución, solo para filas que siguen en la tabla.
   const failedRows = (() => {
     if (!state?.rows.length) return []
     const currentTempIds = new Set(transactions.map((tx) => tx.tempId))
@@ -236,13 +244,69 @@ export function UploadBulkTransactionForm({
     })
   })()
 
+  const handleSuggestCategories = useCallback(async () => {
+    const candidates = transactions.filter(
+      (tx) =>
+        tx.transactionDescription.trim().length > 0 &&
+        (overwriteCategories || !tx.categoryId)
+    )
+    if (candidates.length === 0) {
+      toast.info("All rows already have a category")
+      return
+    }
+    setIsSuggesting(true)
+    try {
+      const result = await suggestTransactionCategories(
+        candidates.map((tx) => ({
+          tempId: tx.tempId,
+          transactionDescription: tx.transactionDescription,
+          transactionType: tx.transactionType,
+          amount: tx.amount,
+        }))
+      )
+      if (!result.success) {
+        toast.error(result.message)
+        return
+      }
+      const currentById = new Map(transactions.map((tx) => [tx.tempId, tx]))
+      const applicable = new Map<string, string>()
+      for (const suggestion of result.suggestions) {
+        if (suggestion.categoryId === null) continue
+        const current = currentById.get(suggestion.tempId)
+        if (!current) continue
+        if (!overwriteCategories && current.categoryId) continue
+        applicable.set(suggestion.tempId, suggestion.categoryId)
+      }
+      setTransactions((prev) =>
+        prev.map((tx) => {
+          const categoryId = applicable.get(tx.tempId)
+          return categoryId ? { ...tx, categoryId } : tx
+        })
+      )
+      setSuggestionMeta((prev) => {
+        const next = { ...prev }
+        for (const suggestion of result.suggestions) {
+          next[suggestion.tempId] = {
+            confidence: suggestion.confidence,
+            reason: suggestion.reason,
+          }
+        }
+        return next
+      })
+    } catch (error) {
+      console.error(error)
+      toast.error("Could not reach the AI service")
+    } finally {
+      setIsSuggesting(false)
+    }
+  }, [transactions, overwriteCategories])
+
   return (
     <form
       className="flex w-full flex-col gap-6"
       autoComplete="off"
       action={formAction}
     >
-      {/* Paso 1: Seleccionar cuenta bancaria */}
       <Field>
         <FieldLabel>Destination bank account</FieldLabel>
         <FieldDescription>
@@ -303,6 +367,9 @@ export function UploadBulkTransactionForm({
               Applied to every transaction in this upload.
             </FieldDescription>
           </Field>
+          {/* <button type="button" onClick={() => handleGemini()}>
+            Call Gemini
+          </button> */}
         </FieldGroup>
         <FieldError />
       </Field>
@@ -319,7 +386,9 @@ export function UploadBulkTransactionForm({
           accept=".csv,.xlsx,.xls,.pdf"
           maxFiles={1}
           label="Drag your file here"
-          disabled={isLoading || isPending || !selectedAccountId}
+          disabled={
+            isLoading || isPending || !selectedAccountId || isSuggesting
+          }
           onChange={handleFileChange}
           onRemove={() => setTransactions([])}
           hideOnFile
@@ -333,7 +402,6 @@ export function UploadBulkTransactionForm({
         </div>
       )}
 
-      {/* Paso 3: Tabla de vista previa editable */}
       {hasTransactions && (
         <section className="flex w-full flex-col gap-4 border-t pt-4">
           <div className="flex flex-row items-center justify-between">
@@ -341,6 +409,29 @@ export function UploadBulkTransactionForm({
               Detected transactions ({transactions.length}) - parser used:{" "}
               {parsedSource}
             </h2>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Switch
+                  size="sm"
+                  checked={overwriteCategories}
+                  onCheckedChange={setOverwriteCategories}
+                  disabled={isSuggesting}
+                />
+                Overwrite existing
+              </label>
+
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={handleSuggestCategories}
+                disabled={isLoading || isPending || isSuggesting}
+                className="w-full cursor-pointer sm:w-auto"
+              >
+                {isSuggesting ? <Spinner /> : <GeminiIcon />}
+                {isSuggesting ? "Suggesting..." : "Suggest categories with AI"}
+              </Button>
+            </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button
                 type="button"
@@ -355,7 +446,7 @@ export function UploadBulkTransactionForm({
               <Button
                 type="submit"
                 size="sm"
-                disabled={isLoading || isPending}
+                disabled={isLoading || isPending || isSuggesting}
                 className="w-full cursor-pointer sm:w-auto"
               >
                 Save transactions
@@ -375,9 +466,7 @@ export function UploadBulkTransactionForm({
 
           {failedRows.length > 0 && (
             <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-[12px] text-destructive">
-              <p className="mb-1 font-medium">
-                Rows that could not be saved:
-              </p>
+              <p className="mb-1 font-medium">Rows that could not be saved:</p>
               {failedRows.map((row) => (
                 <div key={row.tempId} className="mb-1 last:mb-0">
                   • Row {row.row ?? "?"}: {row.error ?? "Unknown error"}
@@ -469,30 +558,49 @@ export function UploadBulkTransactionForm({
                       />
                     </TableCell>
                     <TableCell>
-                      <Select
-                        value={tx.categoryId ?? "none"}
-                        onValueChange={(v) =>
-                          updateTransaction(tx.tempId, {
-                            categoryId:
-                              v === "none" ? undefined : v || undefined,
-                          })
-                        }
-                      >
-                        <SelectTrigger className="h-8 border-none bg-transparent p-0 text-xs focus:ring-0">
-                          <SelectValue placeholder="Category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No category</SelectItem>
-                          {categories.map((c) => (
-                            <SelectItem
-                              key={c.categoryId}
-                              value={String(c.categoryId)}
-                            >
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center gap-1">
+                        <Select
+                          value={tx.categoryId ?? "none"}
+                          onValueChange={(v) => {
+                            updateTransaction(tx.tempId, {
+                              categoryId:
+                                v === "none" ? undefined : v || undefined,
+                            })
+                            setSuggestionMeta((prev) => {
+                              if (!prev[tx.tempId]) return prev
+                              const next = { ...prev }
+                              delete next[tx.tempId]
+                              return next
+                            })
+                          }}
+                        >
+                          <SelectTrigger className="h-8 border-none bg-transparent p-0 text-xs focus:ring-0">
+                            <SelectValue placeholder="Category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No category</SelectItem>
+                            {categories.map((c) => (
+                              <SelectItem
+                                key={c.categoryId}
+                                value={String(c.categoryId)}
+                              >
+                                {c.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {tx.categoryId && suggestionMeta[tx.tempId] && (
+                          <span
+                            title={
+                              suggestionMeta[tx.tempId].reason ??
+                              "Suggested by AI"
+                            }
+                            className="shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+                          >
+                            IA
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
@@ -534,7 +642,3 @@ export function UploadBulkTransactionForm({
     </form>
   )
 }
-
-
-
-

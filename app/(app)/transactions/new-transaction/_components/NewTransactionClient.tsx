@@ -25,18 +25,18 @@ export function NewTransactionClient({
 
   return (
     <div className="w-full">
-      <div className="flex flex-col sm:flex-row gap-2 mb-6 w-full">
+      <div className="mb-6 flex w-full flex-col gap-2 sm:flex-row">
         <Button
           variant={activeTab === "individual" ? "default" : "outline"}
           onClick={() => setActiveTab("individual")}
-          className="w-full sm:w-auto"
+          className="w-full cursor-pointer sm:w-auto"
         >
           New transaction
         </Button>
         <Button
           variant={activeTab === "bulk" ? "default" : "outline"}
           onClick={() => setActiveTab("bulk")}
-          className="w-full sm:w-auto"
+          className="w-full cursor-pointer sm:w-auto"
         >
           Bulk upload (bank statement)
         </Button>
