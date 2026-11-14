@@ -409,7 +409,8 @@ export function UploadBulkTransactionForm({
               Detected transactions ({transactions.length}) - parser used:{" "}
               {parsedSource}
             </h2>
-            <div className="flex flex-wrap items-center gap-3">
+
+            <div className="flex flex-col gap-2 sm:flex-row">
               <label className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Switch
                   size="sm"
@@ -431,8 +432,6 @@ export function UploadBulkTransactionForm({
                 {isSuggesting ? <Spinner /> : <GeminiIcon />}
                 {isSuggesting ? "Suggesting..." : "Suggest categories with AI"}
               </Button>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
               <Button
                 type="button"
                 variant="outline"
