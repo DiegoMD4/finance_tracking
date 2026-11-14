@@ -17,7 +17,9 @@ INSERT INTO `currencies` (`code`, `name`, `symbol`, `is_active`) VALUES
 --> statement-breakpoint
 -- Estandarizar accountCurrency de texto largo a código ISO antes de reducir la columna
 UPDATE `bank_accounts` SET `account_currency` = 'HNL' WHERE `account_currency` = 'Lempiras';
+--> statement-breakpoint
 UPDATE `bank_accounts` SET `account_currency` = 'USD' WHERE `account_currency` = 'Dolares';
+--> statement-breakpoint
 UPDATE `bank_accounts` SET `account_currency` = 'EUR' WHERE `account_currency` = 'Euros';
 --> statement-breakpoint
 ALTER TABLE `bank_accounts` MODIFY COLUMN `account_currency` varchar(3);
