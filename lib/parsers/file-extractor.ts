@@ -1,9 +1,21 @@
-import type { ExtractResult, ParsedTransaction } from "./types"
+import type { DetectionInfo, ExtractResult, ParserSource } from "./types"
 import { parseCsv } from "./csv-parser"
 import { parseExcel } from "./excel-parser"
 import { parseAtlántidaPDF } from "./atlantida-pdf-parser"
+import {
+  detectBank,
+  detectCurrencyFromText,
+  resolveFileFormat,
+} from "./core/detection"
+import { parsePdfPages } from "./pdf/generic-pdf"
 
-export const getFileSource = (fileName: string): "csv" | "excel" | "pdf" | "unknown" => {
+/**
+ * Detección por extensión. Se mantiene como respaldo cuando el contenido no
+ * es reconocible (por ejemplo, un archivo vacío).
+ */
+export const getFileSource = (
+  fileName: string
+): "csv" | "excel" | "pdf" | "unknown" => {
   const lower = fileName.toLowerCase()
   if (lower.endsWith(".csv")) return "csv"
   if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) return "excel"
@@ -14,8 +26,17 @@ export const getFileSource = (fileName: string): "csv" | "excel" | "pdf" | "unkn
 export const extractTransactions = async (
   file: File
 ): Promise<ExtractResult> => {
-  const source = getFileSource(file.name)
   const fileName = file.name
+  let source: ParserSource = getFileSource(fileName)
+
+  // El contenido manda sobre la extensión: detecta PDF, XLSX/ZIP, OLE (.xls
+  // antiguo) y texto (CSV/tabulado) aunque el nombre del archivo mienta.
+  try {
+    const buffer = await file.arrayBuffer()
+    source = resolveFileFormat(fileName, buffer)
+  } catch {
+    // Si no se puede leer el buffer, seguimos con la extensión.
+  }
 
   if (source === "unknown") {
     return {
@@ -62,7 +83,14 @@ export const extractTransactions = async (
 }
 
 /**
- * Extrae texto del PDF en el cliente usando pdfjs-dist y luego aplica el parser de Atlántida.
+ * Extrae transacciones de un PDF en el cliente usando pdfjs-dist.
+ *
+ * Estrategia:
+ *   1. Se recolectan los `TextItem` de cada página (con su X/Y) y se intenta
+ *      la reconstrucción posicional (`parsePdfPages`), que reutiliza el motor
+ *      genérico de tablas.
+ *   2. Si el PDF no tiene una tabla reconocible, se cae al parser por regex
+ *      de Atlántida sobre el texto plano.
  */
 const extractPdfTransactions = async (
   file: File,
@@ -73,18 +101,25 @@ const extractPdfTransactions = async (
   const worker = await import("pdfjs-dist/build/pdf.worker.mjs")
 
   if (pdfjsLib.GlobalWorkerOptions.workerSrc === undefined) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = (worker as any).default || worker
+    const workerDefault = (worker as { default?: unknown }).default
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      typeof workerDefault === "string" ? workerDefault : String(worker)
   }
 
   const arrayBuffer = await file.arrayBuffer()
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
 
   let fullText = ""
+  const pages: unknown[][] = []
+
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i)
     const content = await page.getTextContent()
-    const pageText = content.items
-      .map((item: any) => (item as any).str ?? "")
+    const items: unknown[] = [...content.items]
+    pages.push(items)
+
+    const pageText = items
+      .map((item) => (item as { str?: string }).str ?? "")
       .join(" ")
     fullText += pageText + "\n"
   }
@@ -98,12 +133,48 @@ const extractPdfTransactions = async (
       source: "pdf",
       fileName,
       rawText: "",
+      warnings: [],
+      detection: {
+        format: "pdf",
+        bank: null,
+        currency: null,
+        confidence: 0,
+        headerRow: null,
+        delimiter: null,
+        encoding: null,
+        sheetName: null,
+        columns: {},
+        balanceChecked: false,
+      },
     }
   }
 
+  const bank = detectBank(fullText)
+
+  // 1) Reconstrucción posicional: si el PDF tiene una tabla con cabecera
+  // reconocible, se parsea con el motor genérico.
+  const layout = parsePdfPages(pages, { fileName, bank })
+  if (layout) return layout
+
+  // 2) Fallback: regex sobre el texto plano (formatos ya conocidos).
   const result = parseAtlántidaPDF(fullText, fileName)
+  const detection: DetectionInfo = {
+    format: "pdf",
+    bank,
+    currency: detectCurrencyFromText(fullText),
+    confidence: result.transactions.length > 0 ? 0.7 : 0,
+    headerRow: null,
+    delimiter: null,
+    encoding: null,
+    sheetName: null,
+    columns: {},
+    balanceChecked: false,
+  }
+
   return {
     ...result,
     rawText: fullText,
+    warnings: result.warnings ?? [],
+    detection,
   }
 }
