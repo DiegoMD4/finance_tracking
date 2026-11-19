@@ -1,4 +1,4 @@
-# FEATURES.md — Refactor de `lib/parsers` (multi-banco + PDF posicional)
+# FEATURES.md — Refactor de `lib/parsers` (multi-banco + PDF posicional) y deduplicación de importaciones
 
 > Archivo de trabajo temporal. Objetivo: no re-explorar el repo en cada sesión y no
 > consumir la ventana de contexto. **Actualizar la sección "Bitácora" al cerrar cada tarea.**
@@ -8,7 +8,7 @@
 - **Rama de trabajo:** `testBranch` (actual, árbol limpio al iniciar)
 - **Ramas existentes:** `main`, `dev`, `testBranch`
 - **Fecha de inicio:** 2026-11-16
-- **Estado:** FASES 0, 1, 2, 3 y 4 COMPLETAS · pendientes opcionales: modo sin cabecera y moneda extranjera
+- **Estado:** FASES 0, 1, 2, 3, 4 y 5 COMPLETAS · pendientes opcionales: modo sin cabecera, moneda extranjera y `import_batches`
 
 ---
 
@@ -41,33 +41,40 @@
 
 ```
 UploadBulkTransactionForm.tsx (client)
-  └─ handleFileChange → extractTransactions(file)          [lib/parsers/file-extractor.ts]
-       ├─ getFileSource(fileName)  → solo por extensión (.csv/.xlsx/.xls/.pdf)
-       ├─ csv   → parseCsv(file, fileName)                 [lib/parsers/csv-parser.ts]
-       ├─ excel → parseExcel(file, fileName)               [lib/parsers/excel-parser.ts]
-       └─ pdf   → extractPdfTransactions()
-                    └─ pdfjs-dist getTextContent() → items.map(str).join(" ")
-                       └─ parseAtlántidaPDF(text, fileName)  [lib/parsers/atlantida-pdf-parser.ts]
+  └─ handleFileChange → extractTransactions(file, { currency })   [lib/parsers/file-extractor.ts]
+       ├─ getFileSource(fileName)  → sniffing por bytes + extensión
+       ├─ csv / excel / pdf → motor genérico (ver §6)
+       └─ withDedupeSnapshots: congela la identidad de cada fila (snapshot)
+  └─ previewTransactionDuplicates({ accountId, currency, rows })   [server/transactions/actions.ts]
+       ├─ exact   → hash + ocurrencia ya existen (se omite por defecto)
+       └─ possible→ misma cuenta/fecha/monto/tipo/moneda, referencias compatibles
   └─ setTransactions(result.transactions) → tabla editable (fecha, desc, tipo, monto, ref, categoría)
        └─ "Suggest categories with AI" → suggestTransactionCategories() [server/transactions/ai-actions.ts]
        └─ submit → formDispatcher → createBulkTransactions() [server/transactions/actions.ts]
-            └─ bulkTransactionSchema.safeParse por fila → insert por chunks → revalidatePath
+            └─ bulkTransactionSchema por fila → dedupeSnapshotSchema → buildDedupeHash
+            └─ clasifica contra la base (hash+ocurrencia) → insert por chunks
+               con `onDuplicateKeyUpdate` no-op (UNIQUE como respaldo) → revalidatePath
 ```
 
 ### Archivos clave y su rol
 
 | Archivo | Rol |
 |---|---|
-| `lib/parsers/types.ts` | `ParsedTransaction`, `ExtractResult`, `ParserSource` |
-| `lib/parsers/file-extractor.ts` | Orquestador + extracción de texto del PDF con pdfjs |
-| `lib/parsers/csv-parser.ts` | Papa 5.7, `header:true`, mapeo de columnas |
-| `lib/parsers/excel-parser.ts` | XLSX 0.18.5, `sheet_to_json(header:1)`, detección de fila de cabecera |
-| `lib/parsers/atlantida-pdf-parser.ts` | 2 regex globales sobre texto plano |
-| `lib/parsers/pdf-worker.d.ts` | Shim de tipos para `pdfjs-dist/build/pdf.worker.mjs` |
-| `app/(app)/transactions/_components/UploadBulkTransactionForm.tsx` | UI de carga, tabla editable, toasts, submit |
-| `app/(app)/transactions/schema/index.ts` | `bulkTransactionSchema` (validación por fila) |
-| `server/transactions/actions.ts` | `createBulkTransactions` (línea ~319) |
-| `tests/unit/parsers.spec.ts` | 31 tests L-13…L-31 |
+| `lib/parsers/types.ts` | `ParsedTransaction`, `ExtractResult`, `ParserSource`, `DedupeSnapshot` |
+| `lib/parsers/file-extractor.ts` | Orquestador + extracción de texto del PDF con pdfjs + snapshots de dedupe |
+| `lib/parsers/core/{money,dates,text,table,detection}.ts` | Motor genérico compartido (ver §6) |
+| `lib/parsers/pdf/{layout,generic-pdf}.ts` | PDF posicional |
+| `lib/transactions/dedupe.ts` | Isomorfo: normalización, monto canónico, preimagen, ocurrencias |
+| `lib/transactions/dedupe-hash.ts` | `buildDedupeHash` (server-only, `node:crypto`, hex) |
+| `app/(app)/transactions/_components/UploadBulkTransactionForm.tsx` | UI de carga, tabla editable, badges de duplicado, toasts, submit |
+| `app/(app)/transactions/schema/index.ts` | `bulkTransactionSchema` + `dedupeSnapshotSchema` |
+| `server/transactions/actions.ts` | `createBulkTransactions`, `previewTransactionDuplicates` |
+| `server/transactions/queries.ts` | `getDedupeKeysByHashes`, `getTransactionsInDateRange` |
+| `db/schema/schema.ts` | `dedupeHash` / `dedupeOccurrence` + `transactions_dedupe_unique` |
+| `drizzle/0007_medical_starfox.sql` | Migración de dedupe (aplicada a `finance_db` y `test_finance_db`) |
+| `tests/unit/transactions/dedupe.spec.ts` | 19 tests del contrato de hash/ocurrencias |
+| `tests/unit/transactions/snapshots.spec.ts` | Snapshot/ocurrencias sobre un CSV real |
+| `tests/integration/transactions/dedupe.spec.ts` | 15 tests D-01…D-15 contra MySQL |
 
 ### Restricciones del schema que afectan a los parsers
 
@@ -88,6 +95,8 @@ UploadBulkTransactionForm.tsx (client)
 - `ExtractResult` se amplía solo de forma **aditiva** (`detection?`, `warnings?`).
 - Los 19 tests existentes (`tests/unit/parsers.spec.ts`, L-13…L-31) deben seguir verdes sin editarlos.
 - `getFileSource` sigue devolviendo `"csv" | "excel" | "pdf" | "unknown"`.
+- **Dedupe:** la identidad se congela al parsear (`ParsedTransaction.dedupe`) y no se recalcula en el servidor a partir de los valores editados. El servidor solo valida forma, recalcula el hash desde el snapshot y asigna ocurrencias al insertar cuando corresponde.
+- Las filas sin `dedupe` (altas manuales, históricas) se guardan con `dedupe_hash NULL`; el `UNIQUE` las ignora. **No hay backfill.**
 
 ---
 
@@ -132,7 +141,7 @@ UploadBulkTransactionForm.tsx (client)
 ### Transversal
 - Sin metadatos de detección (`parser used: pdf` es todo lo que ve el usuario).
 - Sin fallback: si no es Atlántida, falla.
-- Sin dedupe al re-subir (tempId usa `Date.now()`/`random`).
+- ~~Sin dedupe al re-subir~~ → resuelto en Fase 5 (snapshot + hash + ocurrencia + preview).
 - `xlsx` importado estáticamente (bundle pesado).
 
 ---
@@ -217,6 +226,19 @@ Principios:
 - [x] `xlsx` en import dinámico (dentro de `parseExcel`)
 - [x] Aviso de posible duplicado (`bankReference` + fecha + monto + tipo)
 
+### Fase 5 · Deduplicación de importaciones
+- [x] Snapshot congelado al parsear (`withDedupeSnapshots` en `file-extractor.ts`): fecha, monto, tipo, referencia y descripción originales, más moneda
+- [x] Ocurrencia 1..n asignada al parsear sobre **todas** las filas del archivo (no sobre las que sobreviven al preview)
+- [x] Hash `SHA-256(accountId | fecha | monto canónico | tipo | moneda | referenciaNorm ?? descNorm)` con separador `\u001F`
+- [x] `dedupe_hash varchar(64)` + `dedupe_occurrence smallint unsigned` + `UNIQUE(accountId, dedupeHash, dedupeOccurrence)` + `INDEX(accountId, transactionDate)`
+- [x] Migración `0007_medical_starfox.sql` aplicada a `finance_db` (105 filas intactas) y a `test_finance_db`
+- [x] `previewTransactionDuplicates`: `exact` (hash+ocurrencia) y `possible` (misma fecha/monto/tipo/moneda sin referencias en conflicto)
+- [x] Clasificación en servidor antes del insert; `omitted` ⇒ `status: "duplicate"`, `success: true`, entra en `savedTempIds`
+- [x] Checkbox "Omit exact duplicates" (activo por defecto); desmarcado ⇒ el servidor usa `MAX(occurrence)+1`
+- [x] `onDuplicateKeyUpdate` no-op: el `UNIQUE` no rompe el chunk y no se usa `INSERT IGNORE`
+- [x] Badges por fila: "Already imported" / "Will be re-imported" (exacto) y "Possible duplicate" (posible)
+- [x] `updateTransaction` no toca hash ni ocurrencia (editar no borra la identidad)
+
 ### Tests
 - [x] `tests/unit/parsers/money.spec.ts` (58)
 - [x] `tests/unit/parsers/dates.spec.ts` (57)
@@ -225,8 +247,13 @@ Principios:
 - [x] `tests/unit/parsers/detection.spec.ts` (18)
 - [x] `tests/unit/parsers/integration.spec.ts` (18)
 - [x] `tests/unit/parsers/pdf.spec.ts` (18, `TextItem` a mano)
+- [x] `tests/unit/transactions/dedupe.spec.ts` (19)
+- [x] `tests/unit/transactions/snapshots.spec.ts`
+- [x] `tests/integration/transactions/dedupe.spec.ts` (15, D-01…D-15)
+- [x] `UploadBulkTransactionForm.test.tsx`: preview, checkbox, badges (15)
 - [ ] `tests/fixtures/parsers/`: preámbulo, `;`+coma decimal, CP1252, `sep=`, BOM, UTF-16
 - [x] L-13…L-31 sin modificar y verdes
+- [x] Suite completa: **537 tests en 40 archivos** verdes; `tsc --noEmit` y `eslint` limpios
 
 ---
 
@@ -238,6 +265,8 @@ Principios:
 - `GlobalWorkerOptions.workerSrc = (await import("pdfjs-dist/build/pdf.worker.mjs")).default` (ya usado en `file-extractor.ts`).
 - **Papa 5.7**: `header`, `transformHeader`, `skipEmptyLines`, `delimiter`, `delimitersToGuess`, `beforeFirstChunk`; `result.errors` disponible y hoy ignorado.
 - **XLSX 0.18.5**: `XLSX.read(buffer, { type: "array" })`, `utils.sheet_to_json(ws, { header: 1, defval: "", raw: true })`.
+- **drizzle-orm@0.45.2**: `db.insert(t).values([...]).onDuplicateKeyUpdate({ set: { id: sql`transaction_id` } })` compila a `ON DUPLICATE KEY UPDATE id = transaction_id` (no-op). `db.insert(...)` awaited devuelve `[ResultSetHeader, FieldPacket[]]`.
+- **mysql2 (versión instalada)**: `getDefaultFlags` incluye `FOUND_ROWS`; por eso `affectedRows` de un UPDATE que no cambia nada vale `1`, no `0`.
 
 ---
 
@@ -263,6 +292,7 @@ npm run dev
 | 2026-11-16 | 2 | CSV lee `arrayBuffer` + encoding, `sep=`, Papa `header:false`; Excel recorre todas las hojas (`blankrows: true`); mapeo por scoring con validación contra datos; cuadre de saldo en ambos sentidos; `detection` en CSV/Excel. Sniffing por bytes en `core/detection.ts` (PDF/ZIP/OLE > extensión > texto; imágenes y comprimidos rechazados) + `detectBank` / `detectCurrencyFromText`. |
 | 2026-11-16 | 3 | `pdf/layout.ts` (filas por Y, celdas por X con estimación de ancho) y `pdf/generic-pdf.ts` (cabecera por scoring, asignación por anclaje, continuación de descripción, cabeceras repetidas, multi-página). Conectados en `file-extractor.ts` antes del fallback regex. `transform` exige números reales (`Number(null) === 0` era un falso positivo). Subagente: 18 tests de PDF con `TextItem` sintéticos. |
 | 2026-11-16 | 4 | UI: chip de detección (formato/banco/moneda/hoja/delimitador/confianza/saldo verificado), panel de warnings, texto de dropzone genérico, prefill de moneda detectada (`currencyTouched`, solo HNL/USD/EUR), `xlsx` en import dinámico y aviso de duplicados por referencia+fecha+monto+tipo. Filas de resumen (`Saldo anterior`, `Total`, `Resumen`) se omiten sin error en `parseTable`. **264 tests verdes**, `tsc` y `eslint` limpios. |
+| 2026-11-18 | 5 | Dedupe persistente: snapshot congelado al parsear (`withDedupeSnapshots`), hash SHA-256 en hex, ocurrencias 1..n asignadas sobre el archivo completo, migración `0007` aplicada, preview (`exact`/`possible`) con badge por fila y checkbox "Omit exact duplicates" (activo), clasificación y salteo en servidor, `onDuplicateKeyUpdate` no-op con `UNIQUE` como respaldo. **537 tests verdes** (40 archivos), `tsc` y `eslint` limpios (solo warnings preexistentes en `TransactionsActions.tsx`). |
 
 ### 10.1 Archivos nuevos creados
 
@@ -282,6 +312,12 @@ npm run dev
 | `tests/unit/parsers/integration.spec.ts` | 18 tests de integración CSV/Excel |
 | `tests/unit/parsers/detection.spec.ts` | 18 tests de sniffing y firmas de banco/moneda |
 | `tests/unit/parsers/pdf.spec.ts` | 18 tests de layout y parseo posicional |
+| `lib/transactions/dedupe.ts` | `normalizeForHash`, `canonicalAmount`, `buildDedupePreimage`, `assignOccurrences`, `isValidOccurrence`, `DEDUPE_MAX_OCCURRENCE` |
+| `lib/transactions/dedupe-hash.ts` | `buildDedupeHash` (SHA-256 hex, server-only) |
+| `tests/unit/transactions/dedupe.spec.ts` | 19 tests del contrato de dedupe |
+| `tests/unit/transactions/snapshots.spec.ts` | Snapshots/ocurrencias sobre CSV real |
+| `tests/integration/transactions/dedupe.spec.ts` | 15 tests D-01…D-15 contra MySQL |
+| `drizzle/0007_medical_starfox.sql` | Columnas, índice y `UNIQUE` de dedupe |
 
 ### 10.2 Decisiones de implementación tomadas durante Fase 0
 
@@ -306,6 +342,18 @@ npm run dev
 - `parseTable` descarta sin error las filas cuyo primer texto empieza por `Saldo`, `Total`/`Totales`, `Subtotal`, `Gran total` o `Resumen`; una fecha ilegible que no matchea esos prefijos sigue reportándose (`Row N: invalid date`).
 - La UI solo ofrece HNL/USD/EUR, así que el prefill de moneda detectada se limita a esas tres; el resto se muestra en el chip pero no cambia el select.
 
+### 10.4 Decisiones de la Fase 5 (dedupe)
+
+- **Identidad congelada al parsear.** El hash sale de `ParsedTransaction.dedupe` (valores originales del archivo y moneda efectiva del momento del parseo), no de la fila editada. Editar monto, fecha, descripción o referencia en el preview no cambia la identidad; el resultado del preview sigue siendo válido.
+- **Ocurrencia asignada al parsear sobre todas las filas del archivo**, incluso las que el usuario borre o edite después. Eso evita renumeraciones que harían colisionar filas distintas; el servidor solo valida `1 ≤ occurrence ≤ 65535`.
+- **Columna `dedupe_hash varchar(64)` (hex), no `binary(32)`.** En `drizzle-orm@0.45.2` `binary()` se tipa como string y `mapFromDriverValue` aplica `value.toString()`, corrompiendo el digest.
+- **Clave de búsqueda: `accountId + dedupe_hash IN (...)`**, sin rango de fechas. La fecha hasheada es la del snapshot y la guardada puede estar editada, así que filtrar por fecha perdería duplicados.
+- **Moneda:** el hash usa la del snapshot (`detection.currency` o la del formulario si no hubo detección); la columna `transactionCurrency` guarda la del formulario. Si el usuario cambia la moneda después de parsear, la identidad se mantiene coherente con el archivo original.
+- **Dos capas.** Preview (checkbox, badge) para que el usuario decida; el servidor vuelve a clasificar y saltea, así que un cliente manipulado no puede duplicar por accidente. Desmarcar el checkbox es una afirmación explícita de que el movimiento es real (p. ej. el mismo archivo exportado dos veces): se asigna `MAX(occurrence)+1`.
+- **`affectedRows` no se usa para contar.** `mysql2` habilita `CLIENT_FOUND_ROWS` por defecto, así que un `onDuplicateKeyUpdate` no-op también reporta `1`. El conteo sale de la clasificación previa; el `UNIQUE` garantiza que la carrera con otra pestaña no cree filas repetidas (esa fila se reportaría como guardada, pero la base queda consistente).
+- **`duplicate` no es error.** `success: true`, `status: "duplicate"`, `skipped`, y la fila entra en `savedTempIds` para que la UI la quite de la tabla. El mensaje del servidor resume guardadas/omitidas/fallidas y la UI hace redirect a `/transactions` en éxito.
+- **Sin backfill.** Las filas previas quedan con `dedupe_hash NULL`; el `UNIQUE` las ignora porque MySQL no compara `NULL`. `updateTransaction` no toca hash ni ocurrencia.
+
 ---
 
 ## 11. Pendientes / decisiones abiertas
@@ -314,5 +362,8 @@ npm run dev
 - **Moneda extranjera por columna** (`Monto USD` vs `Monto HNL` en el mismo archivo): hoy se elige una sola columna de monto y las demás se ignoran; `detection.currency` reporta la dominante.
 - **Columnas combinadas `Débito/Crédito`**: soportadas en `buildMapping` (una columna que puntúa para ambos roles se trata como monto firmado); falta un test dedicado.
 - ¿Fixtures reales de estados de cuenta (otro banco) o solo sintéticos? (default: sintéticos)
-- ¿Añadir dedupe persistente contra DB en una fase posterior? (fuera de alcance por ahora; la UI solo avisa duplicados dentro del mismo archivo)
+- **`import_batches`** (aviso de "este archivo ya se cargó" + deshacer por lote): fuera de esta fase. Hoy se detecta por transacción (hash + ocurrencia), no por archivo.
+- **Sin backfill de `dedupe_hash`:** las transacciones históricas/manuales no participan del dedupe (quedan `NULL`). Si se quisiera, habría que definir una identidad retroactiva desde datos guardados, que es justamente lo que el snapshot evita.
+- **Límite multi-archivo:** si el usuario carga dos archivos con el mismo movimiento y el checkbox está desmarcado en ambos, se guardan dos ocurrencias. Es el comportamiento decidido (el checkbox es una afirmación del usuario), pero conviene revisarlo si aparecen quejas de duplicados "reales".
+- **Carrera entre pestañas:** el `UNIQUE` impide filas repetidas, pero la fila "perdedora" puede reportarse como guardada (ver §10.4). Aceptable por ahora; una transacción explícita por chunk lo cerraría.
 - **Commit / merge:** todo el trabajo está sin commit en `testBranch`. No se hace commit, push ni merge a `dev` sin confirmación explícita.

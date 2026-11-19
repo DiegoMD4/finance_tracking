@@ -8,6 +8,9 @@ import {
   mysqlEnum,
   date,
   boolean,
+  index,
+  smallint,
+  uniqueIndex,
 } from "drizzle-orm/mysql-core"
 
 const timestamps = {
@@ -67,6 +70,18 @@ export const transactions = mysqlTable("transactions", {
     .notNull()
     .default("HNL"),
   bankReference: varchar("bank_reference", { length: 255 }),
+  /**
+   * Identidad congelada al importar una fila (SHA-256 en hex). `NULL` en filas
+   * manuales o históricas: el índice único las ignora.
+   */
+  dedupeHash: varchar("dedupe_hash", { length: 64 }),
+  /**
+   * N-ésima copia de ese movimiento dentro del archivo de origen (1..n).
+   * Se asigna al parsear y no se recalcula después.
+   */
+  dedupeOccurrence: smallint("dedupe_occurrence", { unsigned: true })
+    .notNull()
+    .default(1),
   exchangeRate: decimal("exchange_rate", { precision: 12, scale: 6 })
     .notNull()
     .default("1.000000"),
@@ -81,7 +96,21 @@ export const transactions = mysqlTable("transactions", {
   })
     .notNull()
     .default("HNL"),
-})
+}, (table) => [
+  // Una fila importada no puede repetirse: mismo movimiento + misma ocurrencia.
+  // Las filas con `dedupe_hash NULL` (manuales/históricas) quedan fuera porque
+  // MySQL permite múltiples NULL en un índice único.
+  uniqueIndex("transactions_dedupe_unique").on(
+    table.accountId,
+    table.dedupeHash,
+    table.dedupeOccurrence
+  ),
+  // Previsualización de duplicados "posibles" por fecha.
+  index("transactions_account_date_idx").on(
+    table.accountId,
+    table.transactionDate
+  ),
+])
 
 export const currencies = mysqlTable("currencies", {
   id: serial("currency_id").primaryKey(),

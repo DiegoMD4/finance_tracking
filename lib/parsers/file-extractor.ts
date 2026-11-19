@@ -1,4 +1,9 @@
-import type { DetectionInfo, ExtractResult, ParserSource } from "./types"
+import type {
+  DetectionInfo,
+  ExtractResult,
+  ParserSource,
+  ParsedTransaction,
+} from "./types"
 import { parseCsv } from "./csv-parser"
 import { parseExcel } from "./excel-parser"
 import { parseAtlántidaPDF } from "./atlantida-pdf-parser"
@@ -8,6 +13,7 @@ import {
   resolveFileFormat,
 } from "./core/detection"
 import { parsePdfPages } from "./pdf/generic-pdf"
+import { assignOccurrences } from "@/lib/transactions/dedupe"
 
 /**
  * Detección por extensión. Se mantiene como respaldo cuando el contenido no
@@ -23,9 +29,65 @@ export const getFileSource = (
   return "unknown"
 }
 
+export interface ExtractOptions {
+  /**
+   * Moneda vigente en el formulario. Solo se usa si el archivo no declara una;
+   * en cualquier caso queda congelada en el snapshot de cada fila.
+   */
+  currency?: string | null
+}
+
+/**
+ * Congela la identidad de cada fila al terminar el parseo: snapshot original
+ * + ocurrencia (1..n) calculada sobre **todas** las filas del archivo.
+ *
+ * Se hace acá porque es el embudo de los tres formatos: los parsers quedan
+ * sin conocer el dedupe y sus tests no cambian.
+ */
+const withDedupeSnapshots = (
+  result: ExtractResult,
+  fallbackCurrency: string | null
+): ExtractResult => {
+  if (result.transactions.length === 0) return result
+
+  const currency = result.detection?.currency ?? fallbackCurrency ?? null
+  const candidates = result.transactions.map((tx) => ({
+    currency,
+    original: {
+      date: tx.transactionDate,
+      amount: tx.amount,
+      type: tx.transactionType,
+      reference: tx.bankReference ?? null,
+      description: tx.transactionDescription ?? "",
+      currency,
+    },
+  }))
+
+  const occurrences = assignOccurrences(candidates)
+
+  return {
+    ...result,
+    transactions: result.transactions.map(
+      (tx, index): ParsedTransaction => ({
+        ...tx,
+        dedupe: {
+          original: candidates[index].original,
+          occurrence: occurrences[index],
+        },
+      })
+    ),
+  }
+}
+
 export const extractTransactions = async (
-  file: File
+  file: File,
+  options: ExtractOptions = {}
 ): Promise<ExtractResult> => {
+  const result = await extractRaw(file)
+  return withDedupeSnapshots(result, options.currency ?? null)
+}
+
+const extractRaw = async (file: File): Promise<ExtractResult> => {
   const fileName = file.name
   let source: ParserSource = getFileSource(fileName)
 

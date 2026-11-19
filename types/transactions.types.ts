@@ -1,3 +1,5 @@
+import type { DedupeSnapshot } from "@/lib/parsers/types"
+
 export type TransactionType = "income" | "expense"
 
 export interface Transaction {
@@ -73,6 +75,11 @@ export interface BulkTransactionRawInput {
   transactionDate: string // YYYY-MM-DD
   bankReference?: string | null
   categoryId?: string | null
+  /**
+   * Identidad congelada por el parser. Dato de cliente: el servidor lo
+   * canonicaliza y valida antes de usarlo, nunca confía en el hash.
+   */
+  dedupe?: DedupeSnapshot
 }
 
 /** Validated bulk row produced by bulkTransactionSchema on the server. */
@@ -87,8 +94,12 @@ export interface BulkTransactionInput {
   userId: number
 }
 
+export type BulkTransactionStatus = "saved" | "duplicate" | "failed"
+
 export interface BulkTransactionRowResult {
   success: boolean
+  /** `saved` y `duplicate` son filas resueltas; `failed` es un error real. */
+  status: BulkTransactionStatus
   tempId: string
   row?: number
   error?: string
@@ -98,10 +109,29 @@ export interface BulkTransactionResult {
   success: boolean
   message: string
   saved: number
+  /** Filas omitidas por ser duplicados exactos (no son errores). */
+  skipped: number
   failed: number
   rows: BulkTransactionRowResult[]
-  /** tempIds que sí quedaron persistidos, para que el cliente los quite de la tabla */
+  /** tempIds que el cliente debe quitar de la tabla (guardados u omitidos) */
   savedTempIds: string[]
 }
 
 export type BulkTransactionActionState = BulkTransactionResult | null | undefined
+
+/** Resultado del chequeo previo de duplicados por fila. */
+export interface DuplicatePreviewEntry {
+  /** Mismo hash y ocurrencia: ya está importada. */
+  exact: boolean
+  /** Misma cuenta, fecha, monto y tipo, pero sin referencia que lo confirme. */
+  possible: boolean
+}
+
+export interface DuplicatePreviewResult {
+  success: boolean
+  message?: string
+  /** Solo incluye filas con algún flag activo. */
+  duplicates: Record<string, DuplicatePreviewEntry>
+  exactCount: number
+  possibleCount: number
+}

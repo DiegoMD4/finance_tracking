@@ -4,12 +4,17 @@ import {
   transactionSchema,
   transactionCurrencySchema,
   bulkTransactionSchema,
+  dedupeSnapshotSchema,
 } from "@/app/(app)/transactions/schema"
 import { db } from "@/db"
 import { transactions } from "@/db/schema/schema"
 import { getDefaultCategory } from "@/server/categories/queries"
 import { getBankAccountById } from "@/server/bank-accounts/queries"
 import { getUserById } from "@/server/users/queries"
+import {
+  getDedupeKeysByHashes,
+  getTransactionsInDateRange,
+} from "@/server/transactions/queries"
 import {
   TransactionsActionState,
   CreateTransaction,
@@ -19,13 +24,17 @@ import {
   BulkTransactionInput,
   BulkTransactionRawInput,
   BulkTransactionRowResult,
+  DuplicatePreviewEntry,
+  DuplicatePreviewResult,
 } from "@/types/transactions.types"
 
-import { eq, and } from "drizzle-orm"
+import { eq, and, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import z from "zod"
 import { getSessionUserId } from "@/lib/jwt"
 import { getExchangeRate } from "@/lib/currency"
+import { buildDedupeHash } from "@/lib/transactions/dedupe-hash"
+import { canonicalAmount, normalizeForHash } from "@/lib/transactions/dedupe"
 
 const resolveCategoryId = async (rawCategoryId: string, userId: number) => {
   const parsedCategoryId = Number(rawCategoryId)
@@ -316,6 +325,32 @@ export const updateTransaction = async (
 
 const CHUNK_SIZE = 100
 
+const buildBulkMessage = (
+  saved: number,
+  skipped: number,
+  failed: number
+): string => {
+  const savedText = `Saved ${saved} transaction${saved === 1 ? "" : "s"}`
+
+  if (failed === 0 && skipped === 0) return `${savedText} successfully`
+
+  if (saved === 0 && failed === 0) {
+    return `${skipped} transaction${
+      skipped === 1 ? " was" : "s were"
+    } already imported`
+  }
+
+  const parts = [savedText]
+  if (skipped > 0) {
+    parts.push(
+      `${skipped} skipped as duplicate${skipped === 1 ? "" : "s"}`
+    )
+  }
+  if (failed > 0) parts.push(`${failed} failed`)
+
+  return parts.join(", ")
+}
+
 export const createBulkTransactions = async (
   prevState: BulkTransactionActionState,
   formData: FormData
@@ -324,6 +359,7 @@ export const createBulkTransactions = async (
     success: false,
     message,
     saved: 0,
+    skipped: 0,
     failed: 0,
     rows: [],
     savedTempIds: [],
@@ -413,6 +449,9 @@ export const createBulkTransactions = async (
     tempId: string
     row: number
     data: BulkTransactionInput
+    /** Identidad congelada por el parser; `null` en filas sin snapshot. */
+    dedupeHash: string | null
+    dedupeOccurrence: number
   }> = []
   const rowResults: BulkTransactionRowResult[] = []
 
@@ -422,6 +461,7 @@ export const createBulkTransactions = async (
     if (!value || typeof value !== "object" || Array.isArray(value)) {
       rowResults.push({
         success: false,
+        status: "failed",
         tempId: `row-${fallbackRow}`,
         row: fallbackRow,
         error: "Invalid row data",
@@ -454,6 +494,7 @@ export const createBulkTransactions = async (
 
       rowResults.push({
         success: false,
+        status: "failed",
         tempId,
         row: rowNumber,
         error: messages[0] ?? "Invalid row data",
@@ -466,12 +507,47 @@ export const createBulkTransactions = async (
     if (categoryId === null) {
       rowResults.push({
         success: false,
+        status: "failed",
         tempId,
         row: rowNumber,
         error:
           "Category is required: select one or configure a default category",
       })
       continue
+    }
+
+    // El snapshot es dato de cliente: se canonicaliza antes de hashear. Si es
+    // inválido, la fila falla; no se guarda sin hash en silencio.
+    const rawDedupe = (value as { dedupe?: unknown }).dedupe
+    let dedupeHash: string | null = null
+    let dedupeOccurrence = 1
+
+    if (rawDedupe !== undefined && rawDedupe !== null) {
+      const snapshot = dedupeSnapshotSchema.safeParse(rawDedupe)
+
+      if (!snapshot.success) {
+        const originalErrors = z.treeifyError(snapshot.error).properties
+          ?.original
+        const detail = Object.values(originalErrors?.properties ?? {})
+          .flatMap((value) => value?.errors ?? [])
+          .at(0)
+
+        rowResults.push({
+          success: false,
+          status: "failed",
+          tempId,
+          row: rowNumber,
+          error: detail ?? "Invalid duplicate snapshot",
+        })
+        continue
+      }
+
+      dedupeHash = buildDedupeHash({
+        accountId,
+        currency: snapshot.data.original.currency ?? transactionCurrency,
+        original: snapshot.data.original,
+      })
+      dedupeOccurrence = snapshot.data.occurrence
     }
 
     validRows.push({
@@ -482,18 +558,103 @@ export const createBulkTransactions = async (
         categoryId,
         userId,
       },
+      dedupeHash,
+      dedupeOccurrence,
     })
+  }
+
+  // Deduplicación: se clasifica antes de insertar para poder reportar
+  // guardadas/omitidas con precisión. El índice único es solo el respaldo
+  // contra la carrera entre la consulta y el insert.
+  const omitDuplicates = formData.get("omitDuplicates")?.toString() !== "false"
+
+  const hashes = validRows
+    .map((row) => row.dedupeHash)
+    .filter((hash): hash is string => hash !== null)
+
+  const existingKeys = new Set<string>()
+  const maxOccurrenceByHash = new Map<string, number>()
+
+  if (hashes.length > 0) {
+    const existingResult = await getDedupeKeysByHashes({ accountId, hashes })
+
+    if (!existingResult.ok) {
+      return failure(
+        existingResult.error?.message ?? "Couldn't check for duplicate transactions"
+      )
+    }
+
+    for (const key of existingResult.data) {
+      existingKeys.add(`${key.dedupeHash}:${key.dedupeOccurrence}`)
+      maxOccurrenceByHash.set(
+        key.dedupeHash,
+        Math.max(
+          maxOccurrenceByHash.get(key.dedupeHash) ?? 0,
+          key.dedupeOccurrence
+        )
+      )
+    }
+  }
+
+  const rowsToInsert: typeof validRows = []
+  const savedTempIds: string[] = []
+  const pendingRows: typeof validRows = []
+  const keptKeys = new Set<string>()
+  let skipped = 0
+
+  // Primera pasada: las filas cuya identidad está libre conservan la ocurrencia
+  // que les asignó el parser (borrar/editar filas en el preview no renumera).
+  for (const row of validRows) {
+    if (row.dedupeHash === null) {
+      rowsToInsert.push(row)
+      continue
+    }
+
+    const key = `${row.dedupeHash}:${row.dedupeOccurrence}`
+    if (existingKeys.has(key) || keptKeys.has(key)) {
+      pendingRows.push(row)
+      continue
+    }
+
+    keptKeys.add(key)
+    maxOccurrenceByHash.set(
+      row.dedupeHash,
+      Math.max(maxOccurrenceByHash.get(row.dedupeHash) ?? 0, row.dedupeOccurrence)
+    )
+    rowsToInsert.push(row)
+  }
+
+  // Segunda pasada: lo que choca ya existe en la base. Con "omitir duplicados"
+  // se descarta; sin el checkbox (el usuario afirma que es un movimiento real,
+  // por ejemplo del mismo archivo exportado dos veces) se guarda con la
+  // siguiente ocurrencia libre.
+  for (const row of pendingRows) {
+    if (omitDuplicates) {
+      skipped += 1
+      savedTempIds.push(row.tempId)
+      rowResults.push({
+        success: true,
+        status: "duplicate",
+        tempId: row.tempId,
+        row: row.row,
+      })
+      continue
+    }
+
+    const hash = row.dedupeHash as string
+    const occurrence = (maxOccurrenceByHash.get(hash) ?? 0) + 1
+    maxOccurrenceByHash.set(hash, occurrence)
+    rowsToInsert.push({ ...row, dedupeOccurrence: occurrence })
   }
 
   // Cada chunk es un único INSERT (atómico por sí mismo). Si un chunk falla,
   // los anteriores ya persistidos se mantienen y el cliente recibe
   // savedTempIds para quitarlos de la tabla y no reenviarlos.
   let saved = 0
-  let failed = rowResults.length
-  const savedTempIds: string[] = []
+  let failed = rowResults.filter((row) => row.status === "failed").length
 
-  for (let i = 0; i < validRows.length; i += CHUNK_SIZE) {
-    const chunk = validRows.slice(i, i + CHUNK_SIZE)
+  for (let i = 0; i < rowsToInsert.length; i += CHUNK_SIZE) {
+    const chunk = rowsToInsert.slice(i, i + CHUNK_SIZE)
     const values = chunk.map((r) => ({
       userId: r.data.userId,
       accountId: r.data.accountId,
@@ -507,10 +668,24 @@ export const createBulkTransactions = async (
       transactionDate: r.data.transactionDate,
       categoryId: r.data.categoryId,
       bankReference: r.data.bankReference,
+      dedupeHash: r.dedupeHash,
+      dedupeOccurrence: r.dedupeOccurrence,
     }))
 
     try {
-      await db.insert(transactions).values(values)
+      // `onDuplicateKeyUpdate` con un no-op hace que el UNIQUE no rompa el
+      // chunk; las filas que ya existían quedan intactas.
+      //
+      // No se usa `affectedRows` para contar: mysql2 habilita CLIENT_FOUND_ROWS
+      // por defecto, así que un no-op también reporta 1. El conteo sale de la
+      // clasificación previa; el UNIQUE solo garantiza que la carrera con otra
+      // pestaña no cree filas repetidas (esa fila se reportaría como guardada,
+      // pero la base queda consistente).
+      await db
+        .insert(transactions)
+        .values(values)
+        .onDuplicateKeyUpdate({ set: { id: sql`transaction_id` } })
+
       saved += chunk.length
       savedTempIds.push(...chunk.map((r) => r.tempId))
     } catch (error) {
@@ -520,6 +695,7 @@ export const createBulkTransactions = async (
       for (const r of chunk) {
         rowResults.push({
           success: false,
+          status: "failed",
           tempId: r.tempId,
           row: r.row,
           error: errorMessage,
@@ -534,13 +710,233 @@ export const createBulkTransactions = async (
 
   return {
     success: failed === 0,
-    message:
-      failed === 0
-        ? `Saved ${saved} transaction${saved !== 1 ? "s" : ""} successfully`
-        : `Saved ${saved} transaction${saved !== 1 ? "s" : ""}, ${failed} failed`,
+    message: buildBulkMessage(saved, skipped, failed),
     saved,
+    skipped,
     failed,
     rows: rowResults,
     savedTempIds,
+  }
+}
+
+const duplicatePreviewRowSchema = z.object({
+  tempId: z.string().min(1),
+  transactionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  amount: z
+    .string()
+    .trim()
+    .refine((value) => canonicalAmount(value) !== null),
+  transactionType: z.enum(["income", "expense"]),
+  bankReference: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((value) => value || null),
+  dedupe: dedupeSnapshotSchema.optional(),
+})
+
+/**
+ * `true` solo si ambas referencias existen y son distintas: si a alguna le
+ * falta, no hay forma de descartar el parecido (caso CSV vs PDF).
+ */
+const hasConflictingReferences = (
+  left: string | null,
+  right: string | null
+): boolean => {
+  const a = normalizeForHash(left)
+  const b = normalizeForHash(right)
+
+  return a.length > 0 && b.length > 0 && a !== b
+}
+
+interface PreviewCandidate {
+  tempId: string
+  hash: string | null
+  occurrence: number | null
+  date: string
+  amount: string
+  type: "income" | "expense"
+  reference: string | null
+}
+
+/**
+ * Chequea, antes de guardar, qué filas del archivo ya están importadas.
+ *
+ * - `exact`: hay una fila con el mismo hash y ocurrencia. Se apoya en el
+ *   snapshot, así que editar fecha/monto en el preview no invalida el
+ *   resultado (la identidad no cambia).
+ * - `possible`: misma cuenta, fecha, monto, tipo y moneda, pero sin
+ *   referencias que confirmen o descarten el parecido. Solo se advierte.
+ */
+export const previewTransactionDuplicates = async (payload: {
+  accountId: number
+  currency: string
+  rows: unknown[]
+}): Promise<DuplicatePreviewResult> => {
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return {
+      success: false,
+      message: "Unauthorized: a valid session is required",
+      duplicates: {},
+      exactCount: 0,
+      possibleCount: 0,
+    }
+  }
+
+  const accountId = Number(payload.accountId)
+  if (!Number.isInteger(accountId) || accountId <= 0) {
+    return {
+      success: false,
+      message: "Invalid bank account",
+      duplicates: {},
+      exactCount: 0,
+      possibleCount: 0,
+    }
+  }
+
+  const accountResult = await getBankAccountById({ id: accountId })
+  if (!accountResult.ok) {
+    return {
+      success: false,
+      message: accountResult.error?.message ?? "Bank account not found",
+      duplicates: {},
+      exactCount: 0,
+      possibleCount: 0,
+    }
+  }
+
+  const parsedCurrency = transactionCurrencySchema.safeParse(payload.currency)
+  if (!parsedCurrency.success) {
+    return {
+      success: false,
+      message: "Please select a valid currency",
+      duplicates: {},
+      exactCount: 0,
+      possibleCount: 0,
+    }
+  }
+
+  const currency = parsedCurrency.data
+  const rows = Array.isArray(payload.rows) ? payload.rows : []
+
+  const candidates: PreviewCandidate[] = []
+  const seenTempIds = new Set<string>()
+
+  for (const value of rows) {
+    const parsed = duplicatePreviewRowSchema.safeParse(value)
+    if (!parsed.success) continue
+
+    const raw = parsed.data
+    if (seenTempIds.has(raw.tempId)) continue
+    seenTempIds.add(raw.tempId)
+
+    const amount = canonicalAmount(raw.amount)
+    if (amount === null) continue
+
+    const snapshot = raw.dedupe ?? null
+
+    candidates.push({
+      tempId: raw.tempId,
+      hash: snapshot
+        ? buildDedupeHash({
+            accountId,
+            currency: snapshot.original.currency ?? currency,
+            original: snapshot.original,
+          })
+        : null,
+      occurrence: snapshot?.occurrence ?? null,
+      date: raw.transactionDate,
+      amount,
+      type: raw.transactionType,
+      reference: raw.bankReference,
+    })
+  }
+
+  const duplicates: Record<string, DuplicatePreviewEntry> = {}
+
+  const hashes = candidates
+    .map((candidate) => candidate.hash)
+    .filter((hash): hash is string => hash !== null)
+
+  if (hashes.length > 0) {
+    const existingResult = await getDedupeKeysByHashes({ accountId, hashes })
+
+    if (!existingResult.ok) {
+      return {
+        success: false,
+        message: existingResult.error?.message,
+        duplicates: {},
+        exactCount: 0,
+        possibleCount: 0,
+      }
+    }
+
+    const existingKeys = new Set(
+      existingResult.data.map((key) => `${key.dedupeHash}:${key.dedupeOccurrence}`)
+    )
+
+    for (const candidate of candidates) {
+      if (
+        candidate.hash &&
+        candidate.occurrence !== null &&
+        existingKeys.has(`${candidate.hash}:${candidate.occurrence}`)
+      ) {
+        duplicates[candidate.tempId] = { exact: true, possible: false }
+      }
+    }
+  }
+
+  const remaining = candidates.filter(
+    (candidate) => !duplicates[candidate.tempId]
+  )
+
+  if (remaining.length > 0) {
+    const dates = remaining.map((candidate) => candidate.date).sort()
+    const range = await getTransactionsInDateRange({
+      accountId,
+      from: dates[0],
+      to: dates[dates.length - 1],
+    })
+
+    if (!range.ok) {
+      return {
+        success: false,
+        message: range.error?.message,
+        duplicates: {},
+        exactCount: 0,
+        possibleCount: 0,
+      }
+    }
+
+    for (const candidate of remaining) {
+      const matches = range.data.some(
+        (existing) =>
+          existing.transactionDate === candidate.date &&
+          canonicalAmount(existing.amount) === candidate.amount &&
+          existing.transactionType === candidate.type &&
+          existing.transactionCurrency === currency &&
+          !hasConflictingReferences(candidate.reference, existing.bankReference)
+      )
+
+      if (matches) {
+        duplicates[candidate.tempId] = { exact: false, possible: true }
+      }
+    }
+  }
+
+  let exactCount = 0
+  let possibleCount = 0
+
+  for (const entry of Object.values(duplicates)) {
+    if (entry.exact) exactCount += 1
+    else if (entry.possible) possibleCount += 1
+  }
+
+  return {
+    success: true,
+    duplicates,
+    exactCount,
+    possibleCount,
   }
 }

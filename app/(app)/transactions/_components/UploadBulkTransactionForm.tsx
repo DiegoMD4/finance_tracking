@@ -38,8 +38,14 @@ import {
   /* getFileSource, */
 } from "@/lib/parsers/file-extractor"
 import type { DetectionInfo, ParsedTransaction } from "@/lib/parsers/types"
-import { BulkTransactionActionState } from "@/types/transactions.types"
-import { createBulkTransactions } from "@/server/transactions/actions"
+import {
+  BulkTransactionActionState,
+  DuplicatePreviewEntry,
+} from "@/types/transactions.types"
+import {
+  createBulkTransactions,
+  previewTransactionDuplicates,
+} from "@/server/transactions/actions"
 import { useRouter } from "next/navigation"
 import { CURRENCY_OPTIONS } from "@/lib/utils"
 import { SuggestionConfidence } from "@/types/ai.types"
@@ -54,8 +60,45 @@ interface UploadBulkTransactionFormProps {
   defaultCurrency: string
 }
 
-function countDuplicateReferences(items: ParsedTransaction[]): number {
-  const seen = new Set<string>()
+function DuplicateBadge({
+  entry,
+  omitDuplicates,
+}: {
+  entry?: DuplicatePreviewEntry
+  omitDuplicates: boolean
+}) {
+  if (!entry) return null
+
+  if (entry.exact) {
+    return (
+      <span
+        title={
+          omitDuplicates
+            ? "This movement is already in the ledger and will be skipped"
+            : "This movement is already in the ledger and will be saved again"
+        }
+        className="rounded-full border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive"
+      >
+        {omitDuplicates ? "Already imported" : "Will be re-imported"}
+      </span>
+    )
+  }
+
+  if (entry.possible) {
+    return (
+      <span
+        title="Same date, amount and type, but no reference to confirm it"
+        className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400"
+      >
+        Possible duplicate
+      </span>
+    )
+  }
+
+  return null
+}
+
+function countDuplicateReferences(items: ParsedTransaction[]): number {  const seen = new Set<string>()
   let duplicates = 0
 
   for (const item of items) {
@@ -96,6 +139,11 @@ export function UploadBulkTransactionForm({
   const [parsedSource, setParsedSource] = useState<
     "csv" | "excel" | "pdf" | "unknown" | null
   >(null)
+  const [duplicateMeta, setDuplicateMeta] = useState<
+    Record<string, DuplicatePreviewEntry>
+  >({})
+  const [omitDuplicates, setOmitDuplicates] = useState(true)
+  const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false)
   const router = useRouter()
   const [isSuggesting, setIsSuggesting] = useState(false)
   const [overwriteCategories, setOverwriteCategories] = useState(false)
@@ -112,6 +160,8 @@ export function UploadBulkTransactionForm({
   const handleAccountChange = useCallback(
     (accountId: string) => {
       setSelectedAccountId(accountId)
+      // El preview de duplicados depende de la cuenta: queda viejo al cambiarla.
+      setDuplicateMeta({})
 
       if (currencyTouched) return
       const account = bankAccounts.find((acc) => String(acc.id) === accountId)
@@ -132,6 +182,9 @@ export function UploadBulkTransactionForm({
   ) => {
     formData.append("accountId", selectedAccountId)
     formData.append("transactionsJson", JSON.stringify(transactions))
+    // El servidor es la fuente de verdad: aunque el cliente mande filas ya
+    // importadas, solo se guardan si el checkbox está desmarcado.
+    formData.append("omitDuplicates", omitDuplicates ? "true" : "false")
     formData.delete("file")
 
     return createBulkTransactions(prevState, formData)
@@ -177,7 +230,9 @@ export function UploadBulkTransactionForm({
       setDetection(null)
 
       try {
-        const result = await extractTransactions(selectedFile)
+        const result = await extractTransactions(selectedFile, {
+          currency: transactionCurrency,
+        })
 
         if (result.errors.length > 0 && result.transactions.length === 0) {
           setErrors(result.errors)
@@ -186,26 +241,72 @@ export function UploadBulkTransactionForm({
           result.errors.forEach((e) => toast.error(e))
           setTransactions([])
           setParsedSource(null)
-          /* setDebugInfo({
-            fileName: result.fileName,
-            source: result.source,
-            rawText: result.rawText,
-            transactionCount: 0,
-          }) */
+          setDuplicateMeta({})
           return
         }
 
         setTransactions(result.transactions)
         setParsedSource(result.source)
-        /*  setDebugInfo({
-          fileName: result.fileName,
-          source: result.source,
-          rawText: result.rawText,
-          transactionCount: result.transactions.length,
-        }) */
 
-        // Avisos: warnings del parser + posibles duplicados dentro del archivo.
+        const info = result.detection ?? null
+        setDetection(info)
+
+        // La moneda efectiva se resuelve antes del preview: `setTransactionCurrency`
+        // no cambia el valor del closure, y el snapshot se congeló con ella.
+        const effectiveCurrency =
+          info?.currency &&
+          CURRENCY_OPTIONS.some((option) => option.value === info.currency)
+            ? info.currency
+            : transactionCurrency
+
+        // Chequeo contra la base: exactos (ya importados) y posibles.
+        let previewMeta: Record<string, DuplicatePreviewEntry> = {}
+        let exactCount = 0
+        let possibleCount = 0
+
+        if (selectedAccountId && selectedAccountId !== "none") {
+          setIsCheckingDuplicates(true)
+
+          try {
+            const preview = await previewTransactionDuplicates({
+              accountId: Number(selectedAccountId),
+              currency: effectiveCurrency,
+              rows: result.transactions,
+            })
+
+            if (preview?.success) {
+              previewMeta = preview.duplicates
+              exactCount = preview.exactCount
+              possibleCount = preview.possibleCount
+            }
+          } catch (error) {
+            console.error("Couldn't check for duplicates:", error)
+          } finally {
+            setIsCheckingDuplicates(false)
+          }
+        }
+
+        setDuplicateMeta(previewMeta)
+
+        // Avisos: warnings del parser + duplicados del archivo + duplicados en la base.
         const notices = [...(result.warnings ?? [])]
+
+        if (exactCount > 0) {
+          notices.unshift(
+            `${exactCount} row${exactCount === 1 ? "" : "s"} already imported: ${
+              exactCount === 1 ? "it" : "they"
+            } will be skipped as duplicate${exactCount === 1 ? "" : "s"}`
+          )
+        }
+
+        if (possibleCount > 0) {
+          notices.push(
+            `${possibleCount} row${
+              possibleCount === 1 ? "" : "s"
+            } may duplicate an existing transaction (no reference to confirm it)`
+          )
+        }
+
         const duplicates = countDuplicateReferences(result.transactions)
         if (duplicates > 0) {
           notices.unshift(
@@ -217,9 +318,6 @@ export function UploadBulkTransactionForm({
         setWarnings(notices)
 
         notices.slice(0, 3).forEach((notice) => toast.warning(notice))
-
-        const info = result.detection ?? null
-        setDetection(info)
 
         if (
           !currencyTouched &&
@@ -252,7 +350,7 @@ export function UploadBulkTransactionForm({
         setIsLoading(false)
       }
     },
-    [selectedAccountId, currencyTouched]
+    [selectedAccountId, currencyTouched, transactionCurrency]
   )
 
   const updateTransaction = useCallback(
@@ -276,6 +374,7 @@ export function UploadBulkTransactionForm({
     setWarnings([])
     setDetection(null)
     setSuggestionMeta({})
+    setDuplicateMeta({})
   }, [])
 
   const hasTransactions = transactions.length > 0
@@ -450,6 +549,7 @@ export function UploadBulkTransactionForm({
             setWarnings([])
             setDetection(null)
             setParsedSource(null)
+            setDuplicateMeta({})
           }}
           hideOnFile
         />
@@ -480,6 +580,17 @@ export function UploadBulkTransactionForm({
                 Overwrite existing
               </label>
 
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  className="size-3.5 accent-primary"
+                  checked={omitDuplicates}
+                  onChange={(event) => setOmitDuplicates(event.target.checked)}
+                  disabled={isLoading || isPending || isCheckingDuplicates}
+                />
+                Omit exact duplicates
+              </label>
+
               <Button
                 type="button"
                 variant="secondary"
@@ -504,13 +615,22 @@ export function UploadBulkTransactionForm({
               <Button
                 type="submit"
                 size="sm"
-                disabled={isLoading || isPending || isSuggesting}
+                disabled={
+                  isLoading || isPending || isSuggesting || isCheckingDuplicates
+                }
                 className="w-full cursor-pointer sm:w-auto"
               >
                 Save transactions
               </Button>
             </div>
           </div>
+
+          {isCheckingDuplicates && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Spinner />
+              Checking for duplicates…
+            </div>
+          )}
 
           {(detection || parsedSource) && (
             <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
@@ -593,11 +713,12 @@ export function UploadBulkTransactionForm({
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[12%]">Date</TableHead>
-                  <TableHead className="w-[26%]">Description</TableHead>
-                  <TableHead className="w-[14%]">Type</TableHead>
-                  <TableHead className="w-[14%]">Amount</TableHead>
-                  <TableHead className="w-[18%]">Bank reference</TableHead>
-                  <TableHead className="w-[12%]">Category</TableHead>
+                  <TableHead className="w-[24%]">Description</TableHead>
+                  <TableHead className="w-[12%]">Type</TableHead>
+                  <TableHead className="w-[12%]">Amount</TableHead>
+                  <TableHead className="w-[16%]">Bank reference</TableHead>
+                  <TableHead className="w-[10%]">Category</TableHead>
+                  <TableHead className="w-[10%]">Status</TableHead>
                   <TableHead className="w-[8%] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -714,6 +835,12 @@ export function UploadBulkTransactionForm({
                           </span>
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <DuplicateBadge
+                        entry={duplicateMeta[tx.tempId]}
+                        omitDuplicates={omitDuplicates}
+                      />
                     </TableCell>
                     <TableCell className="text-right">
                       <Button

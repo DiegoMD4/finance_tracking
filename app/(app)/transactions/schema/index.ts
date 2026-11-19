@@ -1,5 +1,7 @@
 import { z } from "zod"
 
+import { canonicalAmount, DEDUPE_MAX_OCCURRENCE } from "@/lib/transactions/dedupe"
+
 export const transactionCurrencySchema = z.enum(["HNL", "USD", "EUR"], {
   error: () => ({ message: "Please select a valid currency" }),
 })
@@ -115,4 +117,65 @@ export const bulkTransactionSchema = z.object({
       .transform((value) => Number(value))
       .nullable()
   ),
+})
+
+const isoDateString = z
+  .string({
+    error: (issue) =>
+      issue.input === undefined || issue.input === ""
+        ? "Snapshot date is required"
+        : "Snapshot date is invalid",
+  })
+  .regex(/^\d{4}-\d{2}-\d{2}$/, { error: "Snapshot date is invalid" })
+  .refine(
+    (value) => !Number.isNaN(new Date(`${value}T00:00:00`).getTime()),
+    { error: "Snapshot date is invalid" },
+  )
+
+/**
+ * Snapshot de identidad tal como lo produjo el parser. Es dato de cliente: se
+ * canonicaliza acá (fecha ISO real, monto a 2 decimales, moneda del catálogo)
+ * antes de calcular el hash. Un snapshot inválido rechaza la fila; no se
+ * guarda sin hash en silencio.
+ */
+export const dedupeOriginalSchema = z.object({
+  date: isoDateString,
+  amount: z
+    .string()
+    .trim()
+    .min(1, { error: "Snapshot amount is required" })
+    .refine((value) => canonicalAmount(value) !== null, {
+      error: "Snapshot amount is invalid",
+    }),
+  type: z.enum(["income", "expense"], {
+    error: () => ({ message: "Snapshot type is invalid" }),
+  }),
+  reference: z
+    .string()
+    .trim()
+    .max(255, { error: "Snapshot reference is too long" })
+    .nullable()
+    .optional()
+    .transform((value) => value || null),
+  description: z
+    .string()
+    .trim()
+    .max(255, { error: "Snapshot description is too long" })
+    .optional()
+    .transform((value) => value ?? ""),
+  currency: transactionCurrencySchema
+    .nullable()
+    .optional()
+    .transform((value) => value ?? null),
+})
+
+export const dedupeSnapshotSchema = z.object({
+  original: dedupeOriginalSchema,
+  occurrence: z
+    .number({
+      error: () => ({ message: "Snapshot occurrence is invalid" }),
+    })
+    .int({ error: "Snapshot occurrence is invalid" })
+    .min(1, { error: "Snapshot occurrence is invalid" })
+    .max(DEDUPE_MAX_OCCURRENCE, { error: "Snapshot occurrence is invalid" }),
 })

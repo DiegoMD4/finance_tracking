@@ -1,12 +1,13 @@
 import { db } from "@/db"
 import { bankAccounts, categories, transactions } from "@/db/schema/schema"
 import { err, ok, type Paginated, type Result } from "@/types/result"
-import { and, desc, eq, sql } from "drizzle-orm"
+import { and, desc, eq, inArray, sql } from "drizzle-orm"
 import { getSessionUserId } from "@/lib/jwt"
 import type {
   Transaction,
   TransactionListItem,
 } from "@/types/transactions.types"
+import type { TransactionType } from "@/types/transactions.types"
 
 export const getTransactions = async (): Promise<
   Result<TransactionListItem[]>
@@ -142,5 +143,129 @@ export const getTransactionsById = async ({
     console.error("❌ Error: ", error)
 
     return err("database", "Couldn't get your transaction try it later")
+  }
+}
+
+/** Clave de identidad ya usada por una fila importada. */
+export interface DedupeKey {
+  dedupeHash: string
+  dedupeOccurrence: number
+}
+
+const HASH_LOOKUP_CHUNK = 500
+
+/**
+ * Busca las identidades ya importadas de una cuenta.
+ *
+ * Se consulta **solo por hash**, sin rango de fechas: el hash guarda la fecha
+ * del snapshot y la fila guarda la fecha (posiblemente editada). Filtrar por
+ * fecha dejaría afuera justo el caso que el snapshot resuelve.
+ * El índice único `(account_id, dedupe_hash, dedupe_occurrence)` la cubre.
+ */
+export const getDedupeKeysByHashes = async ({
+  accountId,
+  hashes,
+}: {
+  accountId: number
+  hashes: string[]
+}): Promise<Result<DedupeKey[]>> => {
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return err("unauthorized", "A valid session is required")
+  }
+
+  const uniqueHashes = [...new Set(hashes.filter((hash) => hash.length > 0))]
+  if (uniqueHashes.length === 0) return ok([])
+
+  try {
+    const found: DedupeKey[] = []
+
+    for (let i = 0; i < uniqueHashes.length; i += HASH_LOOKUP_CHUNK) {
+      const chunk = uniqueHashes.slice(i, i + HASH_LOOKUP_CHUNK)
+      const rows = await db
+        .select({
+          dedupeHash: transactions.dedupeHash,
+          dedupeOccurrence: transactions.dedupeOccurrence,
+        })
+        .from(transactions)
+        .where(
+          and(
+            eq(transactions.accountId, accountId),
+            eq(transactions.userId, userId),
+            inArray(transactions.dedupeHash, chunk)
+          )
+        )
+
+      for (const row of rows) {
+        if (!row.dedupeHash) continue
+        found.push({
+          dedupeHash: row.dedupeHash,
+          dedupeOccurrence: row.dedupeOccurrence,
+        })
+      }
+    }
+
+    return ok(found)
+  } catch (error) {
+    console.error("❌ Error: ", error)
+
+    return err("database", "Couldn't check for duplicate transactions")
+  }
+}
+
+/** Fila existente que puede confundirse con una importación (duplicado "posible"). */
+export interface DedupeComparisonRow {
+  amount: string
+  transactionType: TransactionType
+  /** YYYY-MM-DD */
+  transactionDate: string
+  transactionCurrency: string
+  bankReference: string | null
+}
+
+/**
+ * Filas de una cuenta dentro de un rango de fechas. Se usa solo para el aviso
+ * de duplicado "posible", que compara contra lo que el usuario ve (fecha,
+ * monto y tipo finales), no contra el hash.
+ */
+export const getTransactionsInDateRange = async ({
+  accountId,
+  from,
+  to,
+}: {
+  accountId: number
+  /** YYYY-MM-DD inclusive. */
+  from: string
+  /** YYYY-MM-DD inclusive. */
+  to: string
+}): Promise<Result<DedupeComparisonRow[]>> => {
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return err("unauthorized", "A valid session is required")
+  }
+
+  try {
+    const rows = await db
+      .select({
+        amount: transactions.amount,
+        transactionType: transactions.transactionType,
+        transactionDate: sql<string>`DATE_FORMAT(${transactions.transactionDate}, '%Y-%m-%d')`,
+        transactionCurrency: transactions.transactionCurrency,
+        bankReference: transactions.bankReference,
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.accountId, accountId),
+          eq(transactions.userId, userId),
+          sql`${transactions.transactionDate} BETWEEN ${from} AND ${to}`
+        )
+      )
+
+    return ok(rows)
+  } catch (error) {
+    console.error("❌ Error: ", error)
+
+    return err("database", "Couldn't check for duplicate transactions")
   }
 }

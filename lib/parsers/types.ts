@@ -1,5 +1,31 @@
 export type TransactionType = "income" | "expense"
 
+/**
+ * Valores con los que el parser identificó una fila, congelados antes de que
+ * el usuario edite nada en la previsualización. Es la base del hash de
+ * deduplicación: editar fecha/monto/descripción no cambia la identidad.
+ */
+export interface DedupeOriginal {
+  /** Fecha del movimiento tal como la parseó el parser (YYYY-MM-DD). */
+  date: string
+  /** Monto positivo y canónico del parser (por ejemplo `"45.00"`). */
+  amount: string
+  type: TransactionType
+  reference: string | null
+  description: string
+  /** Moneda con la que se identificó la fila (detectada o del formulario). */
+  currency: string | null
+}
+
+/**
+ * Identidad congelada al parsear: snapshot original + ocurrencia (n-ésima
+ * copia de ese movimiento dentro del archivo, empezando en 1).
+ */
+export interface DedupeSnapshot {
+  original: DedupeOriginal
+  occurrence: number
+}
+
 export interface ParsedTransaction {
   tempId: string
   bankReference: string | null
@@ -11,6 +37,8 @@ export interface ParsedTransaction {
   row?: number
   /** Fila original (texto de cada celda) para auditoría/debug. */
   rawRow?: string[]
+  /** Identidad congelada por el parser; la llena `extractTransactions`. */
+  dedupe?: DedupeSnapshot
 }
 
 /**

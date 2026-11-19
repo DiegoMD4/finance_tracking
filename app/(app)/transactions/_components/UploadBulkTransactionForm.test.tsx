@@ -2,7 +2,7 @@ import { render, cleanup, fireEvent, waitFor, within } from "@testing-library/re
 import userEvent from "@testing-library/user-event"
 import { describe, it, expect, vi, afterEach } from "vitest"
 import React from "react"
-import { createBulkTransactions } from "@/server/transactions/actions"
+import { createBulkTransactions, previewTransactionDuplicates } from "@/server/transactions/actions"
 import { suggestTransactionCategories } from "@/server/transactions/ai-actions"
 import { extractTransactions } from "@/lib/parsers/file-extractor"
 import { UploadBulkTransactionForm } from "./UploadBulkTransactionForm"
@@ -34,7 +34,14 @@ vi.mock("@/server/transactions/ai-actions", () => ({
   suggestTransactionCategories: vi.fn(),
 }))
 
+// Las server actions se reemplazan: el test no debe tocar la base ni la sesión.
+vi.mock("@/server/transactions/actions", () => ({
+  createBulkTransactions: vi.fn(),
+  previewTransactionDuplicates: vi.fn(),
+}))
+
 const mockCreateBulkTransactions = vi.mocked(createBulkTransactions)
+const mockPreviewDuplicates = vi.mocked(previewTransactionDuplicates)
 const mockExtractTransactions = vi.mocked(extractTransactions)
 const mockSuggestTransactionCategories = vi.mocked(suggestTransactionCategories)
 
@@ -158,6 +165,7 @@ describe("UploadBulkTransactionForm (UI-05)", () => {
       success: true,
       message: "Transactions saved",
       saved: 1,
+      skipped: 0,
       failed: 0,
       rows: [],
       savedTempIds: ["1"],
@@ -249,7 +257,13 @@ const parsedRow = (overrides?: Partial<ParsedTransaction>): ParsedTransaction =>
 // Selecciona la cuenta y sube un archivo que devuelve las filas indicadas.
 async function uploadParsed(
   user: ReturnType<typeof userEvent.setup>,
-  parsed: ParsedTransaction[]
+  parsed: ParsedTransaction[],
+  preview: Awaited<ReturnType<typeof previewTransactionDuplicates>> = {
+    success: true,
+    duplicates: {},
+    exactCount: 0,
+    possibleCount: 0,
+  }
 ) {
   const accountTrigger = document.getElementById("bankAccount") as HTMLElement
   await user.click(accountTrigger)
@@ -264,6 +278,7 @@ async function uploadParsed(
     source: "csv",
     fileName: "test.csv",
   } as Awaited<ReturnType<typeof extractTransactions>>)
+  mockPreviewDuplicates.mockResolvedValueOnce(preview)
 
   const fileInput = within(document.body).getByLabelText(/drag your file here/i)
   const file = new File(["date,amount"], "test.csv", { type: "text/csv" })
@@ -447,5 +462,117 @@ describe("UploadBulkTransactionForm - sugerencias de categorías con IA", () => 
       expect(mockToastInfo).toHaveBeenCalledWith("All rows already have a category")
     )
     expect(mockSuggestTransactionCategories).not.toHaveBeenCalled()
+  })
+})
+
+describe("UploadBulkTransactionForm - duplicados contra la base", () => {
+  const exactPreview = {
+    success: true,
+    duplicates: { "1": { exact: true, possible: false } },
+    exactCount: 1,
+    possibleCount: 0,
+  }
+
+  const possiblePreview = {
+    success: true,
+    duplicates: { "1": { exact: false, possible: true } },
+    exactCount: 0,
+    possibleCount: 1,
+  }
+
+  it("pide el preview con la cuenta, la moneda y las filas", async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await uploadParsed(user, [parsedRow()])
+
+    expect(mockPreviewDuplicates).toHaveBeenCalledWith({
+      accountId: 1,
+      currency: "HNL",
+      rows: [expect.objectContaining({ tempId: "1" })],
+    })
+  })
+
+  it("marca la fila ya importada y la omite por defecto", async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await uploadParsed(user, [parsedRow()], exactPreview)
+
+    expect(
+      await within(document.body).findByText("Already imported")
+    ).toBeInTheDocument()
+
+    // El checkbox "omitir duplicados exactos" viene activo
+    const omitCheckbox = within(document.body).getByRole("checkbox") as HTMLInputElement
+    expect(omitCheckbox.checked).toBe(true)
+
+    mockCreateBulkTransactions.mockResolvedValueOnce({
+      success: true,
+      message: "1 transaction was already imported",
+      saved: 0,
+      skipped: 1,
+      failed: 0,
+      rows: [],
+      savedTempIds: ["1"],
+    } as Awaited<ReturnType<typeof createBulkTransactions>>)
+
+    fireEvent.click(
+      within(document.body).getByRole("button", { name: /save transactions/i })
+    )
+
+    await waitFor(() => expect(mockCreateBulkTransactions).toHaveBeenCalled())
+
+    const formData = mockCreateBulkTransactions.mock.calls[0][1]
+    expect(formData.get("omitDuplicates")).toBe("true")
+    // La fila se envía igual: el servidor es la fuente de verdad
+    expect(JSON.parse(String(formData.get("transactionsJson")))).toHaveLength(1)
+  })
+
+  it("desmarcar el checkbox permite reimportar la fila", async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await uploadParsed(user, [parsedRow()], exactPreview)
+
+    const omitCheckbox = within(document.body).getByRole("checkbox") as HTMLInputElement
+    await user.click(omitCheckbox)
+
+    expect(
+      await within(document.body).findByText("Will be re-imported")
+    ).toBeInTheDocument()
+
+    mockCreateBulkTransactions.mockResolvedValueOnce({
+      success: true,
+      message: "Saved 1 transaction successfully",
+      saved: 1,
+      skipped: 0,
+      failed: 0,
+      rows: [],
+      savedTempIds: ["1"],
+    } as Awaited<ReturnType<typeof createBulkTransactions>>)
+
+    fireEvent.click(
+      within(document.body).getByRole("button", { name: /save transactions/i })
+    )
+
+    await waitFor(() => expect(mockCreateBulkTransactions).toHaveBeenCalled())
+    expect(mockCreateBulkTransactions.mock.calls[0][1].get("omitDuplicates")).toBe(
+      "false"
+    )
+  })
+
+  it("advierte un duplicado posible sin bloquear el guardado", async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await uploadParsed(user, [parsedRow()], possiblePreview)
+
+    expect(
+      await within(document.body).findByText("Possible duplicate")
+    ).toBeInTheDocument()
+
+    const omitCheckbox = within(document.body).getByRole("checkbox") as HTMLInputElement
+    expect(omitCheckbox.checked).toBe(true)
+
+    expect(
+      within(document.body).getByRole("button", { name: /save transactions/i })
+    ).toBeEnabled()
   })
 })
