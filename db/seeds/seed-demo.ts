@@ -1,7 +1,13 @@
 import { drizzle } from "drizzle-orm/mysql2"
-import { eq, sql } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 import mysql from "mysql2/promise"
-import { bankAccounts, transactions, categories, users } from "../schema/schema"
+import {
+  bankAccounts,
+  transactions,
+  categories,
+  importBatches,
+  users,
+} from "../schema/schema"
 import "dotenv/config"
 
 const connection = await mysql.createConnection({
@@ -46,6 +52,13 @@ const DEMO_RATES_TO_HNL: Record<string, number> = {
   USD: 24.75,
   EUR: 27.5,
 }
+
+/**
+ * Huella ficticia pero estable del "estado de cuenta" demo. Sirve para que
+ * `/transactions/imports` tenga un lote real y para probar el aviso de
+ * "este archivo ya se importó" subiendo un archivo con esta huella.
+ */
+const DEMO_IMPORT_FILE_HASH = "3f".repeat(32)
 
 function randomBetween(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
@@ -353,6 +366,127 @@ async function seedTransactions(
   console.log(`  ✅ Total general: ${totalTransactions} transacciones`)
 }
 
+/**
+ * Crea un lote de importación con movimientos vinculados, para que el
+ * historial (`/transactions/imports`) y el deshacer tengan datos en la demo.
+ * Es idempotente por `(cuenta, huella)`.
+ */
+async function seedDemoImportBatch(
+  userId: number,
+  categoryMap: Map<string, number>
+): Promise<void> {
+  console.log("📥 Creando importación de ejemplo...")
+
+  const account = await db
+    .select({ id: bankAccounts.id })
+    .from(bankAccounts)
+    .where(eq(bankAccounts.accountNumber, "1234567890"))
+    .then((rows) => rows[0])
+
+  if (!account) {
+    console.log("  ⏭️  No hay cuenta BAC para asociar la importación, se omite.")
+    return
+  }
+
+  const existing = await db
+    .select({ id: importBatches.id })
+    .from(importBatches)
+    .where(
+      and(
+        eq(importBatches.accountId, account.id),
+        eq(importBatches.fileHash, DEMO_IMPORT_FILE_HASH)
+      )
+    )
+    .then((rows) => rows[0])
+
+  if (existing) {
+    console.log(`  ⏭️  La importación de ejemplo ya existe (ID: ${existing.id}).`)
+    return
+  }
+
+  const fallbackCategory = categoryMap.get("Miscellaneous / Others")
+  if (!fallbackCategory) {
+    console.log("  ⏭️  No hay categoría de respaldo, se omite la importación.")
+    return
+  }
+
+  const now = new Date()
+  const onDay = (day: number) =>
+    new Date(now.getFullYear(), now.getMonth(), day, 10, 30, 0, 0)
+  const importedAt = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000)
+
+  const rows = [
+    {
+      amount: "1850.00",
+      transactionType: "income" as const,
+      transactionDescription: "Depósito de nómina",
+      categoryName: "Salary & Income",
+      date: onDay(3),
+    },
+    {
+      amount: "420.50",
+      transactionType: "expense" as const,
+      transactionDescription: "Supermercado (importado)",
+      categoryName: "Food & Dining",
+      date: onDay(5),
+    },
+    {
+      amount: "95.00",
+      transactionType: "expense" as const,
+      transactionDescription: "Gasolina (importado)",
+      categoryName: "Transportation",
+      date: onDay(8),
+    },
+    {
+      amount: "210.75",
+      transactionType: "expense" as const,
+      transactionDescription: "Compra online (importado)",
+      categoryName: "Shopping & Entertainment",
+      date: onDay(11),
+    },
+  ]
+
+  const [batch] = await db
+    .insert(importBatches)
+    .values({
+      userId,
+      accountId: account.id,
+      fileHash: DEMO_IMPORT_FILE_HASH,
+      fileName: "estado-cuenta-bac.xlsx",
+      fileSize: 24576,
+      sourceFormat: "excel",
+      // Una fila del archivo venía repetida y se omitió en la importación.
+      rowCount: rows.length + 1,
+      savedCount: rows.length,
+      skippedCount: 1,
+      failedCount: 0,
+      createdAt: importedAt,
+    })
+    .$returningId()
+
+  await db.insert(transactions).values(
+    rows.map((row) => ({
+      userId,
+      accountId: account.id,
+      amount: row.amount,
+      transactionCurrency: "HNL",
+      exchangeRate: "1.000000",
+      amountInDefaultCurrency: row.amount,
+      defaultCurrencyAtTransaction: "HNL",
+      transactionType: row.transactionType,
+      transactionDescription: row.transactionDescription,
+      categoryId: categoryMap.get(row.categoryName) ?? fallbackCategory,
+      importBatchId: batch.id,
+      createdAt: row.date,
+      transactionDate: row.date,
+    }))
+  )
+
+  console.log(
+    `  ✅ Importación de ejemplo creada (ID: ${batch.id}, ${rows.length} transacciones)`
+  )
+}
+
 async function main() {
   const userId = 1
 
@@ -388,6 +522,7 @@ async function main() {
 
   await seedDemoAccounts(userId)
   await seedTransactions(userId, categoryMap)
+  await seedDemoImportBatch(userId, categoryMap)
 
   console.log("\n🎉 ¡Seed de prueba completado!")
   console.log("   Ejecuta 'npm run dev' para ver los gráficos con datos reales.")

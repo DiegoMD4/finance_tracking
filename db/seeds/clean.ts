@@ -1,7 +1,13 @@
 import { drizzle } from "drizzle-orm/mysql2"
 import { sql } from "drizzle-orm"
 import mysql from "mysql2/promise"
-import { transactions, bankAccounts, categories, users } from "../schema/schema"
+import {
+  transactions,
+  importBatches,
+  bankAccounts,
+  categories,
+  users,
+} from "../schema/schema"
 import "dotenv/config"
 
 const connection = await mysql.createConnection({
@@ -17,6 +23,12 @@ async function cleanDatabase() {
   console.log("  🗑️  Eliminando transacciones...")
   await db.delete(transactions)
   console.log("  ✅ Transacciones eliminadas")
+
+  // Debe ir antes de las cuentas: `fk_import_batches_account` no tiene
+  // ON DELETE CASCADE, así que un lote bloquearía el borrado de la cuenta.
+  console.log("  🗑️  Eliminando lotes de importación...")
+  await db.delete(importBatches)
+  console.log("  ✅ Lotes de importación eliminados")
 
   console.log("  🗑️  Eliminando cuentas bancarias...")
   await db.delete(bankAccounts)
