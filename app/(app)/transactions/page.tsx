@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { History, Plus } from "lucide-react"
 import { TransactionsTable } from "./_components/TransactionsTable"
 import Link from "next/link"
 import TransactionsCard from "./_components/TransactionsCard"
@@ -33,12 +33,20 @@ export default async function TransactionsPage({
     <section>
       <header className="flex flex-row justify-between">
         <h1>Transactions</h1>
-        <Button asChild>
-          <Link href="/transactions/new-transaction" className="gap-x-2">
-            <Plus size={16} />
-            {"New transaction"}
-          </Link>
-        </Button>
+        <div className="flex flex-row gap-2">
+          <Button asChild variant="outline">
+            <Link href="/transactions/imports" className="gap-x-2">
+              <History size={16} />
+              {"Import history"}
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/transactions/new-transaction" className="gap-x-2">
+              <Plus size={16} />
+              {"New transaction"}
+            </Link>
+          </Button>
+        </div>
       </header>
       <div className="mt-8">
         <div className="block md:hidden">

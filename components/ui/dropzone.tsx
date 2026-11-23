@@ -83,6 +83,16 @@ function Dropzone({
   const [isDragging, setIsDragging] = React.useState(false)
   const skipInitialSync = React.useRef(true)
 
+  // El efecto de abajo solo debe dispararse cuando cambian los archivos: si
+  // dependiera de `onChange`, cualquier re-render del padre que cambie su
+  // identidad (p. ej. al tocar un checkbox del formulario) volvería a notificar
+  // el mismo archivo y el consumidor lo re-procesaría.
+  const onChangeRef = React.useRef(onChange)
+
+  React.useEffect(() => {
+    onChangeRef.current = onChange
+  }, [onChange])
+
   React.useEffect(() => {
     const input = inputRef.current
     if (input) {
@@ -102,8 +112,8 @@ function Dropzone({
       return
     }
 
-    onChange?.(files)
-  }, [files, onChange])
+    onChangeRef.current?.(files)
+  }, [files])
 
   const addFiles = React.useCallback(
     (incoming: File[]) => {

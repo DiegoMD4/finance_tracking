@@ -19,6 +19,7 @@ if (!process.env.DATABASE_URL?.includes(TEST_DATABASE_MARKER)) {
 
 const TABLES_IN_FK_ORDER = [
   "transactions",
+  "import_batches",
   "bank_accounts",
   "categories",
   "users",

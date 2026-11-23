@@ -7,12 +7,13 @@ import {
   dedupeSnapshotSchema,
 } from "@/app/(app)/transactions/schema"
 import { db } from "@/db"
-import { transactions } from "@/db/schema/schema"
+import { importBatches, transactions } from "@/db/schema/schema"
 import { getDefaultCategory } from "@/server/categories/queries"
 import { getBankAccountById } from "@/server/bank-accounts/queries"
 import { getUserById } from "@/server/users/queries"
 import {
   getDedupeKeysByHashes,
+  getImportBatchStatus,
   getTransactionsInDateRange,
 } from "@/server/transactions/queries"
 import {
@@ -26,9 +27,11 @@ import {
   BulkTransactionRowResult,
   DuplicatePreviewEntry,
   DuplicatePreviewResult,
+  ImportBatchActionState,
+  ImportBatchSummary,
 } from "@/types/transactions.types"
 
-import { eq, and, sql } from "drizzle-orm"
+import { eq, and, isNull, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import z from "zod"
 import { getSessionUserId } from "@/lib/jwt"
@@ -374,6 +377,31 @@ export const createBulkTransactions = async (
   const transactionsJson = formData.get("transactionsJson")?.toString() || ""
   const rawCurrency = formData.get("transactionCurrency")?.toString().trim()
 
+  // Huella del documento. Es un dato de cliente y solo sirve para avisar
+  // ("este archivo ya se importó"): si falta o es inválida se ignora, nunca
+  // se rechaza la importación por ella.
+  const rawFingerprint = formData.get("fileFingerprint")?.toString().trim() ?? ""
+  const fileHash = /^[0-9a-f]{64}$/.test(rawFingerprint) ? rawFingerprint : null
+
+  const rawFileName = formData.get("fileName")?.toString().trim() ?? ""
+  const fileName = rawFileName.length > 0 ? rawFileName.slice(0, 255) : null
+
+  const rawFileSize = formData.get("fileSize")?.toString().trim() ?? ""
+  const parsedFileSize = Number(rawFileSize)
+  const fileSize =
+    rawFileSize.length > 0 &&
+    Number.isInteger(parsedFileSize) &&
+    parsedFileSize >= 0
+      ? parsedFileSize
+      : null
+
+  const rawSourceFormat = formData.get("sourceFormat")?.toString().trim() ?? ""
+  const sourceFormat = ["csv", "excel", "pdf", "unknown"].includes(
+    rawSourceFormat
+  )
+    ? rawSourceFormat
+    : null
+
   if (!accountIdRaw || !/^\d+$/.test(accountIdRaw)) {
     return failure("Invalid bank account")
   }
@@ -647,11 +675,43 @@ export const createBulkTransactions = async (
     rowsToInsert.push({ ...row, dedupeOccurrence: occurrence })
   }
 
+  let saved = 0
+  let failed = rowResults.filter((row) => row.status === "failed").length
+
+  // Lote de importación: se crea antes del INSERT porque cada fila necesita el
+  // id, y los conteos se completan al final. No hay transacción envolvente a
+  // propósito: un chunk puede fallar y los anteriores se mantienen, igual que
+  // antes de existir los lotes.
+  let importBatchId: number | null = null
+
+  if (rowsToInsert.length > 0) {
+    try {
+      const [batch] = await db
+        .insert(importBatches)
+        .values({
+          userId,
+          accountId,
+          fileHash,
+          fileName,
+          fileSize,
+          sourceFormat,
+          rowCount: rawRows.length,
+          savedCount: 0,
+          skippedCount: skipped,
+          failedCount: failed,
+        })
+        .$returningId()
+
+      importBatchId = batch.id
+    } catch (error) {
+      // Sin lote se pierde el deshacer, pero la importación no debe fallar.
+      console.error("Error creating the import batch:", error)
+    }
+  }
+
   // Cada chunk es un único INSERT (atómico por sí mismo). Si un chunk falla,
   // los anteriores ya persistidos se mantienen y el cliente recibe
   // savedTempIds para quitarlos de la tabla y no reenviarlos.
-  let saved = 0
-  let failed = rowResults.filter((row) => row.status === "failed").length
 
   for (let i = 0; i < rowsToInsert.length; i += CHUNK_SIZE) {
     const chunk = rowsToInsert.slice(i, i + CHUNK_SIZE)
@@ -670,6 +730,7 @@ export const createBulkTransactions = async (
       bankReference: r.data.bankReference,
       dedupeHash: r.dedupeHash,
       dedupeOccurrence: r.dedupeOccurrence,
+      importBatchId,
     }))
 
     try {
@@ -702,6 +763,19 @@ export const createBulkTransactions = async (
         })
       }
       failed += chunk.length
+    }
+  }
+
+  // Cierre del lote: deja los conteos reales (si el proceso muere antes,
+  // queda con `saved_count = 0` y el aviso de "archivo ya importado" lo ignora).
+  if (importBatchId !== null) {
+    try {
+      await db
+        .update(importBatches)
+        .set({ savedCount: saved, skippedCount: skipped, failedCount: failed })
+        .where(eq(importBatches.id, importBatchId))
+    } catch (error) {
+      console.error("Error updating the import batch:", error)
     }
   }
 
@@ -939,4 +1013,105 @@ export const previewTransactionDuplicates = async (payload: {
     exactCount,
     possibleCount,
   }
+}
+
+/**
+ * Deshace una importación: borra las transacciones creadas por ese lote y lo
+ * marca como deshecho (el historial no se borra).
+ *
+ * Solo toca filas con `import_batch_id` igual al lote: las manuales y las de
+ * otras importaciones quedan intactas. Las ediciones posteriores del usuario
+ * se pierden con la fila, por eso la UI pide confirmación con el conteo.
+ */
+export const undoImportBatch = async (
+  batchId: number
+): Promise<ImportBatchActionState> => {
+  const failure = (message: string): ImportBatchActionState => ({
+    success: false,
+    message,
+    deleted: 0,
+  })
+
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return failure("Unauthorized: a valid session is required")
+  }
+
+  if (!Number.isInteger(batchId) || batchId <= 0) {
+    return failure("Invalid import")
+  }
+
+  try {
+    const [batch] = await db
+      .select({
+        id: importBatches.id,
+        undoneAt: importBatches.undoneAt,
+      })
+      .from(importBatches)
+      .where(
+        and(
+          eq(importBatches.id, batchId),
+          eq(importBatches.userId, userId),
+          isNull(importBatches.deletedAt)
+        )
+      )
+      .limit(1)
+
+    if (!batch) {
+      return failure("Import not found")
+    }
+
+    if (batch.undoneAt !== null) {
+      return failure("This import was already undone")
+    }
+
+    const deleted = await db.transaction(async (tx) => {
+      const [result] = await tx
+        .delete(transactions)
+        .where(
+          and(
+            eq(transactions.importBatchId, batchId),
+            eq(transactions.userId, userId)
+          )
+        )
+
+      await tx
+        .update(importBatches)
+        .set({ undoneAt: new Date() })
+        .where(eq(importBatches.id, batchId))
+
+      return result.affectedRows
+    })
+
+    revalidatePath("/transactions")
+    revalidatePath("/transactions/imports")
+    revalidatePath("/")
+
+    return {
+      success: true,
+      message: `${deleted} transaction${
+        deleted === 1 ? " was" : "s were"
+      } removed`,
+      deleted,
+    }
+  } catch (error) {
+    console.error("Error undoing the import batch:", error)
+
+    return failure("Couldn't undo the import")
+  }
+}
+
+/**
+ * Server action para el preview: ¿ese archivo ya se importó en esa cuenta?
+ *
+ * Devuelve `null` si no hay antecedente o si la consulta falla: el aviso es
+ * informativo y nunca debe romper la lectura del archivo.
+ */
+export const checkImportBatch = async (payload: {
+  accountId: number
+  fileHash: string
+}): Promise<ImportBatchSummary | null> => {
+  const result = await getImportBatchStatus(payload)
+
+  return result.ok ? result.data : null
 }

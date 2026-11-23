@@ -1,9 +1,15 @@
 import { db } from "@/db"
-import { bankAccounts, categories, transactions } from "@/db/schema/schema"
+import {
+  bankAccounts,
+  categories,
+  importBatches,
+  transactions,
+} from "@/db/schema/schema"
 import { err, ok, type Paginated, type Result } from "@/types/result"
-import { and, desc, eq, inArray, sql } from "drizzle-orm"
+import { and, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm"
 import { getSessionUserId } from "@/lib/jwt"
 import type {
+  ImportBatchSummary,
   Transaction,
   TransactionListItem,
 } from "@/types/transactions.types"
@@ -267,5 +273,95 @@ export const getTransactionsInDateRange = async ({
     console.error("❌ Error: ", error)
 
     return err("database", "Couldn't check for duplicate transactions")
+  }
+}
+
+/** Columnas del resumen de lote; mismo shape en las dos consultas. */
+const importBatchColumns = {
+  id: importBatches.id,
+  accountId: importBatches.accountId,
+  accountName: bankAccounts.accountName,
+  fileName: importBatches.fileName,
+  fileHash: importBatches.fileHash,
+  fileSize: importBatches.fileSize,
+  sourceFormat: importBatches.sourceFormat,
+  rowCount: importBatches.rowCount,
+  savedCount: importBatches.savedCount,
+  skippedCount: importBatches.skippedCount,
+  failedCount: importBatches.failedCount,
+  createdAt: importBatches.createdAt,
+  undoneAt: importBatches.undoneAt,
+}
+
+/**
+ * Busca si ese archivo ya se importó en esa cuenta.
+ *
+ * Solo considera lotes que hayan guardado algo (`saved_count > 0`): un lote
+ * huérfano (el proceso murió antes de actualizar los conteos) no debe disparar
+ * el aviso. Devuelve el más reciente.
+ */
+export const getImportBatchStatus = async ({
+  accountId,
+  fileHash,
+}: {
+  accountId: number
+  /** SHA-256 hex del archivo. */
+  fileHash: string
+}): Promise<Result<ImportBatchSummary | null>> => {
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return err("unauthorized", "A valid session is required")
+  }
+
+  try {
+    const [batch] = await db
+      .select(importBatchColumns)
+      .from(importBatches)
+      .leftJoin(bankAccounts, eq(importBatches.accountId, bankAccounts.id))
+      .where(
+        and(
+          eq(importBatches.userId, userId),
+          eq(importBatches.accountId, accountId),
+          eq(importBatches.fileHash, fileHash),
+          isNull(importBatches.deletedAt),
+          gt(importBatches.savedCount, 0)
+        )
+      )
+      .orderBy(desc(importBatches.createdAt))
+      .limit(1)
+
+    return ok(batch ?? null)
+  } catch (error) {
+    console.error("❌ Error: ", error)
+
+    return err("database", "Couldn't check previous imports")
+  }
+}
+
+/** Historial de importaciones del usuario, más recientes primero. */
+export const getRecentImportBatches = async (
+  limit = 20
+): Promise<Result<ImportBatchSummary[]>> => {
+  const userId = await getSessionUserId()
+  if (!userId) {
+    return err("unauthorized", "A valid session is required")
+  }
+
+  try {
+    const rows = await db
+      .select(importBatchColumns)
+      .from(importBatches)
+      .leftJoin(bankAccounts, eq(importBatches.accountId, bankAccounts.id))
+      .where(
+        and(eq(importBatches.userId, userId), isNull(importBatches.deletedAt))
+      )
+      .orderBy(desc(importBatches.createdAt))
+      .limit(limit)
+
+    return ok(rows)
+  } catch (error) {
+    console.error("❌ Error: ", error)
+
+    return err("database", "Couldn't get the import history")
   }
 }

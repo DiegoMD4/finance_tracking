@@ -3,6 +3,7 @@ import { db } from "@/db"
 import {
   bankAccounts,
   categories,
+  importBatches,
   transactions,
   users,
 } from "@/db/schema/schema"
@@ -915,8 +916,17 @@ describe("createBulkTransactions", () => {
         buildBulkFormData({ accountId, rows })
       )
 
-      // Entonces: se hicieron dos INSERT (100 + 1)
-      expect(insertSpy).toHaveBeenCalledTimes(2)
+      // Entonces: se hicieron dos INSERT de transacciones (100 + 1) y uno del
+      // lote de importación, que se crea antes para poder vincular las filas.
+      const transactionInserts = insertSpy.mock.calls.filter(
+        ([table]) => table === transactions
+      )
+      expect(transactionInserts).toHaveLength(2)
+
+      const batchInserts = insertSpy.mock.calls.filter(
+        ([table]) => table === importBatches
+      )
+      expect(batchInserts).toHaveLength(1)
       expect(result?.success).toBe(true)
       expect(result?.saved).toBe(101)
       expect(result?.failed).toBe(0)

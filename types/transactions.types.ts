@@ -119,6 +119,33 @@ export interface BulkTransactionResult {
 
 export type BulkTransactionActionState = BulkTransactionResult | null | undefined
 
+/** Resumen de un lote de importación (`import_batches`). */
+export interface ImportBatchSummary {
+  id: number
+  accountId: number
+  accountName: string | null
+  fileName: string | null
+  fileHash: string | null
+  fileSize: number | null
+  sourceFormat: string | null
+  /** Filas enviadas por el cliente (guardadas + omitidas + fallidas). */
+  rowCount: number
+  savedCount: number
+  skippedCount: number
+  failedCount: number
+  createdAt: Date
+  /** `null` mientras la importación siga vigente. */
+  undoneAt: Date | null
+}
+
+export interface ImportBatchActionState {
+  success: boolean
+  message: string
+  /** Transacciones borradas por el deshacer. */
+  deleted: number
+}
+
+
 /** Resultado del chequeo previo de duplicados por fila. */
 export interface DuplicatePreviewEntry {
   /** Mismo hash y ocurrencia: ya está importada. */

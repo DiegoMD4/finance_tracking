@@ -1,6 +1,6 @@
 ﻿"use client"
 
-import { useActionState, useCallback, useEffect, useState } from "react"
+import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
@@ -41,11 +41,15 @@ import type { DetectionInfo, ParsedTransaction } from "@/lib/parsers/types"
 import {
   BulkTransactionActionState,
   DuplicatePreviewEntry,
+  ImportBatchSummary,
 } from "@/types/transactions.types"
 import {
+  checkImportBatch,
   createBulkTransactions,
   previewTransactionDuplicates,
 } from "@/server/transactions/actions"
+import { computeFileFingerprint } from "@/lib/transactions/file-fingerprint"
+import { buildImportNotices } from "@/lib/transactions/import-notices"
 import { useRouter } from "next/navigation"
 import { CURRENCY_OPTIONS } from "@/lib/utils"
 import { SuggestionConfidence } from "@/types/ai.types"
@@ -98,7 +102,8 @@ function DuplicateBadge({
   return null
 }
 
-function countDuplicateReferences(items: ParsedTransaction[]): number {  const seen = new Set<string>()
+function countDuplicateReferences(items: ParsedTransaction[]): number {
+  const seen = new Set<string>()
   let duplicates = 0
 
   for (const item of items) {
@@ -133,7 +138,11 @@ export function UploadBulkTransactionForm({
   const [file, setFile] = useState<File | null>(null)
   const [transactions, setTransactions] = useState<ParsedTransaction[]>([])
   const [errors, setErrors] = useState<string[]>([])
-  const [warnings, setWarnings] = useState<string[]>([])
+  /**
+   * Warnings del parser, fijados al leer el archivo. Los avisos de duplicados
+   * se derivan aparte porque cambian con la cuenta y la moneda.
+   */
+  const [parserWarnings, setParserWarnings] = useState<string[]>([])
   const [detection, setDetection] = useState<DetectionInfo | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [parsedSource, setParsedSource] = useState<
@@ -142,8 +151,15 @@ export function UploadBulkTransactionForm({
   const [duplicateMeta, setDuplicateMeta] = useState<
     Record<string, DuplicatePreviewEntry>
   >({})
+  const [importBatch, setImportBatch] = useState<ImportBatchSummary | null>(null)
+  const [fileFingerprint, setFileFingerprint] = useState<string | null>(null)
   const [omitDuplicates, setOmitDuplicates] = useState(true)
   const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false)
+  /**
+   * Descarta respuestas obsoletas del preview: si se cambia de cuenta dos
+   * veces, la primera respuesta no debe pisar a la segunda.
+   */
+  const previewRequestIdRef = useRef(0)
   const router = useRouter()
   const [isSuggesting, setIsSuggesting] = useState(false)
   const [overwriteCategories, setOverwriteCategories] = useState(false)
@@ -157,23 +173,140 @@ export function UploadBulkTransactionForm({
     transactionCount: number
   } | null>(null) */
 
+  /**
+   * Recalcula badges y avisos contra la base para la cuenta/moneda vigente.
+   * Devuelve los conteos para que quien lo invoque pueda decidir los toasts;
+   * los llamados por cambio de cuenta/moneda ignoran el retorno.
+   */
+  const runDuplicatePreview = useCallback(
+    async ({
+      accountId,
+      rows,
+      currency,
+      fingerprint,
+    }: {
+      accountId: string
+      rows: ParsedTransaction[]
+      currency: string
+      fingerprint: string | null
+    }) => {
+      if (!accountId || accountId === "none" || rows.length === 0) {
+        previewRequestIdRef.current += 1
+        setDuplicateMeta({})
+        setImportBatch(null)
+        setIsCheckingDuplicates(false)
+        return null
+      }
+
+      const requestId = previewRequestIdRef.current + 1
+      previewRequestIdRef.current = requestId
+      setIsCheckingDuplicates(true)
+
+      try {
+        const [preview, batchResult] = await Promise.all([
+          previewTransactionDuplicates({
+            accountId: Number(accountId),
+            currency,
+            rows,
+          }),
+          fingerprint
+            ? Promise.resolve(
+                checkImportBatch({
+                  accountId: Number(accountId),
+                  fileHash: fingerprint,
+                })
+              ).catch(() => null)
+            : Promise.resolve(null),
+        ])
+
+        if (previewRequestIdRef.current !== requestId) return null
+
+        const duplicates = preview?.success ? preview.duplicates : {}
+        const batch = batchResult ?? null
+
+        setDuplicateMeta(duplicates)
+        setImportBatch(batch)
+
+        return {
+          duplicates,
+          exactCount: preview?.success ? preview.exactCount : 0,
+          possibleCount: preview?.success ? preview.possibleCount : 0,
+          batch,
+        }
+      } catch (error) {
+        if (previewRequestIdRef.current === requestId) {
+          console.error("Couldn't check for duplicates:", error)
+          setDuplicateMeta({})
+          setImportBatch(null)
+        }
+
+        return null
+      } finally {
+        if (previewRequestIdRef.current === requestId) {
+          setIsCheckingDuplicates(false)
+        }
+      }
+    },
+    []
+  )
+
   const handleAccountChange = useCallback(
     (accountId: string) => {
       setSelectedAccountId(accountId)
-      // El preview de duplicados depende de la cuenta: queda viejo al cambiarla.
+      // El preview y el aviso de archivo dependen de la cuenta: se recalculan
+      // en lugar de quedar vacíos hasta volver a subir el archivo.
       setDuplicateMeta({})
+      setImportBatch(null)
 
-      if (currencyTouched) return
-      const account = bankAccounts.find((acc) => String(acc.id) === accountId)
-      const accountCurrency = account?.accountCurrency
-      if (
-        accountCurrency &&
-        CURRENCY_OPTIONS.some((option) => option.value === accountCurrency)
-      ) {
-        setTransactionCurrency(accountCurrency)
+      let currency = transactionCurrency
+      if (!currencyTouched) {
+        const account = bankAccounts.find((acc) => String(acc.id) === accountId)
+        const accountCurrency = account?.accountCurrency
+        if (
+          accountCurrency &&
+          CURRENCY_OPTIONS.some((option) => option.value === accountCurrency)
+        ) {
+          currency = accountCurrency
+          setTransactionCurrency(accountCurrency)
+        }
+      }
+
+      if (transactions.length > 0) {
+        void runDuplicatePreview({
+          accountId,
+          rows: transactions,
+          currency,
+          fingerprint: fileFingerprint,
+        })
       }
     },
-    [bankAccounts, currencyTouched]
+    [
+      bankAccounts,
+      currencyTouched,
+      transactionCurrency,
+      transactions,
+      fileFingerprint,
+      runDuplicatePreview,
+    ]
+  )
+
+  const handleCurrencyChange = useCallback(
+    (value: string) => {
+      setCurrencyTouched(true)
+      setTransactionCurrency(value)
+
+      // El chequeo "possible" compara la moneda guardada, así que el cambio
+      // también obliga a refrescar.
+      if (transactions.length > 0) {
+        void runDuplicatePreview({
+          accountId: selectedAccountId,
+          rows: transactions,
+          currency: value,
+          fingerprint: fileFingerprint,
+        })
+      }
+    },
+    [transactions, selectedAccountId, fileFingerprint, runDuplicatePreview]
   )
 
   const formDispatcher = async (
@@ -185,6 +318,11 @@ export function UploadBulkTransactionForm({
     // El servidor es la fuente de verdad: aunque el cliente mande filas ya
     // importadas, solo se guardan si el checkbox está desmarcado.
     formData.append("omitDuplicates", omitDuplicates ? "true" : "false")
+    // Huella del documento: solo para el aviso "este archivo ya se importó".
+    formData.append("fileFingerprint", fileFingerprint ?? "")
+    formData.append("fileName", file?.name ?? "")
+    formData.append("fileSize", file ? String(file.size) : "")
+    formData.append("sourceFormat", parsedSource ?? "")
     formData.delete("file")
 
     return createBulkTransactions(prevState, formData)
@@ -226,22 +364,28 @@ export function UploadBulkTransactionForm({
       setIsLoading(true)
       setSuggestionMeta({})
       setErrors([])
-      setWarnings([])
+      setParserWarnings([])
       setDetection(null)
+      setDuplicateMeta({})
+      setImportBatch(null)
 
       try {
+        // Huella del archivo: se calcula antes de parsear y se reusa en el
+        // preview y en el submit (los bytes no viajan al servidor).
+        const fingerprint = await computeFileFingerprint(selectedFile)
+        setFileFingerprint(fingerprint)
+
         const result = await extractTransactions(selectedFile, {
           currency: transactionCurrency,
         })
 
         if (result.errors.length > 0 && result.transactions.length === 0) {
           setErrors(result.errors)
-          setWarnings(result.warnings ?? [])
+          setParserWarnings(result.warnings ?? [])
           setDetection(result.detection ?? null)
           result.errors.forEach((e) => toast.error(e))
           setTransactions([])
           setParsedSource(null)
-          setDuplicateMeta({})
           return
         }
 
@@ -259,63 +403,35 @@ export function UploadBulkTransactionForm({
             ? info.currency
             : transactionCurrency
 
-        // Chequeo contra la base: exactos (ya importados) y posibles.
-        let previewMeta: Record<string, DuplicatePreviewEntry> = {}
-        let exactCount = 0
-        let possibleCount = 0
+        // Duplicados propios del archivo: no dependen de la cuenta, así que
+        // viven junto a los warnings del parser.
+        const internalDuplicates = countDuplicateReferences(result.transactions)
+        const parserNotices = [...(result.warnings ?? [])]
 
-        if (selectedAccountId && selectedAccountId !== "none") {
-          setIsCheckingDuplicates(true)
-
-          try {
-            const preview = await previewTransactionDuplicates({
-              accountId: Number(selectedAccountId),
-              currency: effectiveCurrency,
-              rows: result.transactions,
-            })
-
-            if (preview?.success) {
-              previewMeta = preview.duplicates
-              exactCount = preview.exactCount
-              possibleCount = preview.possibleCount
-            }
-          } catch (error) {
-            console.error("Couldn't check for duplicates:", error)
-          } finally {
-            setIsCheckingDuplicates(false)
-          }
-        }
-
-        setDuplicateMeta(previewMeta)
-
-        // Avisos: warnings del parser + duplicados del archivo + duplicados en la base.
-        const notices = [...(result.warnings ?? [])]
-
-        if (exactCount > 0) {
-          notices.unshift(
-            `${exactCount} row${exactCount === 1 ? "" : "s"} already imported: ${
-              exactCount === 1 ? "it" : "they"
-            } will be skipped as duplicate${exactCount === 1 ? "" : "s"}`
-          )
-        }
-
-        if (possibleCount > 0) {
-          notices.push(
-            `${possibleCount} row${
-              possibleCount === 1 ? "" : "s"
-            } may duplicate an existing transaction (no reference to confirm it)`
-          )
-        }
-
-        const duplicates = countDuplicateReferences(result.transactions)
-        if (duplicates > 0) {
-          notices.unshift(
-            `${duplicates} possible duplicate${
-              duplicates === 1 ? "" : "s"
+        if (internalDuplicates > 0) {
+          parserNotices.unshift(
+            `${internalDuplicates} possible duplicate${
+              internalDuplicates === 1 ? "" : "s"
             } with the same reference, date and amount`
           )
         }
-        setWarnings(notices)
+
+        setParserWarnings(parserNotices)
+
+        // Chequeo contra la base: exactos, posibles y aviso de archivo repetido.
+        const preview = await runDuplicatePreview({
+          accountId: selectedAccountId,
+          rows: result.transactions,
+          currency: effectiveCurrency,
+          fingerprint,
+        })
+
+        const notices = buildImportNotices({
+          parserWarnings: parserNotices,
+          duplicateMeta: preview?.duplicates ?? {},
+          omitDuplicates,
+          batch: preview?.batch ?? null,
+        })
 
         notices.slice(0, 3).forEach((notice) => toast.warning(notice))
 
@@ -350,7 +466,7 @@ export function UploadBulkTransactionForm({
         setIsLoading(false)
       }
     },
-    [selectedAccountId, currencyTouched, transactionCurrency]
+    [selectedAccountId, currencyTouched, transactionCurrency, omitDuplicates, runDuplicatePreview]
   )
 
   const updateTransaction = useCallback(
@@ -371,13 +487,33 @@ export function UploadBulkTransactionForm({
     setFile(null)
     setParsedSource(null)
     setErrors([])
-    setWarnings([])
+    setParserWarnings([])
     setDetection(null)
     setSuggestionMeta({})
     setDuplicateMeta({})
+    setImportBatch(null)
+    setFileFingerprint(null)
+    // Invalida cualquier preview en vuelo: sus badges ya no corresponden.
+    previewRequestIdRef.current += 1
+    setIsCheckingDuplicates(false)
   }, [])
 
   const hasTransactions = transactions.length > 0
+
+  /**
+   * Los avisos se derivan del estado: al refrescar el preview (cuenta o
+   * moneda) se recalculan solos, sin arrastrar textos viejos.
+   */
+  const notices = useMemo(
+    () =>
+      buildImportNotices({
+        parserWarnings,
+        duplicateMeta,
+        omitDuplicates,
+        batch: importBatch,
+      }),
+    [parserWarnings, duplicateMeta, omitDuplicates, importBatch]
+  )
 
   const failedRows = (() => {
     if (!state?.rows.length) return []
@@ -498,10 +634,7 @@ export function UploadBulkTransactionForm({
             <Select
               name="transactionCurrency"
               value={transactionCurrency}
-              onValueChange={(value) => {
-                setCurrencyTouched(true)
-                setTransactionCurrency(value)
-              }}
+              onValueChange={handleCurrencyChange}
               disabled={isLoading || isPending}
             >
               <SelectTrigger id="transactionCurrency">
@@ -544,13 +677,7 @@ export function UploadBulkTransactionForm({
             isLoading || isPending || !selectedAccountId || isSuggesting
           }
           onChange={handleFileChange}
-          onRemove={() => {
-            setTransactions([])
-            setWarnings([])
-            setDetection(null)
-            setParsedSource(null)
-            setDuplicateMeta({})
-          }}
+          onRemove={clearAll}
           hideOnFile
         />
         <FieldError />
@@ -676,12 +803,12 @@ export function UploadBulkTransactionForm({
             </div>
           )}
 
-          {warnings.length > 0 && (
+          {notices.length > 0 && (
             <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-[12px] text-amber-700 dark:text-amber-400">
               <p className="mb-1 font-medium">Review these notices:</p>
-              {warnings.map((warning, index) => (
-                <div key={`${warning}-${index}`} className="mb-1 last:mb-0">
-                  • {warning}
+              {notices.map((notice, index) => (
+                <div key={`${notice}-${index}`} className="mb-1 last:mb-0">
+                  • {notice}
                 </div>
               ))}
             </div>

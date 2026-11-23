@@ -9,6 +9,7 @@ import {
   date,
   boolean,
   index,
+  int,
   smallint,
   uniqueIndex,
 } from "drizzle-orm/mysql-core"
@@ -46,6 +47,54 @@ export const bankAccounts = mysqlTable("bank_accounts", {
     .references(() => users.id, { onDelete: "cascade" }),
   ...timestamps,
 })
+
+/**
+ * Una fila por **evento** de importación masiva (no por documento).
+ *
+ * La huella (`file_hash` + `account_id`) responde "¿ya cargué este archivo?";
+ * el lote en sí es lo que permite deshacer una carga concreta sin tocar las
+ * anteriores. Las filas creadas manualmente quedan sin lote (`NULL`).
+ */
+export const importBatches = mysqlTable(
+  "import_batches",
+  {
+    id: serial("import_batch_id").primaryKey(),
+    userId: bigint("user_id", { mode: "number", unsigned: true })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: bigint("account_id", { mode: "number", unsigned: true })
+      .notNull()
+      .references(() => bankAccounts.id),
+    /**
+     * SHA-256 (hex) del contenido binario del archivo. `NULL` si el cliente no
+     * pudo calcularlo (contexto no seguro, error de lectura): en ese caso la
+     * carga funciona igual, pero no hay aviso de "archivo ya importado".
+     */
+    fileHash: varchar("file_hash", { length: 64 }),
+    fileName: varchar("file_name", { length: 255 }),
+    fileSize: int("file_size", { unsigned: true }),
+    /** `csv` | `excel` | `pdf` | `unknown` según el parser. */
+    sourceFormat: varchar("source_format", { length: 16 }),
+    /** Filas enviadas por el cliente (incluye duplicadas y fallidas). */
+    rowCount: int("row_count", { unsigned: true }).notNull().default(0),
+    savedCount: int("saved_count", { unsigned: true }).notNull().default(0),
+    skippedCount: int("skipped_count", { unsigned: true }).notNull().default(0),
+    failedCount: int("failed_count", { unsigned: true }).notNull().default(0),
+    /** Se completa al deshacer la importación; el lote no se borra. */
+    undoneAt: timestamp("undone_at"),
+    ...timestamps,
+  },
+  (table) => [
+    // Aviso "este archivo ya se importó" (y aislamiento por cuenta).
+    index("import_batches_lookup_idx").on(
+      table.accountId,
+      table.fileHash,
+      table.createdAt
+    ),
+    // Historial de importaciones del usuario.
+    index("import_batches_user_idx").on(table.userId, table.createdAt),
+  ]
+)
 
 export const transactions = mysqlTable("transactions", {
   id: serial("transaction_id").primaryKey(),
@@ -96,6 +145,12 @@ export const transactions = mysqlTable("transactions", {
   })
     .notNull()
     .default("HNL"),
+  /**
+   * Lote de importación que creó la fila. `NULL` en filas manuales o
+   * históricas; `SET NULL` si el lote desaparece.
+   */
+  importBatchId: bigint("import_batch_id", { mode: "number", unsigned: true })
+    .references(() => importBatches.id, { onDelete: "set null" }),
 }, (table) => [
   // Una fila importada no puede repetirse: mismo movimiento + misma ocurrencia.
   // Las filas con `dedupe_hash NULL` (manuales/históricas) quedan fuera porque
@@ -110,6 +165,8 @@ export const transactions = mysqlTable("transactions", {
     table.accountId,
     table.transactionDate
   ),
+  // Deshacer una importación borra por lote.
+  index("transactions_import_batch_idx").on(table.importBatchId),
 ])
 
 export const currencies = mysqlTable("currencies", {

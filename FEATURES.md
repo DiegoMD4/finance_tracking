@@ -239,6 +239,20 @@ Principios:
 - [x] Badges por fila: "Already imported" / "Will be re-imported" (exacto) y "Possible duplicate" (posible)
 - [x] `updateTransaction` no toca hash ni ocurrencia (editar no borra la identidad)
 
+### Fase 6 · Lotes de importación (dedupe a nivel documento + deshacer)
+- [x] Tabla `import_batches` (una fila por *evento* de importación): `user_id`, `account_id`, `file_hash`, `file_name`, `file_size`, `source_format`, `row_count`, `saved_count`, `skipped_count`, `failed_count`, `undone_at`
+- [x] `transactions.import_batch_id` nullable + FK `ON DELETE SET NULL` + índice; sin backfill
+- [x] Migración `0008_dazzling_sugar_man.sql` aplicada a `finance_db` y `test_finance_db` (baseline de `__drizzle_migrations` en la de test)
+- [x] Huella del documento = SHA-256 hex del contenido binario, calculada en el navegador con `crypto.subtle`; viaja como texto y el servidor solo valida el formato (advisory, nunca bloquea)
+- [x] El lote se crea antes del INSERT y se cierra con los conteos reales; sin `db.transaction` envolvente, así se mantiene la semántica de chunks parciales
+- [x] No se crea lote cuando todas las filas resultaron duplicadas (`rowsToInsert.length === 0`)
+- [x] Avisos derivados en render (`buildImportNotices`), con `parserWarnings` separado de los avisos de duplicados para que el refresco no arrastre textos viejos
+- [x] Aviso "This file was already imported on …" al subir un archivo con la misma `(account_id, file_hash)`; también informa cuando el lote fue deshecho
+- [x] Preview de duplicados refrescado al cambiar de cuenta o de moneda (`runDuplicatePreview` + `requestIdRef` para descartar respuestas obsoletas)
+- [x] `undoImportBatch`: hard delete de las filas del lote + `undone_at`, solo del usuario dueño, falla si ya fue deshecho
+- [x] Página `/transactions/imports` con historial, estado y confirmación de deshacer; enlace desde `/transactions`
+- [x] `Dropzone` ya no re-notifica el archivo cuando cambia la identidad de `onChange` (antes re-parseaba al tocar el checkbox de duplicados o cambiar cuenta/moneda)
+
 ### Tests
 - [x] `tests/unit/parsers/money.spec.ts` (58)
 - [x] `tests/unit/parsers/dates.spec.ts` (57)
@@ -250,10 +264,12 @@ Principios:
 - [x] `tests/unit/transactions/dedupe.spec.ts` (19)
 - [x] `tests/unit/transactions/snapshots.spec.ts`
 - [x] `tests/integration/transactions/dedupe.spec.ts` (15, D-01…D-15)
-- [x] `UploadBulkTransactionForm.test.tsx`: preview, checkbox, badges (15)
+- [x] `UploadBulkTransactionForm.test.tsx`: preview, checkbox, badges, lote y refresco (20)
+- [x] `tests/unit/transactions/import-batches.spec.ts` (6: huella + avisos)
+- [x] `tests/integration/transactions/import-batches.spec.ts` (10: IB-01…IB-10)
 - [ ] `tests/fixtures/parsers/`: preámbulo, `;`+coma decimal, CP1252, `sep=`, BOM, UTF-16
 - [x] L-13…L-31 sin modificar y verdes
-- [x] Suite completa: **537 tests en 40 archivos** verdes; `tsc --noEmit` y `eslint` limpios
+- [x] Suite completa: **558 tests en 42 archivos** verdes; `tsc --noEmit` sin errores y `eslint` sin errores nuevos
 
 ---
 
@@ -293,6 +309,7 @@ npm run dev
 | 2026-11-16 | 3 | `pdf/layout.ts` (filas por Y, celdas por X con estimación de ancho) y `pdf/generic-pdf.ts` (cabecera por scoring, asignación por anclaje, continuación de descripción, cabeceras repetidas, multi-página). Conectados en `file-extractor.ts` antes del fallback regex. `transform` exige números reales (`Number(null) === 0` era un falso positivo). Subagente: 18 tests de PDF con `TextItem` sintéticos. |
 | 2026-11-16 | 4 | UI: chip de detección (formato/banco/moneda/hoja/delimitador/confianza/saldo verificado), panel de warnings, texto de dropzone genérico, prefill de moneda detectada (`currencyTouched`, solo HNL/USD/EUR), `xlsx` en import dinámico y aviso de duplicados por referencia+fecha+monto+tipo. Filas de resumen (`Saldo anterior`, `Total`, `Resumen`) se omiten sin error en `parseTable`. **264 tests verdes**, `tsc` y `eslint` limpios. |
 | 2026-11-18 | 5 | Dedupe persistente: snapshot congelado al parsear (`withDedupeSnapshots`), hash SHA-256 en hex, ocurrencias 1..n asignadas sobre el archivo completo, migración `0007` aplicada, preview (`exact`/`possible`) con badge por fila y checkbox "Omit exact duplicates" (activo), clasificación y salteo en servidor, `onDuplicateKeyUpdate` no-op con `UNIQUE` como respaldo. **537 tests verdes** (40 archivos), `tsc` y `eslint` limpios (solo warnings preexistentes en `TransactionsActions.tsx`). |
+| 2026-11-23 | 6 | Lotes de importación: tabla `import_batches` (migración `0008` aplicada a `finance_db` y `test_finance_db`), `transactions.import_batch_id` nullable con FK `SET NULL`, huella SHA-256 del documento en cliente, aviso de archivo repetido, historial `/transactions/imports` con deshacer por lote y refresco del preview al cambiar cuenta/moneda. Se corrigió el `Dropzone`, que re-parseaba el archivo cuando cambiaba la identidad de `onChange`. **558 tests verdes** (42 archivos), `tsc --noEmit` sin errores. Sin commit, push ni merge. |
 
 ### 10.1 Archivos nuevos creados
 
@@ -318,6 +335,13 @@ npm run dev
 | `tests/unit/transactions/snapshots.spec.ts` | Snapshots/ocurrencias sobre CSV real |
 | `tests/integration/transactions/dedupe.spec.ts` | 15 tests D-01…D-15 contra MySQL |
 | `drizzle/0007_medical_starfox.sql` | Columnas, índice y `UNIQUE` de dedupe |
+| `lib/transactions/file-fingerprint.ts` | `computeFileFingerprint` (SHA-256 hex en el navegador), `isValidFileFingerprint` |
+| `lib/transactions/import-notices.ts` | `buildImportNotices` (avisos de lote repetido y de duplicados por fila) |
+| `app/(app)/transactions/imports/page.tsx` | Historial de importaciones (server component) |
+| `app/(app)/transactions/imports/_components/ImportBatchesList.tsx` | Tabla de lotes con estado y deshacer confirmado |
+| `drizzle/0008_dazzling_sugar_man.sql` | Tabla `import_batches` + `transactions.import_batch_id` + índices |
+| `tests/unit/transactions/import-batches.spec.ts` | 6 tests de huella y avisos |
+| `tests/integration/transactions/import-batches.spec.ts` | 10 tests IB-01…IB-10 contra MySQL |
 
 ### 10.2 Decisiones de implementación tomadas durante Fase 0
 
@@ -354,6 +378,16 @@ npm run dev
 - **`duplicate` no es error.** `success: true`, `status: "duplicate"`, `skipped`, y la fila entra en `savedTempIds` para que la UI la quite de la tabla. El mensaje del servidor resume guardadas/omitidas/fallidas y la UI hace redirect a `/transactions` en éxito.
 - **Sin backfill.** Las filas previas quedan con `dedupe_hash NULL`; el `UNIQUE` las ignora porque MySQL no compara `NULL`. `updateTransaction` no toca hash ni ocurrencia.
 
+### 10.5 Decisiones de la Fase 6 (lotes de importación)
+
+- **Una fila de `import_batches` por evento de importación**, no por documento: reimportar el mismo archivo desmarcando el checkbox genera un lote nuevo. El aviso se busca por `(account_id, file_hash)` y solo considera lotes con `saved_count > 0`.
+- **La identidad del documento es advisory.** `(account_id, SHA-256 del contenido binario)` se calcula en el cliente porque el server action descarta el archivo; el servidor valida el formato del hex y lo guarda, pero nunca bloquea la importación. Sin `crypto.subtle` (contexto no seguro) la huella es `null` y el flujo sigue igual.
+- **El lote se crea antes del INSERT** (las filas necesitan el id) y se cierra con un `UPDATE` de conteos. No se envuelve el bulk en `db.transaction`: un chunk puede fallar y los anteriores se mantienen, igual que antes. Si el proceso muere en el medio queda un lote con `saved_count = 0`, que el aviso ignora.
+- **Deshacer = hard delete por lote** (igual que `deleteTransaction`) + `undone_at`; no se borra la fila del historial. Solo el dueño puede deshacer y una segunda vez falla con "This import was already undone". Las filas manuales y de otros lotes no se tocan porque el delete filtra por `import_batch_id`.
+- **Los avisos se derivan en render** (`buildImportNotices`) en lugar de acumularse en un estado: cambiar cuenta/moneda refresca el preview y los textos se recalculan solos. `parserWarnings` guarda solo lo que produce el parser (incluidos los duplicados internos del archivo).
+- **El refresco usa `requestIdRef`**: si el usuario cambia de cuenta dos veces, la respuesta vieja se descarta en lugar de pisar los badges nuevos.
+- **`Dropzone` notifica solo cambios de archivos**: el efecto de sincronización usa un ref para `onChange`. Antes dependía de su identidad y reenviaba el mismo archivo cuando el padre re-renderizaba con otro callback, lo que re-parseaba el documento al tocar el checkbox "Omit exact duplicates".
+
 ---
 
 ## 11. Pendientes / decisiones abiertas
@@ -362,8 +396,9 @@ npm run dev
 - **Moneda extranjera por columna** (`Monto USD` vs `Monto HNL` en el mismo archivo): hoy se elige una sola columna de monto y las demás se ignoran; `detection.currency` reporta la dominante.
 - **Columnas combinadas `Débito/Crédito`**: soportadas en `buildMapping` (una columna que puntúa para ambos roles se trata como monto firmado); falta un test dedicado.
 - ¿Fixtures reales de estados de cuenta (otro banco) o solo sintéticos? (default: sintéticos)
-- **`import_batches`** (aviso de "este archivo ya se cargó" + deshacer por lote): fuera de esta fase. Hoy se detecta por transacción (hash + ocurrencia), no por archivo.
+- **`import_batches`:** implementado en la Fase 6. Queda abierto que un lote con `saved_count = 0` (el proceso murió entre el `INSERT` del lote y el cierre) quede huérfano en el historial; se puede limpiar a mano o con una tarea futura.
+- **Deshacer y ediciones:** `undoImportBatch` borra las filas del lote, incluidas las que el usuario haya editado después. La UI lo advierte en la confirmación; si hiciera falta conservar ediciones, habría que marcar las filas tocadas.
 - **Sin backfill de `dedupe_hash`:** las transacciones históricas/manuales no participan del dedupe (quedan `NULL`). Si se quisiera, habría que definir una identidad retroactiva desde datos guardados, que es justamente lo que el snapshot evita.
 - **Límite multi-archivo:** si el usuario carga dos archivos con el mismo movimiento y el checkbox está desmarcado en ambos, se guardan dos ocurrencias. Es el comportamiento decidido (el checkbox es una afirmación del usuario), pero conviene revisarlo si aparecen quejas de duplicados "reales".
 - **Carrera entre pestañas:** el `UNIQUE` impide filas repetidas, pero la fila "perdedora" puede reportarse como guardada (ver §10.4). Aceptable por ahora; una transacción explícita por chunk lo cerraría.
-- **Commit / merge:** todo el trabajo está sin commit en `testBranch`. No se hace commit, push ni merge a `dev` sin confirmación explícita.
+- **Commit / merge:** la Fase 5 quedó en el commit `1c02366` de `testBranch` (sin push). La Fase 6 está sin commit. No se hace commit, push ni merge a `dev` sin confirmación explícita.
