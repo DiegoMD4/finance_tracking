@@ -1,0 +1,33 @@
+node_modules
+.next
+.git
+.github
+
+# env
+.env*
+!.env.example
+
+# build/test output
+coverage
+test-results
+playwright-report
+blob-report
+*.tsbuildinfo
+
+# tooling / dev
+.agents
+.impeccable
+.opencode
+tests
+vitest.config.mts
+playwright*.config.ts
+.prettierrc
+.prettierignore
+eslint.config.mjs
+opencode.json
+opencode-notifier.json
+skills-lock.json
+feature-list.json
+features-list.json
+*.md
+LICENSE
