@@ -3,13 +3,13 @@ import { bankAccounts, categories, transactions } from "@/db/schema/schema"
 import { err, ok, type Result } from "@/types/result"
 import type {
   CategoryExpense,
-  DailyAverage,
   FundShare,
   MonthlyFinancial,
+  MonthlyPace,
 } from "@/types/dashboard.types"
-import { and, desc, eq, gte, isNull, lte, or, sql } from "drizzle-orm"
+import { and, desc, eq, gte, isNull, lte, or } from "drizzle-orm"
 import { getExchangeRates } from "@/lib/currency"
-import { getUserDefaultCurrency } from "@/server/users/queries"
+import { getDaysInMonth } from "@/lib/dashboard/metrics"
 
 /**
  * Convierte un monto de una moneda origen a una moneda destino.
@@ -26,7 +26,9 @@ async function convertAmount(
   if (fromCurrency === toCurrency) return num
 
   if (!ratesCache[fromCurrency]) {
-    ratesCache[fromCurrency] = await getExchangeRates(fromCurrency, [toCurrency])
+    ratesCache[fromCurrency] = await getExchangeRates(fromCurrency, [
+      toCurrency,
+    ])
   }
   const rate = ratesCache[fromCurrency][toCurrency]
   return num * rate
@@ -89,7 +91,13 @@ export async function getMonthlyFinancials(
 
     const monthlyMap = new Map<
       string,
-      { monthNumber: number; month: string; income: number; expense: number }
+      {
+        year: number
+        monthNumber: number
+        month: string
+        income: number
+        expense: number
+      }
     >()
 
     for (const row of rows) {
@@ -113,7 +121,7 @@ export async function getMonthlyFinancials(
       )
 
       if (!monthlyMap.has(key)) {
-        monthlyMap.set(key, { monthNumber, month, income: 0, expense: 0 })
+        monthlyMap.set(key, { year, monthNumber, month, income: 0, expense: 0 })
       }
       const entry = monthlyMap.get(key)!
       if (row.transactionType === "income") {
@@ -123,13 +131,16 @@ export async function getMonthlyFinancials(
       }
     }
 
-    const result = Array.from(monthlyMap.values())
-      .map((entry) => ({
+    // Ordenar por la clave `YYYY-MM` y no por `monthNumber`: con una ventana de
+    // 6 meses que cruza el año, ordenar por número de mes dejaría enero y
+    // febrero antes de septiembre-diciembre.
+    const result = Array.from(monthlyMap.entries())
+      .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+      .map(([, entry]) => ({
         ...entry,
         income: Number(entry.income.toFixed(2)),
         expense: Number(entry.expense.toFixed(2)),
       }))
-      .sort((a, b) => a.monthNumber - b.monthNumber)
 
     return ok(result)
   } catch (error) {
@@ -138,55 +149,128 @@ export async function getMonthlyFinancials(
   }
 }
 
-export const getDailyAverage = async (
+/**
+ * Totales del mes en curso (MTD) y del mes anterior.
+ *
+ * Las fechas se calculan en JS para que el rango consultado, el día actual y el
+ * tope del mes anterior salgan de la misma fuente. Antes `getDailyAverage`
+ * filtraba con `NOW()` de MySQL y contaba los días con `new Date()` de Node,
+ * lo que podía desalinearse cerca del cambio de mes.
+ */
+export const getMonthlyPace = async (
   userId: number,
   defaultCurrency: string = "HNL"
-): Promise<Result<DailyAverage>> => {
+): Promise<Result<MonthlyPace>> => {
   try {
-    const monthFirstDay = sql<string>`DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')`
-    const currentDay = new Date().getDate()
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth()
+    const currentDay = now.getDate()
+
+    const daysInMonth = getDaysInMonth(currentYear, currentMonth)
+
+    const previousMonthDate = new Date(currentYear, currentMonth - 1, 1)
+    const previousYear = previousMonthDate.getFullYear()
+    const previousMonth = previousMonthDate.getMonth()
+    const daysInPreviousMonth = getDaysInMonth(previousYear, previousMonth)
+    // Si hoy es 31 y el mes anterior tiene 30 días, se compara contra el mes
+    // anterior completo en lugar de dejar días sin cubrir.
+    const samePeriodDay = Math.min(currentDay, daysInPreviousMonth)
+
+    const previousMonthStart = new Date(previousYear, previousMonth, 1)
+    const currentMonthEnd = new Date(currentYear, currentMonth, daysInMonth)
 
     const rows = await db
       .select({
-        amount: transactions.amount,
-        transactionCurrency: transactions.transactionCurrency,
         amountInDefaultCurrency: transactions.amountInDefaultCurrency,
         defaultCurrencyAtTransaction: transactions.defaultCurrencyAtTransaction,
+        transactionType: transactions.transactionType,
+        transactionDate: transactions.transactionDate,
       })
       .from(transactions)
       .innerJoin(bankAccounts, eq(transactions.accountId, bankAccounts.id))
       .where(
         and(
           eq(transactions.userId, userId),
-          eq(transactions.transactionType, "expense"),
           isNull(bankAccounts.deletedAt),
-          gte(transactions.transactionDate, monthFirstDay)
+          gte(transactions.transactionDate, previousMonthStart),
+          lte(transactions.transactionDate, currentMonthEnd)
         )
       )
 
     const ratesCache: Record<string, Record<string, number>> = {}
 
-    let total = 0
+    let currentIncome = 0
+    let currentExpense = 0
+    let previousSameIncome = 0
+    let previousSameExpense = 0
+    let previousFullIncome = 0
+    let previousFullExpense = 0
+
     for (const row of rows) {
+      // mysql2 devuelve las columnas DATE como objetos Date a medianoche UTC.
+      // Usar los getters UTC evita el corrimiento de día por la zona horaria local.
+      const rawDate: Date | string = row.transactionDate
+      const date = rawDate instanceof Date ? rawDate : new Date(rawDate)
+      const rowYear = date.getUTCFullYear()
+      const rowMonth = date.getUTCMonth()
+      const rowDay = date.getUTCDate()
+
+      const isCurrentMonth =
+        rowYear === currentYear && rowMonth === currentMonth
+      const isPreviousMonth =
+        rowYear === previousYear && rowMonth === previousMonth
+
+      if (!isCurrentMonth && !isPreviousMonth) continue
+
       const converted = await convertAmount(
         row.amountInDefaultCurrency,
         row.defaultCurrencyAtTransaction,
         defaultCurrency,
         ratesCache
       )
-      total += converted
+
+      const isIncome = row.transactionType === "income"
+
+      if (isCurrentMonth) {
+        if (isIncome) currentIncome += converted
+        else currentExpense += converted
+        continue
+      }
+
+      if (isIncome) {
+        previousFullIncome += converted
+        if (rowDay <= samePeriodDay) previousSameIncome += converted
+      } else {
+        previousFullExpense += converted
+        if (rowDay <= samePeriodDay) previousSameExpense += converted
+      }
     }
 
-    const dailyAverage = total / currentDay
+    const round = (value: number) => Number(value.toFixed(2))
 
     return ok({
-      monthTotal: Number(total.toFixed(2)),
-      dailyAverage: Number(dailyAverage.toFixed(2)),
       currentDay,
+      daysInMonth,
+      daysInPreviousMonth,
+      current: {
+        income: round(currentIncome),
+        expense: round(currentExpense),
+      },
+      previousSamePeriod: {
+        income: round(previousSameIncome),
+        expense: round(previousSameExpense),
+      },
+      previousFull: {
+        income: round(previousFullIncome),
+        expense: round(previousFullExpense),
+      },
+      monthTotal: round(currentExpense),
+      dailyAverage: round(currentExpense / currentDay),
     })
   } catch (error) {
     console.error(error)
-    return err("database", "Couldn't get the daily average try it later")
+    return err("database", "Couldn't get the monthly pace try it later")
   }
 }
 
@@ -358,7 +442,12 @@ export const getExpensesByCategories = async (
 
     const categoryMap = new Map<
       string,
-      { categoryName: string; categoryColor: string | null; categoryIcon: string | null; total: number }
+      {
+        categoryName: string
+        categoryColor: string | null
+        categoryIcon: string | null
+        total: number
+      }
     >()
 
     for (const row of rows) {
