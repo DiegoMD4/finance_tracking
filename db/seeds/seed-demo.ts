@@ -494,7 +494,7 @@ async function main() {
 
   const categoryMap = await getCategoryMap()
   if (categoryMap.size === 0) {
-    console.error("❌ No hay categorías en la base de datos. Ejecuta: npm run db:seed")
+    console.error("❌ No hay categorías en la base de datos.")
     process.exit(1)
   }
 
@@ -525,7 +525,7 @@ async function main() {
   await seedDemoImportBatch(userId, categoryMap)
 
   console.log("\n🎉 ¡Seed de prueba completado!")
-  console.log("   Ejecuta 'npm run dev' para ver los gráficos con datos reales.")
+/*   console.log("   Ejecuta 'npm run dev' para ver los gráficos con datos reales.") */
 
   await connection.end()
 }

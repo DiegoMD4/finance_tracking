@@ -10,10 +10,10 @@ import { truncateDatabase } from "@/tests/setup/db"
 import { sql } from "drizzle-orm"
 import { getExchangeRates } from "@/lib/currency"
 import {
-  getDailyAverage,
   getExpensesByCategories,
   getFundsDistribution,
   getMonthlyFinancials,
+  getMonthlyPace,
   getNetBalance,
 } from "@/server/dashboard/queries"
 
@@ -138,25 +138,35 @@ async function insertTestTransaction({
 
 function dateInMonth(offsetMonths: number, day = 10): Date {
   const now = new Date()
-  return new Date(now.getFullYear(), now.getMonth() + offsetMonths, day, 0, 0, 0)
+  return new Date(
+    now.getFullYear(),
+    now.getMonth() + offsetMonths,
+    day,
+    0,
+    0,
+    0
+  )
 }
 
 function monthNumberForOffset(offsetMonths: number): number {
   const now = new Date()
-  return new Date(now.getFullYear(), now.getMonth() + offsetMonths, 1).getMonth() + 1
+  return (
+    new Date(now.getFullYear(), now.getMonth() + offsetMonths, 1).getMonth() + 1
+  )
 }
 
 function monthNameForOffset(offsetMonths: number): string {
   const now = new Date()
-  const date = new Date(Date.UTC(now.getFullYear(), now.getMonth() + offsetMonths, 1))
+  const date = new Date(
+    Date.UTC(now.getFullYear(), now.getMonth() + offsetMonths, 1)
+  )
 
   return date.toLocaleString("en-US", { month: "long", timeZone: "UTC" })
 }
 
 /**
- * Fecha actual según la base de datos. getDailyAverage filtra el mes con
- * NOW() de MySQL, que puede estar en otra zona horaria que Node; usar la
- * fecha de la DB evita fallos cerca del cambio de mes.
+ * Fecha actual según la base de datos. Se usa en los tests que dependen del
+ * "hoy" real para insertar transacciones dentro del mes en curso.
  */
 async function getDbToday(): Promise<Date> {
   const [row] = await db
@@ -295,9 +305,61 @@ describe("getMonthlyFinancials", () => {
     if (!result.ok) throw new Error("Expected ok result")
     expect(result.data).toEqual([])
   })
+
+  it("D-03b:orders months chronologically across a year boundary", async () => {
+    // Dado: febrero de 2026, con transacciones de diciembre, enero y febrero
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date(2026, 1, 15, 12, 0, 0))
+
+    try {
+      const userId = await createTestUser("d03b@test.com")
+      const accountId = await insertTestAccount({ userId })
+      const categoryId = await insertTestCategory({ userId })
+
+      await insertTestTransaction({
+        userId,
+        accountId,
+        categoryId,
+        amount: "100.00",
+        transactionType: "income",
+        transactionDate: new Date(2025, 11, 10),
+      })
+      await insertTestTransaction({
+        userId,
+        accountId,
+        categoryId,
+        amount: "50.00",
+        transactionType: "expense",
+        transactionDate: new Date(2026, 0, 10),
+      })
+      await insertTestTransaction({
+        userId,
+        accountId,
+        categoryId,
+        amount: "200.00",
+        transactionType: "income",
+        transactionDate: new Date(2026, 1, 10),
+      })
+
+      // Cuando: se piden los financieros mensuales
+      const result = await getMonthlyFinancials(userId, "HNL")
+
+      // Entonces: el orden es diciembre 2025 -> enero 2026 -> febrero 2026
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw new Error("Expected ok result")
+
+      expect(
+        result.data.map((entry) => `${entry.year}-${entry.monthNumber}`)
+      ).toEqual(["2025-12", "2026-1", "2026-2"])
+      expect(result.data[0].month).toBe("December")
+      expect(result.data[2].month).toBe("February")
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
-describe("getDailyAverage", () => {
+describe("getMonthlyPace", () => {
   it("D-04:calculates total and daily average of current month", async () => {
     // Dado: dos gastos del mes actual y un ingreso que no debe sumar
     const userId = await createTestUser("d04@test.com")
@@ -330,8 +392,8 @@ describe("getDailyAverage", () => {
       transactionDate: today,
     })
 
-    // Cuando: se pide el promedio diario
-    const result = await getDailyAverage(userId, "HNL")
+    // Cuando: se pide el ritmo mensual
+    const result = await getMonthlyPace(userId, "HNL")
 
     // Entonces: solo se suman los gastos y se divide entre el día actual
     expect(result.ok).toBe(true)
@@ -339,6 +401,7 @@ describe("getDailyAverage", () => {
 
     expect(result.data.monthTotal).toBe(150)
     expect(result.data.currentDay).toBe(new Date().getDate())
+    expect(result.data.current).toEqual({ income: 999, expense: 150 })
     expect(result.data.dailyAverage).toBe(
       Number((150 / result.data.currentDay).toFixed(2))
     )
@@ -359,15 +422,222 @@ describe("getDailyAverage", () => {
       transactionDate: dateInMonth(-1, 15),
     })
 
-    // Cuando: se pide el promedio diario
-    const result = await getDailyAverage(userId, "HNL")
+    // Cuando: se pide el ritmo mensual
+    const result = await getMonthlyPace(userId, "HNL")
 
-    // Entonces: no hay gastos del mes actual
+    // Entonces: no hay gastos del mes actual, pero sí del mes anterior
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error("Expected ok result")
 
     expect(result.data.monthTotal).toBe(0)
     expect(result.data.dailyAverage).toBe(0)
+    expect(result.data.current.expense).toBe(0)
+    expect(result.data.previousFull.expense).toBe(500)
+  })
+
+  it("D-15:limits previous month to the same day of the current month", async () => {
+    // Dado: 15 de junio de 2026, con gastos de mayo antes y después del día 15
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date(2026, 5, 15, 12, 0, 0))
+
+    try {
+      const userId = await createTestUser("d15@test.com")
+      const accountId = await insertTestAccount({ userId })
+      const categoryId = await insertTestCategory({ userId })
+
+      await insertTestTransaction({
+        userId,
+        accountId,
+        categoryId,
+        amount: "1000.00",
+        transactionType: "income",
+        transactionDate: new Date(2026, 5, 10),
+      })
+      await insertTestTransaction({
+        userId,
+        accountId,
+        categoryId,
+        amount: "250.00",
+        transactionType: "expense",
+        transactionDate: new Date(2026, 5, 12),
+      })
+      await insertTestTransaction({
+        userId,
+        accountId,
+        categoryId,
+        amount: "100.00",
+        transactionType: "expense",
+        transactionDate: new Date(2026, 4, 10),
+      })
+      await insertTestTransaction({
+        userId,
+        accountId,
+        categoryId,
+        amount: "200.00",
+        transactionType: "expense",
+        transactionDate: new Date(2026, 4, 20),
+      })
+
+      // Cuando: se pide el ritmo mensual
+      const result = await getMonthlyPace(userId, "HNL")
+
+      // Entonces: el mismo tramo de mayo corta en el día 15
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw new Error("Expected ok result")
+
+      expect(result.data.currentDay).toBe(15)
+      expect(result.data.daysInMonth).toBe(30)
+      expect(result.data.daysInPreviousMonth).toBe(31)
+      expect(result.data.current).toEqual({ income: 1000, expense: 250 })
+      expect(result.data.previousSamePeriod).toEqual({
+        income: 0,
+        expense: 100,
+      })
+      expect(result.data.previousFull).toEqual({ income: 0, expense: 300 })
+      expect(result.data.dailyAverage).toBe(Number((250 / 15).toFixed(2)))
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("D-16:caps the same-period comparison at the previous month's last day", async () => {
+    // Dado: 31 de marzo de 2026, con un gasto el 28 de febrero
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date(2026, 2, 31, 12, 0, 0))
+
+    try {
+      const userId = await createTestUser("d16@test.com")
+      const accountId = await insertTestAccount({ userId })
+      const categoryId = await insertTestCategory({ userId })
+
+      await insertTestTransaction({
+        userId,
+        accountId,
+        categoryId,
+        amount: "70.00",
+        transactionType: "expense",
+        transactionDate: new Date(2026, 1, 28),
+      })
+
+      // Cuando: se pide el ritmo mensual
+      const result = await getMonthlyPace(userId, "HNL")
+
+      // Entonces: el tope es el día 28 y el gasto entra completo en ambos cortes
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw new Error("Expected ok result")
+
+      expect(result.data.currentDay).toBe(31)
+      expect(result.data.daysInPreviousMonth).toBe(28)
+      expect(result.data.previousSamePeriod.expense).toBe(70)
+      expect(result.data.previousFull.expense).toBe(70)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("D-17:converts current and previous month amounts", async () => {
+    // Dado: un ingreso en USD del mes actual y un gasto del mes anterior
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date(2026, 5, 15, 12, 0, 0))
+    mockGetExchangeRates.mockResolvedValue({ HNL: 24.5 })
+
+    try {
+      const userId = await createTestUser("d17@test.com", "HNL")
+      const accountId = await insertTestAccount({ userId })
+      const categoryId = await insertTestCategory({ userId })
+
+      await insertTestTransaction({
+        userId,
+        accountId,
+        categoryId,
+        amount: "100.00",
+        transactionType: "income",
+        transactionDate: new Date(2026, 5, 10),
+        transactionCurrency: "USD",
+        amountInDefaultCurrency: "100.00",
+        defaultCurrencyAtTransaction: "USD",
+      })
+      await insertTestTransaction({
+        userId,
+        accountId,
+        categoryId,
+        amount: "50.00",
+        transactionType: "expense",
+        transactionDate: new Date(2026, 4, 10),
+      })
+
+      // Cuando: se pide el ritmo mensual en HNL
+      const result = await getMonthlyPace(userId, "HNL")
+
+      // Entonces: el ingreso USD se convierte y el gasto anterior se conserva
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw new Error("Expected ok result")
+
+      expect(result.data.current.income).toBe(2450)
+      expect(result.data.previousFull.expense).toBe(50)
+      expect(mockGetExchangeRates).toHaveBeenCalledWith("USD", ["HNL"])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("D-18:ignores soft-deleted accounts and other users", async () => {
+    // Dado: una cuenta activa, una eliminada y transacciones de otro usuario
+    vi.useFakeTimers({ toFake: ["Date"] })
+    vi.setSystemTime(new Date(2026, 5, 15, 12, 0, 0))
+
+    try {
+      const userId = await createTestUser("d18@test.com")
+      const otherUserId = await createTestUser("d18-other@test.com")
+      const activeAccountId = await insertTestAccount({ userId })
+      const deletedAccountId = await insertTestAccount({
+        userId,
+        bankName: "Banco Eliminado",
+      })
+      const otherAccountId = await insertTestAccount({ userId: otherUserId })
+      const categoryId = await insertTestCategory({ userId })
+
+      await insertTestTransaction({
+        userId,
+        accountId: activeAccountId,
+        categoryId,
+        amount: "100.00",
+        transactionType: "expense",
+        transactionDate: new Date(2026, 5, 10),
+      })
+      await insertTestTransaction({
+        userId,
+        accountId: deletedAccountId,
+        categoryId,
+        amount: "999.00",
+        transactionType: "expense",
+        transactionDate: new Date(2026, 5, 10),
+      })
+      await insertTestTransaction({
+        userId: otherUserId,
+        accountId: otherAccountId,
+        categoryId,
+        amount: "888.00",
+        transactionType: "expense",
+        transactionDate: new Date(2026, 5, 10),
+      })
+
+      await db
+        .update(bankAccounts)
+        .set({ deletedAt: new Date() })
+        .where(sql`${bankAccounts.id} = ${deletedAccountId}`)
+
+      // Cuando: se pide el ritmo mensual
+      const result = await getMonthlyPace(userId, "HNL")
+
+      // Entonces: solo cuenta la transacción de la cuenta activa del usuario
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw new Error("Expected ok result")
+
+      expect(result.data.current.expense).toBe(100)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 

@@ -36,6 +36,7 @@ const chartConfig = {
 
 interface IncomesExpensesChartProps {
   data: {
+    year: number
     monthNumber: number
     month: string
     income: number
@@ -45,7 +46,10 @@ interface IncomesExpensesChartProps {
   currency: "HNL" | "USD" | "EUR"
 }
 
-export function IncomesExpensesChart({ data, currency }: IncomesExpensesChartProps) {
+export function IncomesExpensesChart({
+  data,
+  currency,
+}: IncomesExpensesChartProps) {
   const formatAmount = (value: number | string) =>
     formatCurrency(value, currency)
   const formatAxisAmount = (value: number | string) =>
@@ -53,6 +57,14 @@ export function IncomesExpensesChart({ data, currency }: IncomesExpensesChartPro
   const totalIncome = data.reduce((sum, item) => sum + item.income, 0)
   const totalExpense = data.reduce((sum, item) => sum + item.expense, 0)
   const isPositive = totalIncome >= totalExpense
+  const firstMonth = data[0]
+  const lastMonth = data[data.length - 1]
+  const rangeLabel =
+    firstMonth && lastMonth
+      ? firstMonth.year === lastMonth.year
+        ? `${firstMonth.month} - ${lastMonth.month} ${lastMonth.year}`
+        : `${firstMonth.month} ${firstMonth.year} - ${lastMonth.month} ${lastMonth.year}`
+      : ""
   const [hiddenSeries, setHiddenSeries] = useState<{ [key: string]: boolean }>({
     income: false,
     expense: false,
@@ -149,7 +161,7 @@ export function IncomesExpensesChart({ data, currency }: IncomesExpensesChartPro
               )}
             </div>
             <div className="flex items-center gap-2 leading-none text-muted-foreground">
-              {`${data[0]?.month ?? ""} - ${data[data.length - 1]?.month ?? ""} ${new Date().getFullYear()}`}
+              {rangeLabel}
             </div>
           </div>
         </div>

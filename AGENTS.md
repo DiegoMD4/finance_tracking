@@ -42,7 +42,7 @@ Pages that need to branch behavior on mobile vs desktop (e.g. `transactions/page
 - There is no auth yet: `userId` is hardcoded to `1` rather than derived from a session, in:
   - `server/bank-accounts/actions.ts` (`createBankAccount`, `updateBankAccount`)
   - `app/transactions/_components/FormTransaction.tsx` (hidden `userId` input defaulting to `"1"`)
-  - `app/page.tsx` (dashboard calls to `getMonthlyFinancials`, `getNetBalance`, `getDailyAverage`, `getFundsDistribution`)
+  - `app/page.tsx` (dashboard calls to `getMonthlyFinancials`, `getNetBalance`, `getMonthlyPace`, `getFundsDistribution`)
   - When real auth is added, all of these need to switch to a real session-derived `userId`, and `transactions` queries/actions (which currently take `userId` as a form field, not a hardcoded constant — see `transactionSchema`) should also be revisited to make sure the value can't be spoofed from the client.
 
 ## Rules

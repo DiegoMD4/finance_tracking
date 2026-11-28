@@ -30,7 +30,7 @@ pnpm-debug.log*
 
 # env files
 .env*.local
-.env*docker
+.env.docker
 .env
 
 # typescript
